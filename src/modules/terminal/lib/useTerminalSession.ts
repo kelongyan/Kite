@@ -1,5 +1,6 @@
 import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,8 +16,9 @@ import {
   registerCwdHandler,
   registerOsc52ClipboardHandler,
   registerPromptTracker,
+  registerThemeQueryHandler,
 } from "./osc-handlers";
-import { openPty, type PtySession } from "./pty-bridge";
+import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
 import "../block/block.css";
 import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
 import {
@@ -72,6 +74,7 @@ type Session = {
   pendingInput: string;
   hasSlot: boolean;
   blocks: boolean;
+  themeMode: TerminalThemeMode;
   blockMode: BlockMode;
   blockListeners: Set<() => void>;
   blockDecorations: BlockDecorations | null;
@@ -427,6 +430,7 @@ function ensureSession(
   leafId: number,
   initialCwd?: string,
   blocks = false,
+  themeMode: TerminalThemeMode = "dark",
 ): Session {
   const existing = sessions.get(leafId);
   if (existing) return existing;
@@ -452,6 +456,7 @@ function ensureSession(
     pendingInput: "",
     hasSlot: false,
     blocks,
+    themeMode,
     blockMode: "prompt",
     blockListeners: new Set(),
     blockDecorations: null,
@@ -546,6 +551,7 @@ async function openPtyForSession(
     cwd,
     s.blocks,
     usePreferencesStore.getState().terminalShell || undefined,
+    s.themeMode,
   );
   // Only resize if the bound dims changed during the spawn: a same-size
   // ResizePseudoConsole during conhost warmup is a known ConPTY trigger for
@@ -598,6 +604,19 @@ function bindLeafToSlot(leafId: number, s: Session): void {
     cols: s.cols,
     rows: s.rows,
     registerOsc: (term) => {
+      const theme = registerThemeQueryHandler(
+        term,
+        (data) => {
+          writeToSession(leafId, data);
+        },
+        () => {
+          const theme = buildTerminalTheme();
+          return {
+            foreground: theme.foreground ?? "rgb(0, 0, 0)",
+            background: theme.background ?? "rgb(0, 0, 0)",
+          };
+        },
+      );
       if (s.blocks) {
         const osc52 = registerOsc52ClipboardHandler(term);
         const deco = new BlockDecorations(term, {
@@ -622,6 +641,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
           () => {
             s.blockDecorations = null;
             osc52();
+            theme();
             deco.dispose();
             term.textarea?.removeEventListener("focus", onGridFocus);
           },
@@ -646,7 +666,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         shellState,
       );
       const osc52 = registerOsc52ClipboardHandler(term);
-      return [prompt.dispose, cwd, osc52];
+      return [prompt.dispose, cwd, osc52, theme];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });
@@ -814,6 +834,7 @@ type Options = {
   focused?: boolean;
   initialCwd?: string;
   blocks?: boolean;
+  themeMode: TerminalThemeMode;
   onSearchReady?: (addon: SearchAddon) => void;
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
@@ -826,6 +847,7 @@ export function useTerminalSession({
   focused = true,
   initialCwd,
   blocks = false,
+  themeMode,
   onSearchReady,
   onExit,
   onCwd,
@@ -838,10 +860,17 @@ export function useTerminalSession({
   // would detach/rebind the renderer slot (disposing block markers) on each cd.
   const initialCwdRef = useRef(initialCwd);
   initialCwdRef.current = initialCwd;
+  const themeModeRef = useRef(themeMode);
+  themeModeRef.current = themeMode;
 
   useEffect(() => {
     let cancelled = false;
-    const s = ensureSession(leafId, initialCwdRef.current, blocks);
+    const s = ensureSession(
+      leafId,
+      initialCwdRef.current,
+      blocks,
+      themeModeRef.current,
+    );
     s.ready.then(() => {
       if (cancelled || s.disposed) return;
       const node = container.current;
@@ -858,6 +887,11 @@ export function useTerminalSession({
       detachSession(leafId);
     };
   }, [leafId, container, blocks]);
+
+  useEffect(() => {
+    const s = ensureSession(leafId, initialCwdRef.current, blocks, themeMode);
+    s.themeMode = themeMode;
+  }, [leafId, blocks, themeMode]);
 
   const [blockMode, setBlockMode] = useState<BlockMode>("prompt");
   useEffect(() => {

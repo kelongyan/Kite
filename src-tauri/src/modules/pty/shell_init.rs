@@ -54,16 +54,40 @@ pub fn build_command(
     workspace: WorkspaceEnv,
     blocks: bool,
     shell: Option<String>,
+    theme_mode: Option<String>,
 ) -> Result<CommandBuilder, String> {
     let shell = sanitize_shell_override(shell);
+    let theme_mode = TerminalThemeMode::from_option(theme_mode);
     #[cfg(unix)]
     {
         let _ = workspace;
-        unix::build(cwd, blocks, shell)
+        unix::build(cwd, blocks, shell, theme_mode)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd, workspace, blocks, shell)
+        windows::build(cwd, workspace, blocks, shell, theme_mode)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TerminalThemeMode {
+    Light,
+    Dark,
+}
+
+impl TerminalThemeMode {
+    fn from_option(value: Option<String>) -> Self {
+        match value.as_deref().map(str::trim) {
+            Some(mode) if mode.eq_ignore_ascii_case("light") => Self::Light,
+            _ => Self::Dark,
+        }
+    }
+
+    fn colorfgbg(self) -> &'static str {
+        match self {
+            Self::Light => "0;15",
+            Self::Dark => "15;0",
+        }
     }
 }
 
@@ -141,9 +165,17 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
     cmd.env("LANG", fallback);
 }
 
-fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, blocks: bool) {
+fn apply_common(
+    cmd: &mut CommandBuilder,
+    cwd: Option<String>,
+    blocks: bool,
+    theme_mode: TerminalThemeMode,
+) {
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    cmd.env("COLORFGBG", theme_mode.colorfgbg());
+    cmd.env("TERM_PROGRAM", "Kite");
+    cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     cmd.env("TERAX_TERMINAL", "1");
     if blocks {
         cmd.env("TERAX_BLOCKS", "1");
@@ -281,10 +313,11 @@ mod unix {
         cwd: Option<String>,
         blocks: bool,
         shell_override: Option<String>,
+        theme_mode: super::TerminalThemeMode,
     ) -> Result<CommandBuilder, String> {
         let (shell, shell_path) = Shell::resolve(shell_override);
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks);
+        super::apply_common(&mut cmd, cwd, blocks, theme_mode);
         apply_shell_init(&mut cmd, &shell, &shell_path);
         Ok(cmd)
     }
@@ -509,10 +542,11 @@ mod windows {
         workspace: WorkspaceEnv,
         blocks: bool,
         shell: Option<String>,
+        theme_mode: super::TerminalThemeMode,
     ) -> Result<CommandBuilder, String> {
         if let WorkspaceEnv::Wsl { distro } = workspace {
             let _ = (blocks, shell);
-            return build_wsl(cwd, distro);
+            return build_wsl(cwd, distro, theme_mode);
         }
         let shell_path = shell
             .map(|s| s.trim().to_string())
@@ -529,7 +563,7 @@ mod windows {
         let is_bash = shell_name == "bash.exe";
 
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks);
+        super::apply_common(&mut cmd, cwd, blocks, theme_mode);
 
         if is_powershell {
             match prepare_ps_profile() {
@@ -569,7 +603,11 @@ mod windows {
         Ok(cmd)
     }
 
-    fn build_wsl(cwd: Option<String>, distro: String) -> Result<CommandBuilder, String> {
+    fn build_wsl(
+        cwd: Option<String>,
+        distro: String,
+        theme_mode: super::TerminalThemeMode,
+    ) -> Result<CommandBuilder, String> {
         crate::modules::workspace::validate_wsl_distro_name(&distro)?;
         let shell_path = crate::modules::workspace::wsl_login_shell(distro.clone())?;
         let shell_kind = ShellKind::from_path(&shell_path);
@@ -629,6 +667,9 @@ mod windows {
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
+        cmd.env("COLORFGBG", theme_mode.colorfgbg());
+        cmd.env("TERM_PROGRAM", "Kite");
+        cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
         cmd.env("TERAX_TERMINAL", "1");
         super::ensure_utf8_locale(&mut cmd);
         log::info!("spawning WSL shell: {distro} ({shell_path})");
@@ -1066,7 +1107,8 @@ fn which_in_path(name: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_shell_override;
+    use super::{apply_common, sanitize_shell_override, TerminalThemeMode};
+    use portable_pty::CommandBuilder;
 
     #[test]
     fn rejects_non_enumerated_override() {
@@ -1081,5 +1123,35 @@ mod tests {
     fn empty_or_missing_override_is_none() {
         assert_eq!(sanitize_shell_override(Some("   ".into())), None);
         assert_eq!(sanitize_shell_override(None), None);
+    }
+
+    #[test]
+    fn common_env_marks_light_terminal_background() {
+        let mut cmd = CommandBuilder::new("test-shell");
+        apply_common(&mut cmd, None, false, TerminalThemeMode::Light);
+
+        assert_eq!(
+            cmd.get_env("COLORFGBG").and_then(|v| v.to_str()),
+            Some("0;15")
+        );
+        assert_eq!(
+            cmd.get_env("TERM_PROGRAM").and_then(|v| v.to_str()),
+            Some("Kite")
+        );
+        assert_eq!(
+            cmd.get_env("TERM_PROGRAM_VERSION").and_then(|v| v.to_str()),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
+    }
+
+    #[test]
+    fn common_env_marks_dark_terminal_background() {
+        let mut cmd = CommandBuilder::new("test-shell");
+        apply_common(&mut cmd, None, false, TerminalThemeMode::Dark);
+
+        assert_eq!(
+            cmd.get_env("COLORFGBG").and_then(|v| v.to_str()),
+            Some("15;0")
+        );
     }
 }

@@ -62,11 +62,13 @@ export const TerminalPane = memo(
       focused,
       initialCwd,
       blocks,
+      themeMode: resolvedMode,
       onSearchReady: (a) => onSearchReady?.(leafId, a),
       onExit: (c) => onExit?.(leafId, c),
       onCwd: (c) => onCwd?.(leafId, c),
     });
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: theme values invalidate CSS tokens read inside applyTheme.
     useEffect(() => {
       // Defer one frame so CSS-variable token resolution sees the new class.
       const id = requestAnimationFrame(() => session.applyTheme());

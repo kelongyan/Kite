@@ -83,6 +83,35 @@ export function registerPromptTracker(
 }
 
 export type ClipboardWriter = (text: string) => void | Promise<void>;
+export type ThemeColorReader = () => {
+  foreground: string;
+  background: string;
+};
+
+export function registerThemeQueryHandler(
+  term: Terminal,
+  writeToPty: (data: string) => void,
+  readColors: ThemeColorReader,
+): () => void {
+  const foreground = term.parser.registerOscHandler(10, (data) => {
+    if (data.trim() === "?") {
+      writeToPty(formatOscColorReply(10, readColors().foreground));
+      return true;
+    }
+    return false;
+  });
+  const background = term.parser.registerOscHandler(11, (data) => {
+    if (data.trim() === "?") {
+      writeToPty(formatOscColorReply(11, readColors().background));
+      return true;
+    }
+    return false;
+  });
+  return () => {
+    foreground.dispose();
+    background.dispose();
+  };
+}
 
 export function registerOsc52ClipboardHandler(
   term: Terminal,
@@ -139,6 +168,97 @@ function parseOsc52Clipboard(data: string): string | null {
   } catch {
     return null;
   }
+}
+
+function formatOscColorReply(code: 10 | 11, color: string): string {
+  const rgb = parseCssRgb(color);
+  return `\x1b]${code};rgb:${toHex16(rgb.r)}/${toHex16(rgb.g)}/${toHex16(rgb.b)}\x1b\\`;
+}
+
+function parseCssRgb(color: string): { r: number; g: number; b: number } {
+  const hex = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) return parseHexColor(hex[1]);
+
+  if (color.trim().startsWith("oklch(")) {
+    return parseOklchColor(color);
+  }
+
+  const nums = color.match(/[\d.]+%?/g)?.map(parseCssNumber) ?? [];
+  return {
+    r: clampByte(nums[0] ?? 0),
+    g: clampByte(nums[1] ?? 0),
+    b: clampByte(nums[2] ?? 0),
+  };
+}
+
+function parseHexColor(hex: string): { r: number; g: number; b: number } {
+  if (hex.length === 3) {
+    return {
+      r: Number.parseInt(`${hex[0]}${hex[0]}`, 16),
+      g: Number.parseInt(`${hex[1]}${hex[1]}`, 16),
+      b: Number.parseInt(`${hex[2]}${hex[2]}`, 16),
+    };
+  }
+  return {
+    r: Number.parseInt(hex.slice(0, 2), 16),
+    g: Number.parseInt(hex.slice(2, 4), 16),
+    b: Number.parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+function parseOklchColor(color: string): { r: number; g: number; b: number } {
+  const body = color.trim().match(/^oklch\((.*)\)$/i)?.[1] ?? "";
+  const [lRaw = "0", cRaw = "0", hRaw = "0"] = body
+    .replace(/\s*\/.*$/, "")
+    .split(/\s+/);
+  const l = lRaw.endsWith("%")
+    ? Number.parseFloat(lRaw) / 100
+    : Number.parseFloat(lRaw);
+  const c = Number.parseFloat(cRaw);
+  const h = (Number.parseFloat(hRaw) * Math.PI) / 180;
+  const a = c * Math.cos(h);
+  const b = c * Math.sin(h);
+
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.291485548 * b;
+  const l3 = l_ ** 3;
+  const m3 = m_ ** 3;
+  const s3 = s_ ** 3;
+
+  return {
+    r: clampByte(
+      toSrgb(4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3),
+    ),
+    g: clampByte(
+      toSrgb(-1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3),
+    ),
+    b: clampByte(
+      toSrgb(-0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3),
+    ),
+  };
+}
+
+function parseCssNumber(value: string): number {
+  return value.endsWith("%")
+    ? (Number.parseFloat(value) / 100) * 255
+    : Number.parseFloat(value);
+}
+
+function toSrgb(linear: number): number {
+  const value =
+    linear <= 0.0031308 ? 12.92 * linear : 1.055 * linear ** (1 / 2.4) - 0.055;
+  return value * 255;
+}
+
+function clampByte(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function toHex16(value: number): string {
+  const hex = value.toString(16).padStart(2, "0");
+  return `${hex}${hex}`;
 }
 
 async function writeSystemClipboard(text: string): Promise<void> {

@@ -4,6 +4,7 @@ import {
   createShellIntegrationState,
   registerCwdHandler,
   registerOsc52ClipboardHandler,
+  registerThemeQueryHandler,
   registerPromptTracker,
 } from "./osc-handlers";
 
@@ -26,7 +27,9 @@ function makeFakeTerm() {
         return { dispose: () => handlers.delete(code) };
       },
     },
-    registerMarker: vi.fn().mockReturnValue({ isDisposed: false, dispose: vi.fn() }),
+    registerMarker: vi
+      .fn()
+      .mockReturnValue({ isDisposed: false, dispose: vi.fn() }),
   } as unknown as Terminal;
   return { term, handlers };
 }
@@ -216,5 +219,62 @@ describe("OSC 52 clipboard handler", () => {
     await flushClipboardQueue();
 
     expect(writeClipboard).not.toHaveBeenCalled();
+  });
+});
+
+describe("OSC 10/11 theme query handler", () => {
+  it("answers foreground and background color queries", () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeToPty = vi.fn();
+    registerThemeQueryHandler(term, writeToPty, () => ({
+      foreground: "rgb(35, 37, 41)",
+      background: "rgb(255, 255, 255)",
+    }));
+
+    expect(handlers.get(10)?.("?")).toBe(true);
+    expect(handlers.get(11)?.("?")).toBe(true);
+
+    expect(writeToPty).toHaveBeenNthCalledWith(
+      1,
+      "\x1b]10;rgb:2323/2525/2929\x1b\\",
+    );
+    expect(writeToPty).toHaveBeenNthCalledWith(
+      2,
+      "\x1b]11;rgb:ffff/ffff/ffff\x1b\\",
+    );
+  });
+
+  it("answers hex and oklch color queries", () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeToPty = vi.fn();
+    registerThemeQueryHandler(term, writeToPty, () => ({
+      foreground: "#232529",
+      background: "oklch(1 0 0)",
+    }));
+
+    handlers.get(10)?.("?");
+    handlers.get(11)?.("?");
+
+    expect(writeToPty).toHaveBeenNthCalledWith(
+      1,
+      "\x1b]10;rgb:2323/2525/2929\x1b\\",
+    );
+    expect(writeToPty).toHaveBeenNthCalledWith(
+      2,
+      "\x1b]11;rgb:ffff/ffff/ffff\x1b\\",
+    );
+  });
+
+  it("ignores non-query OSC 10/11 payloads", () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeToPty = vi.fn();
+    registerThemeQueryHandler(term, writeToPty, () => ({
+      foreground: "rgb(35, 37, 41)",
+      background: "rgb(255, 255, 255)",
+    }));
+
+    expect(handlers.get(11)?.("#000000")).toBe(false);
+
+    expect(writeToPty).not.toHaveBeenCalled();
   });
 });

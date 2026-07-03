@@ -15,6 +15,8 @@ export type PtySession = {
   close: () => Promise<void>;
 };
 
+export type TerminalThemeMode = "light" | "dark";
+
 export async function openPty(
   cols: number,
   rows: number,
@@ -22,6 +24,7 @@ export async function openPty(
   cwd?: string,
   blocks?: boolean,
   shell?: string,
+  themeMode?: TerminalThemeMode,
 ): Promise<PtySession> {
   // Raw bytes — no base64/JSON round-trip; messages arrive as ArrayBuffer.
   const onData = new Channel<ArrayBuffer>();
@@ -49,6 +52,7 @@ export async function openPty(
     workspace: currentWorkspaceEnv(),
     blocks: blocks ?? false,
     shell: shell ?? null,
+    themeMode: themeMode ?? null,
     onData,
     onExit,
   });
