@@ -5,6 +5,13 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.8.2)"
+        required: true
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   publish-tauri:
@@ -62,6 +69,19 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve release draft state
+        id: release-state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' > draft-state.txt 2>/dev/null; then
+            RELEASE_DRAFT="$(cat draft-state.txt)"
+          else
+            RELEASE_DRAFT="true"
+          fi
+          echo "draft=$RELEASE_DRAFT" >> "$GITHUB_OUTPUT"
+
       - name: Write Apple API key to disk
         if: startsWith(matrix.platform, 'macos')
         shell: bash
@@ -73,7 +93,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$HOME/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
 
       - id: tauri
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -87,10 +107,10 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Terax ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install. Auto-update is built in."
-          releaseDraft: true
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: "Kite ${{ env.RELEASE_TAG }}"
+          releaseBody: "See the assets to download and install."
+          releaseDraft: ${{ steps.release-state.outputs.draft }}
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -106,7 +126,7 @@ jobs:
       # patch-appimage-updater job after all matrix legs finish, so a parallel
       # macOS/Windows upload cannot clobber the combined latest.json.
       - name: Fix AppImage wayland libs and re-sign
-        if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -149,8 +169,8 @@ jobs:
             test ! -e "squashfs-root/usr/lib/$lib" \
               || { echo "lib still present after repack: $lib"; exit 1; }
           done
-          test -x squashfs-root/usr/bin/terax \
-            || { echo "terax binary missing from repacked AppImage"; exit 1; }
+          test -x squashfs-root/usr/bin/kite \
+            || { echo "kite binary missing from repacked AppImage"; exit 1; }
           popd >/dev/null
 
           cp "$WORK/$BASENAME" "$APPIMAGE"
@@ -158,8 +178,7 @@ jobs:
           rm -f "$APPIMAGE.sig"
           pnpm tauri signer sign "$APPIMAGE"
 
-          TAG="${GITHUB_REF_NAME}"
-          gh release upload "$TAG" "$APPIMAGE" "$APPIMAGE.sig" \
+          gh release upload "$RELEASE_TAG" "$APPIMAGE" "$APPIMAGE.sig" \
             --clobber --repo "$GITHUB_REPOSITORY"
 
   # Patch the AppImage signature into the combined updater manifest. Runs once,
@@ -169,7 +188,6 @@ jobs:
   # a signature, so both are patched.
   patch-appimage-updater:
     needs: publish-tauri
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -179,10 +197,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
 
+          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "latest.json" --clobber; then
+            echo "latest.json was not generated; skipping updater manifest patch."
+            exit 0
+          fi
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "latest.json" --pattern "*_amd64.AppImage.sig" --clobber
+            --pattern "*_amd64.AppImage.sig" --clobber
 
           SIG_FILE=$(ls ./*_amd64.AppImage.sig | head -n1)
           NEW_SIG=$(cat "$SIG_FILE")

@@ -13,11 +13,11 @@ let
       hash = sources.hashes.x86_64-linux;
     };
     x86_64-darwin = fetchurl {
-      url = "https://github.com/kelongyan/Kite/releases/download/v${version}/Kite_x64.app.tar.gz";
+      url = "https://github.com/kelongyan/Kite/releases/download/v${version}/Kite_${version}_x64.app.tar.gz";
       hash = sources.hashes.x86_64-darwin;
     };
     aarch64-darwin = fetchurl {
-      url = "https://github.com/kelongyan/Kite/releases/download/v${version}/Kite_aarch64.app.tar.gz";
+      url = "https://github.com/kelongyan/Kite/releases/download/v${version}/Kite_${version}_aarch64.app.tar.gz";
       hash = sources.hashes.aarch64-darwin;
     };
   };
