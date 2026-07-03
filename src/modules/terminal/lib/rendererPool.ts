@@ -67,6 +67,7 @@ export type Slot = {
   slotReapTimer: ReturnType<typeof setTimeout> | null;
   unhideRaf: number | null;
   imeRaf: number | null;
+  imeTimer: ReturnType<typeof setTimeout> | null;
   imeDisposers: (() => void)[];
   lastCols: number;
   lastRows: number;
@@ -236,6 +237,7 @@ function createSlot(): Slot {
     slotReapTimer: null,
     unhideRaf: null,
     imeRaf: null,
+    imeTimer: null,
     imeDisposers: [],
     lastCols: term.cols,
     lastRows: term.rows,
@@ -571,12 +573,19 @@ function bindSlotImeAnchorSync(slot: Slot): void {
   if (!textarea) return;
 
   const syncNow = () => syncSlotImeAnchor(slot);
+  const syncAfterXterm = () => {
+    syncSlotImeAnchor(slot);
+    scheduleSlotImeAnchorPostTick(slot);
+    scheduleSlotImeAnchorSync(slot);
+  };
   const syncOnImeKey = (event: KeyboardEvent) => {
-    if (event.isComposing || event.keyCode === 229) syncSlotImeAnchor(slot);
+    if (event.isComposing || event.keyCode === 229) syncAfterXterm();
   };
   const syncSoon = () => scheduleSlotImeAnchorSync(slot);
   textarea.addEventListener("compositionstart", syncNow, true);
+  textarea.addEventListener("compositionstart", syncAfterXterm);
   textarea.addEventListener("compositionupdate", syncNow, true);
+  textarea.addEventListener("compositionupdate", syncAfterXterm);
   textarea.addEventListener("focus", syncNow);
   textarea.addEventListener("keydown", syncOnImeKey, true);
   const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
@@ -584,7 +593,9 @@ function bindSlotImeAnchorSync(slot: Slot): void {
 
   slot.imeDisposers.push(
     () => textarea.removeEventListener("compositionstart", syncNow, true),
+    () => textarea.removeEventListener("compositionstart", syncAfterXterm),
     () => textarea.removeEventListener("compositionupdate", syncNow, true),
+    () => textarea.removeEventListener("compositionupdate", syncAfterXterm),
     () => textarea.removeEventListener("focus", syncNow),
     () => textarea.removeEventListener("keydown", syncOnImeKey, true),
     () => cursorMoveDisposable.dispose(),
@@ -610,10 +621,25 @@ function scheduleSlotImeAnchorSync(slot: Slot): void {
   });
 }
 
+function scheduleSlotImeAnchorPostTick(slot: Slot): void {
+  if (slot.currentLeafId === null || slot.parked) return;
+  if (slot.imeTimer !== null) clearTimeout(slot.imeTimer);
+  slot.imeTimer = setTimeout(() => {
+    slot.imeTimer = null;
+    syncSlotImeAnchor(slot);
+    scheduleSlotImeAnchorSync(slot);
+  }, 0);
+}
+
 function cancelSlotImeAnchorSync(slot: Slot): void {
-  if (slot.imeRaf === null) return;
-  cancelAnimationFrame(slot.imeRaf);
-  slot.imeRaf = null;
+  if (slot.imeRaf !== null) {
+    cancelAnimationFrame(slot.imeRaf);
+    slot.imeRaf = null;
+  }
+  if (slot.imeTimer !== null) {
+    clearTimeout(slot.imeTimer);
+    slot.imeTimer = null;
+  }
 }
 
 function rewireSlot(slot: Slot, p: AcquireParams): void {

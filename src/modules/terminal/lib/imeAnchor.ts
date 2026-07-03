@@ -17,6 +17,45 @@ export type ImeAnchor = {
   lineHeight: number;
 };
 
+type ImeCursor = {
+  cursorX: number;
+  cursorY: number;
+};
+
+type ImeBufferCell = {
+  getChars(): string;
+  getWidth(): number;
+  isInverse(): number;
+  isBgDefault(): boolean;
+  getBgColorMode(): number;
+};
+
+type ImeBufferLine = {
+  length: number;
+  getCell(index: number): ImeBufferCell | undefined;
+};
+
+type ImeBuffer = {
+  cursorX: number;
+  cursorY: number;
+  viewportY?: number;
+  length: number;
+  getLine(index: number): ImeBufferLine | undefined;
+};
+
+export type ImeCursorInput = {
+  buffer: ImeBuffer;
+  cols: number;
+  rows: number;
+  preferVisibleCursor?: boolean;
+};
+
+export type ImeSyncOptions = {
+  compositionView?: HTMLElement | null;
+  fontFamily?: string;
+  fontSize?: number;
+};
+
 export function computeImeAnchor(input: ImeAnchorInput): ImeAnchor | null {
   if (
     input.cols <= 0 ||
@@ -43,9 +82,22 @@ export function computeImeAnchor(input: ImeAnchorInput): ImeAnchor | null {
   };
 }
 
+export function resolveImeAnchorCursor(input: ImeCursorInput): ImeCursor {
+  const fallback = {
+    cursorX: clamp(Math.trunc(input.buffer.cursorX), 0, input.cols - 1),
+    cursorY: clamp(Math.trunc(input.buffer.cursorY), 0, input.rows - 1),
+  };
+
+  if (!input.preferVisibleCursor) return fallback;
+
+  const visibleCursor = findVisibleCursorCell(input);
+  return visibleCursor ?? fallback;
+}
+
 export function syncImeTextarea(
   textarea: HTMLTextAreaElement,
   input: ImeAnchorInput,
+  options: ImeSyncOptions = {},
 ): boolean {
   const anchor = computeImeAnchor(input);
   if (!anchor) return false;
@@ -56,6 +108,19 @@ export function syncImeTextarea(
   textarea.style.height = `${anchor.height}px`;
   textarea.style.lineHeight = `${anchor.lineHeight}px`;
   textarea.style.zIndex = "-5";
+
+  const compositionView = options.compositionView;
+  if (compositionView) {
+    compositionView.style.left = `${anchor.left}px`;
+    compositionView.style.top = `${anchor.top}px`;
+    compositionView.style.height = `${anchor.height}px`;
+    compositionView.style.lineHeight = `${anchor.lineHeight}px`;
+    if (options.fontFamily)
+      compositionView.style.fontFamily = options.fontFamily;
+    if (options.fontSize)
+      compositionView.style.fontSize = `${options.fontSize}px`;
+  }
+
   return true;
 }
 
@@ -67,15 +132,81 @@ export function syncTerminalImeAnchor(term: Terminal): boolean {
   const width = dimensionFromStyleOrRect(screen, "width");
   const height = dimensionFromStyleOrRect(screen, "height");
   const buffer = term.buffer.active;
-
-  return syncImeTextarea(textarea, {
+  const cursor = resolveImeAnchorCursor({
+    buffer,
     cols: term.cols,
     rows: term.rows,
-    cursorX: buffer.cursorX,
-    cursorY: buffer.cursorY,
-    screenWidth: width,
-    screenHeight: height,
+    preferVisibleCursor: isTerminalCursorHidden(term),
   });
+
+  return syncImeTextarea(
+    textarea,
+    {
+      cols: term.cols,
+      rows: term.rows,
+      cursorX: cursor.cursorX,
+      cursorY: cursor.cursorY,
+      screenWidth: width,
+      screenHeight: height,
+    },
+    {
+      compositionView:
+        term.element?.querySelector<HTMLElement>(".composition-view") ?? null,
+      fontFamily: term.options.fontFamily,
+      fontSize: term.options.fontSize,
+    },
+  );
+}
+
+function findVisibleCursorCell(input: ImeCursorInput): ImeCursor | null {
+  const viewportY = Math.max(0, Math.trunc(input.buffer.viewportY ?? 0));
+  const rows = Math.max(0, input.rows);
+  const cols = Math.max(0, input.cols);
+
+  for (let y = rows - 1; y >= 0; y--) {
+    const line = input.buffer.getLine(viewportY + y);
+    if (!line) continue;
+    const maxX = Math.min(cols, line.length);
+    for (let x = 0; x < maxX; x++) {
+      const cell = line.getCell(x);
+      if (!cell || !isCursorLikeBlankCell(cell)) continue;
+      if (
+        isCursorLikeNeighbor(line, x - 1) ||
+        isCursorLikeNeighbor(line, x + 1)
+      ) {
+        continue;
+      }
+      return { cursorX: x, cursorY: y };
+    }
+  }
+
+  return null;
+}
+
+function isCursorLikeBlankCell(cell: ImeBufferCell): boolean {
+  if (cell.getWidth() <= 0) return false;
+  const chars = cell.getChars();
+  if (chars !== "" && chars !== " " && chars !== "\u00a0") return false;
+  return isHighlightedCell(cell);
+}
+
+function isCursorLikeNeighbor(line: ImeBufferLine, index: number): boolean {
+  if (index < 0 || index >= line.length) return false;
+  const cell = line.getCell(index);
+  return !!cell && isCursorLikeBlankCell(cell);
+}
+
+function isHighlightedCell(cell: ImeBufferCell): boolean {
+  if (cell.isInverse()) return true;
+  if (!cell.isBgDefault()) return true;
+  return cell.getBgColorMode() !== 0;
+}
+
+function isTerminalCursorHidden(term: Terminal): boolean {
+  const internal = term as unknown as {
+    _core?: { coreService?: { isCursorHidden?: boolean } };
+  };
+  return internal._core?.coreService?.isCursorHidden === true;
 }
 
 function dimensionFromStyleOrRect(
