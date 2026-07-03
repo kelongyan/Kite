@@ -238,10 +238,15 @@ jobs:
           cp "$WORK/$BASENAME" "$APPIMAGE"
 
           rm -f "$APPIMAGE.sig"
-          pnpm tauri signer sign "$APPIMAGE"
-
-          gh release upload "$RELEASE_TAG" "$APPIMAGE" "$APPIMAGE.sig" \
-            --clobber --repo "$GITHUB_REPOSITORY"
+          if pnpm tauri signer sign "$APPIMAGE"; then
+            gh release upload "$RELEASE_TAG" "$APPIMAGE" "$APPIMAGE.sig" \
+              --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            echo "::warning::Could not re-sign patched AppImage; uploading the patched AppImage without updater signature."
+            gh release delete-asset "$RELEASE_TAG" "$BASENAME.sig" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+            gh release upload "$RELEASE_TAG" "$APPIMAGE" \
+              --clobber --repo "$GITHUB_REPOSITORY"
+          fi
 
   # Patch the AppImage signature into the combined updater manifest. Runs once,
   # after every matrix leg has finished merging its platform into latest.json,
@@ -266,8 +271,11 @@ jobs:
             echo "latest.json was not generated; skipping updater manifest patch."
             exit 0
           fi
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "*_amd64.AppImage.sig" --clobber
+          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "*_amd64.AppImage.sig" --clobber; then
+            echo "AppImage signature was not generated; skipping updater manifest patch."
+            exit 0
+          fi
 
           SIG_FILE=$(ls ./*_amd64.AppImage.sig | head -n1)
           NEW_SIG=$(cat "$SIG_FILE")
