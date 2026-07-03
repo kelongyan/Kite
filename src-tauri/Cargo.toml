@@ -1,6 +1,6 @@
 [package]
 name = "kite"
-version = "0.8.2"
+version = "1.0.0"
 description = "Kite — an open-source AI-native terminal emulator"
 authors = ["kelongyan"]
 license = "Apache-2.0"

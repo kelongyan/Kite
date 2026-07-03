@@ -17,6 +17,11 @@
   WriteRegStr HKCU "Software\Classes\Drive\shell\OpenInKite" "Icon" '"$INSTDIR\kite.exe",0'
   WriteRegStr HKCU "Software\Classes\Drive\shell\OpenInKite" "NoWorkingDirectory" ""
   WriteRegStr HKCU "Software\Classes\Drive\shell\OpenInKite\command" "" '"$INSTDIR\kite.exe" "%V"'
+
+  Delete "$DESKTOP\Kite.lnk"
+  CreateShortCut "$DESKTOP\Kite.lnk" "$INSTDIR\kite.exe" "" "$INSTDIR\kite.exe" 0
+  Delete "$SMPROGRAMS\Kite.lnk"
+  CreateShortCut "$SMPROGRAMS\Kite.lnk" "$INSTDIR\kite.exe" "" "$INSTDIR\kite.exe" 0
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
