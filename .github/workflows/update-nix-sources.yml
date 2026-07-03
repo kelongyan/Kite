@@ -1,8 +1,9 @@
 name: Update Nix sources
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -11,6 +12,7 @@ on:
 
 jobs:
   update:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,8 +28,12 @@ jobs:
       - name: Normalize tag
         id: tag
         env:
-          RAW_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          RAW_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.event.workflow_run.head_branch }}
         run: |
+          if [ -z "$RAW_TAG" ]; then
+            echo "::error::Could not determine release tag."
+            exit 1
+          fi
           case "$RAW_TAG" in
             v*) TAG="$RAW_TAG" ;;
             *) TAG="v$RAW_TAG" ;;
@@ -41,11 +47,40 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          gh release download "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "Kite_${VERSION}_amd64.deb" \
-            --pattern "Kite_${VERSION}_x64.app.tar.gz" \
-            --pattern "Kite_${VERSION}_aarch64.app.tar.gz"
+          required=(
+            "Kite_${VERSION}_amd64.deb"
+            "Kite_${VERSION}_x64.app.tar.gz"
+            "Kite_${VERSION}_aarch64.app.tar.gz"
+          )
+
+          for attempt in {1..30}; do
+            assets="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+            missing=()
+            for asset in "${required[@]}"; do
+              if ! grep -Fxq "$asset" <<< "$assets"; then
+                missing+=("$asset")
+              fi
+            done
+
+            if [ "${#missing[@]}" -eq 0 ]; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              printf '::error::Release %s is missing required assets: %s\n' "$TAG" "${missing[*]}"
+              exit 1
+            fi
+
+            printf 'Waiting for release assets (%s missing): %s\n' "${#missing[@]}" "${missing[*]}"
+            sleep 20
+          done
+
+          for asset in "${required[@]}"; do
+            gh release download "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$asset" \
+              --clobber
+          done
 
       - name: Compute SRI hashes
         id: hashes

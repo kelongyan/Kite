@@ -82,8 +82,34 @@ jobs:
           fi
           echo "draft=$RELEASE_DRAFT" >> "$GITHUB_OUTPUT"
 
-      - name: Write Apple API key to disk
+      - name: Check Apple signing certificate
         if: startsWith(matrix.platform, 'macos')
+        id: apple_signing
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${APPLE_CERTIFICATE:-}" || -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple signing certificate secrets are missing; building unsigned macOS assets."
+            exit 0
+          fi
+
+          cert_file="$(mktemp)"
+          if printf '%s' "$APPLE_CERTIFICATE" \
+            | openssl base64 -d -A -out "$cert_file" 2>/dev/null \
+            && openssl pkcs12 -in "$cert_file" -nokeys -passin "pass:$APPLE_CERTIFICATE_PASSWORD" -noout >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple signing certificate could not be decoded as a base64 .p12; building unsigned macOS assets."
+          fi
+
+      - name: Write Apple API key to disk
+        if: startsWith(matrix.platform, 'macos') && steps.apple_signing.outputs.enabled == 'true'
         shell: bash
         env:
           KEY_CONTENT: ${{ secrets.APPLE_API_KEY_PATH }}
@@ -92,7 +118,26 @@ jobs:
           printf '%s' "$KEY_CONTENT" > "$HOME/private_keys/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$HOME/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
 
-      - id: tauri
+      - id: tauri-non-macos
+        name: Build non-macOS bundles
+        if: ${{ !startsWith(matrix.platform, 'macos') }}
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: "Kite ${{ env.RELEASE_TAG }}"
+          releaseBody: "See the assets to download and install."
+          releaseDraft: ${{ steps.release-state.outputs.draft }}
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - id: tauri-macos-signed
+        name: Build signed macOS bundles
+        if: startsWith(matrix.platform, 'macos') && steps.apple_signing.outputs.enabled == 'true'
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,6 +151,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        with:
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: "Kite ${{ env.RELEASE_TAG }}"
+          releaseBody: "See the assets to download and install."
+          releaseDraft: ${{ steps.release-state.outputs.draft }}
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - id: tauri-macos-unsigned
+        name: Build unsigned macOS bundles
+        if: startsWith(matrix.platform, 'macos') && steps.apple_signing.outputs.enabled != 'true'
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: "Kite ${{ env.RELEASE_TAG }}"
