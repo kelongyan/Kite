@@ -13,6 +13,7 @@ import {
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
+import { syncTerminalImeAnchor } from "./imeAnchor";
 import {
   terminalDeleteSequence,
   terminalLineNavigationSequence,
@@ -65,6 +66,8 @@ export type Slot = {
   webglReapTimer: ReturnType<typeof setTimeout> | null;
   slotReapTimer: ReturnType<typeof setTimeout> | null;
   unhideRaf: number | null;
+  imeRaf: number | null;
+  imeDisposers: (() => void)[];
   lastCols: number;
   lastRows: number;
   lastW: number;
@@ -232,6 +235,8 @@ function createSlot(): Slot {
     webglReapTimer: null,
     slotReapTimer: null,
     unhideRaf: null,
+    imeRaf: null,
+    imeDisposers: [],
     lastCols: term.cols,
     lastRows: term.rows,
     lastW: 0,
@@ -305,6 +310,7 @@ function createSlot(): Slot {
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
   });
 
+  bindSlotImeAnchorSync(slot);
   slots.push(slot);
   return slot;
 }
@@ -366,7 +372,8 @@ function pickSlotFor(leafId: number): PickResult {
       best = s;
     }
   }
-  const chosen = best!;
+  if (!best) throw new Error("No renderer slot available");
+  const chosen = best;
   return { slot: chosen, previousLeafId: chosen.currentLeafId };
 }
 
@@ -494,6 +501,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
 
   setupResizeObserver(slot, p);
   slot.fitAddon.fit();
+  syncSlotImeAnchor(slot);
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
   slot.lastW = p.container.clientWidth;
@@ -521,6 +529,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
       try {
         slot.term.refresh(0, slot.term.rows - 1);
       } catch {}
+      scheduleSlotImeAnchorSync(slot);
     }
     if (adapter?.isLeafFocused(p.leafId)) slot.term.focus();
   } else {
@@ -541,6 +550,7 @@ function scheduleUnhide(slot: Slot, stale: boolean): void {
           slot.term.refresh(0, slot.term.rows - 1);
         } catch {}
       }
+      scheduleSlotImeAnchorSync(slot);
       const leafId = slot.currentLeafId;
       if (leafId !== null && adapter?.isLeafFocused(leafId)) {
         slot.term.focus();
@@ -556,6 +566,56 @@ function cancelPendingUnhide(slot: Slot): void {
   }
 }
 
+function bindSlotImeAnchorSync(slot: Slot): void {
+  const textarea = slot.term.textarea;
+  if (!textarea) return;
+
+  const syncNow = () => syncSlotImeAnchor(slot);
+  const syncOnImeKey = (event: KeyboardEvent) => {
+    if (event.isComposing || event.keyCode === 229) syncSlotImeAnchor(slot);
+  };
+  const syncSoon = () => scheduleSlotImeAnchorSync(slot);
+  textarea.addEventListener("compositionstart", syncNow, true);
+  textarea.addEventListener("compositionupdate", syncNow, true);
+  textarea.addEventListener("focus", syncNow);
+  textarea.addEventListener("keydown", syncOnImeKey, true);
+  const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
+  const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
+
+  slot.imeDisposers.push(
+    () => textarea.removeEventListener("compositionstart", syncNow, true),
+    () => textarea.removeEventListener("compositionupdate", syncNow, true),
+    () => textarea.removeEventListener("focus", syncNow),
+    () => textarea.removeEventListener("keydown", syncOnImeKey, true),
+    () => cursorMoveDisposable.dispose(),
+    () => writeParsedDisposable.dispose(),
+  );
+}
+
+function syncSlotImeAnchor(slot: Slot): void {
+  if (slot.currentLeafId === null || slot.parked) return;
+  syncTerminalImeAnchor(slot.term);
+}
+
+function scheduleSlotImeAnchorSync(slot: Slot): void {
+  if (slot.imeRaf !== null || slot.currentLeafId === null || slot.parked)
+    return;
+  if (typeof requestAnimationFrame !== "function") {
+    syncSlotImeAnchor(slot);
+    return;
+  }
+  slot.imeRaf = requestAnimationFrame(() => {
+    slot.imeRaf = null;
+    syncSlotImeAnchor(slot);
+  });
+}
+
+function cancelSlotImeAnchorSync(slot: Slot): void {
+  if (slot.imeRaf === null) return;
+  cancelAnimationFrame(slot.imeRaf);
+  slot.imeRaf = null;
+}
+
 function rewireSlot(slot: Slot, p: AcquireParams): void {
   slot.lastUsedAt = performance.now();
   unparkSlotHost(slot);
@@ -564,6 +624,7 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   }
   setupResizeObserver(slot, p);
   slot.fitAddon.fit();
+  syncSlotImeAnchor(slot);
   slot.lastW = p.container.clientWidth;
   slot.lastH = p.container.clientHeight;
   if (slot.term.cols !== p.cols || slot.term.rows !== p.rows) {
@@ -604,6 +665,7 @@ function setupResizeObserver(slot: Slot, p: AcquireParams): void {
       slot.lastW = w;
       slot.lastH = h;
       slot.fitAddon.fit();
+      syncSlotImeAnchor(slot);
       if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
       slot.ptyTimer = setTimeout(flushPty, PTY_RESIZE_DEBOUNCE_MS);
     }, FIT_DEBOUNCE_MS);
@@ -666,6 +728,7 @@ function detachSlotFromLeaf(slot: Slot, retain: boolean): void {
   slot.ptyTimer = null;
 
   cancelPendingUnhide(slot);
+  cancelSlotImeAnchorSync(slot);
   slot.host.style.visibility = "";
 
   slot.currentLeafId = null;
@@ -736,6 +799,7 @@ function disposeSlot(slot: Slot): void {
   cancelSlotReap(slot);
   cancelWebglReap(slot);
   cancelPendingUnhide(slot);
+  cancelSlotImeAnchorSync(slot);
   if (slot.fitTimer) clearTimeout(slot.fitTimer);
   if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
   slot.fitTimer = null;
@@ -748,6 +812,12 @@ function disposeSlot(slot: Slot): void {
     } catch {}
   }
   slot.oscDisposers = [];
+  for (const d of slot.imeDisposers) {
+    try {
+      d();
+    } catch {}
+  }
+  slot.imeDisposers = [];
   disposeSlotWebgl(slot);
   try {
     slot.term.dispose();
@@ -889,6 +959,7 @@ function refitSlot(slot: Slot): void {
     return;
   }
   slot.fitAddon.fit();
+  syncSlotImeAnchor(slot);
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
   adapter
@@ -925,6 +996,7 @@ export function applyFontWeight(weight: string): void {
   for (const slot of slots) {
     if (slot.term.options.fontWeight === weight) continue;
     slot.term.options.fontWeight = weight as FontWeight;
+    scheduleSlotImeAnchorSync(slot);
   }
 }
 
@@ -939,12 +1011,15 @@ export function applyTheme(): void {
   const theme = buildTerminalTheme();
   for (const slot of slots) {
     slot.term.options.theme = theme;
+    scheduleSlotImeAnchorSync(slot);
   }
 }
 
 export function focusSlot(leafId: number): void {
   const slot = slots.find((s) => s.currentLeafId === leafId);
-  slot?.term.focus();
+  if (!slot) return;
+  syncSlotImeAnchor(slot);
+  slot.term.focus();
 }
 
 export function setSlotFocused(leafId: number, focused: boolean): void {
@@ -1013,6 +1088,7 @@ export function refreshLeafSlot(leafId: number): void {
   try {
     slot.term.refresh(0, slot.term.rows - 1);
   } catch {}
+  scheduleSlotImeAnchorSync(slot);
 }
 
 export function disposeLeafSlot(leafId: number): void {
