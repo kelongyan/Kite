@@ -14,6 +14,7 @@ import {
   type ModelId,
   type SttProvider,
 } from "@/modules/ai/config";
+import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
 import { coerceAppLanguage, type AppLanguage } from "@/modules/i18n/locale";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -269,7 +270,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   explorerGitDecorations: true,
   terminalWebglEnabled: true,
   terminalCursorBlink: false,
-  terminalFontFamily: "",
+  terminalFontFamily: DEFAULT_MONO_FONT_FAMILY,
   terminalFontWeight: "normal",
   terminalShell: "",
   terminalLetterSpacing: 0,
@@ -283,6 +284,14 @@ export const DEFAULT_PREFERENCES: Preferences = {
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
 };
+
+export function normalizeTerminalFontFamily(value: string | undefined): string {
+  const fontFamily = value?.trim() ?? "";
+  if (!fontFamily || fontFamily.toLowerCase() === "monaco") {
+    return DEFAULT_MONO_FONT_FAMILY;
+  }
+  return fontFamily;
+}
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
 
@@ -411,9 +420,9 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalCursorBlink:
       get<boolean>(KEY_TERMINAL_CURSOR_BLINK) ??
       DEFAULT_PREFERENCES.terminalCursorBlink,
-    terminalFontFamily:
-      get<string>(KEY_TERMINAL_FONT_FAMILY) ??
-      DEFAULT_PREFERENCES.terminalFontFamily,
+    terminalFontFamily: normalizeTerminalFontFamily(
+      get<string>(KEY_TERMINAL_FONT_FAMILY),
+    ),
     terminalFontWeight: coerceFontWeight(
       get<string>(KEY_TERMINAL_FONT_WEIGHT) ??
         DEFAULT_PREFERENCES.terminalFontWeight,
@@ -626,7 +635,7 @@ export async function setTerminalCursorBlink(value: boolean): Promise<void> {
 }
 
 export async function setTerminalFontFamily(value: string): Promise<void> {
-  await writePref(KEY_TERMINAL_FONT_FAMILY, value.trim());
+  await writePref(KEY_TERMINAL_FONT_FAMILY, normalizeTerminalFontFamily(value));
 }
 
 const TERMINAL_FONT_WEIGHT_VALUES = new Set(["normal", "500", "600", "bold"]);

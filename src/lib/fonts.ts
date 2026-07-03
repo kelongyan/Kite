@@ -1,20 +1,4 @@
-const NERD_FONT_CANDIDATES = [
-  "JetBrainsMono Nerd Font",
-  "JetBrainsMono Nerd Font Mono",
-  "JetBrainsMonoNL Nerd Font",
-  "FiraCode Nerd Font",
-  "FiraCode Nerd Font Mono",
-  "MesloLGS NF",
-  "MesloLGM Nerd Font",
-  "Hack Nerd Font",
-  "Hack Nerd Font Mono",
-  "CaskaydiaCove Nerd Font",
-  "CaskaydiaMono Nerd Font",
-  "Iosevka Nerd Font",
-  "Iosevka Term Nerd Font",
-  "SauceCodePro Nerd Font",
-  "Hasklug Nerd Font",
-];
+export const DEFAULT_MONO_FONT_FAMILY = "JetBrains Mono";
 
 const CJK_FONT_CANDIDATES = [
   "Sarasa Mono SC",
@@ -38,8 +22,8 @@ const CJK_FONT_CANDIDATES = [
 const quote = (family: string) => `"${family}"`;
 
 const CJK_FALLBACK_CHAIN = CJK_FONT_CANDIDATES.map(quote).join(", ");
-const FALLBACK_CHAIN = `"JetBrains Mono", ${CJK_FALLBACK_CHAIN}, SFMono-Regular, Menlo, monospace`;
-const DEFAULT_FONT_STACK = `${NERD_FONT_CANDIDATES.map(quote).join(", ")}, ${FALLBACK_CHAIN}`;
+const FALLBACK_CHAIN = `${CJK_FALLBACK_CHAIN}, SFMono-Regular, Menlo, monospace`;
+const DEFAULT_FONT_STACK = `${quote(DEFAULT_MONO_FONT_FAMILY)}, ${FALLBACK_CHAIN}`;
 
 let monoReady: Promise<void> | null = null;
 
