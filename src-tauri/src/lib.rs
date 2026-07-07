@@ -83,6 +83,9 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
     let window = builder.build().map_err(|e| e.to_string())?;
 
+    #[cfg(target_os = "windows")]
+    let _ = &window;
+
     // Some Linux compositors (GNOME/Mutter with CSD-by-default) ignore the
     // builder-time decorations flag — re-assert it after realize.
     #[cfg(target_os = "linux")]
