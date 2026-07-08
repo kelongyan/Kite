@@ -5,8 +5,8 @@ import type {
   TerminalCursorShape,
   TerminalCursorWidth,
 } from "@/modules/terminal/lib/cursorStyle";
+import { TerminalCursorPreview } from "@/settings/components/TerminalCursorPreview";
 import { type ReactNode, useId } from "react";
-import { TerminalCursorPreview } from "./TerminalCursorPreview";
 
 type ShapeOption = {
   value: TerminalCursorShape;
@@ -24,7 +24,6 @@ type Labels = {
   animation: string;
   preview: string;
   shape: string;
-  width: string;
 };
 
 type Props = {
@@ -33,11 +32,9 @@ type Props = {
   labels: Labels;
   onAnimationChange: (value: TerminalCursorAnimation) => void;
   onShapeChange: (value: TerminalCursorShape) => void;
-  onWidthChange: (value: TerminalCursorWidth) => void;
   shape: TerminalCursorShape;
   shapeOptions: readonly ShapeOption[];
   width: TerminalCursorWidth;
-  widthOptions: readonly TerminalCursorWidth[];
 };
 
 export function TerminalCursorPanel({
@@ -46,15 +43,12 @@ export function TerminalCursorPanel({
   labels,
   onAnimationChange,
   onShapeChange,
-  onWidthChange,
   shape,
   shapeOptions,
   width,
-  widthOptions,
 }: Props) {
   const shapeLabelId = useId();
   const animationLabelId = useId();
-  const widthLabelId = useId();
   const selectedShapeLabel =
     shapeOptions.find((option) => option.value === shape)?.label ?? shape;
   const selectedAnimationLabel =
@@ -62,7 +56,7 @@ export function TerminalCursorPanel({
     animation;
 
   return (
-    <div className="w-full max-w-[460px] rounded-lg border border-border/50 bg-background/35 p-2.5 shadow-inner">
+    <div className="w-full max-w-[520px]">
       <TerminalCursorPreview
         shape={shape}
         shapeLabel={selectedShapeLabel}
@@ -72,8 +66,8 @@ export function TerminalCursorPanel({
         previewLabel={labels.preview}
         className="mb-2.5"
       />
-      <div className="grid gap-2">
-        <CursorControlRow id={shapeLabelId} label={labels.shape}>
+      <div className="grid grid-cols-[minmax(128px,auto)_minmax(0,1fr)] gap-3 rounded-md bg-muted/20 p-2">
+        <CursorControlBlock id={shapeLabelId} label={labels.shape}>
           <CursorToggleGroup
             value={shape}
             ariaLabelledBy={shapeLabelId}
@@ -92,8 +86,8 @@ export function TerminalCursorPanel({
               </ToggleGroupItem>
             ))}
           </CursorToggleGroup>
-        </CursorControlRow>
-        <CursorControlRow id={animationLabelId} label={labels.animation}>
+        </CursorControlBlock>
+        <CursorControlBlock id={animationLabelId} label={labels.animation}>
           <CursorToggleGroup
             value={animation}
             ariaLabelledBy={animationLabelId}
@@ -113,36 +107,13 @@ export function TerminalCursorPanel({
               </ToggleGroupItem>
             ))}
           </CursorToggleGroup>
-        </CursorControlRow>
-        {shape === "bar" ? (
-          <CursorControlRow id={widthLabelId} label={labels.width}>
-            <CursorToggleGroup
-              value={String(width)}
-              ariaLabelledBy={widthLabelId}
-              onChange={(value) =>
-                onWidthChange(Number(value) as TerminalCursorWidth)
-              }
-            >
-              {widthOptions.map((option) => (
-                <ToggleGroupItem
-                  key={option}
-                  value={String(option)}
-                  size="sm"
-                  className="h-7 w-9 px-0 text-[11px] tabular-nums"
-                  aria-label={`${labels.width}: ${option} px`}
-                >
-                  {option}
-                </ToggleGroupItem>
-              ))}
-            </CursorToggleGroup>
-          </CursorControlRow>
-        ) : null}
+        </CursorControlBlock>
       </div>
     </div>
   );
 }
 
-function CursorControlRow({
+function CursorControlBlock({
   children,
   id,
   label,
@@ -152,11 +123,11 @@ function CursorControlRow({
   label: string;
 }) {
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-3">
+    <div className="min-w-0">
       <span id={id} className="text-[11px] text-muted-foreground">
         {label}
       </span>
-      <div className="min-w-0">{children}</div>
+      <div className="mt-1.5 min-w-0">{children}</div>
     </div>
   );
 }

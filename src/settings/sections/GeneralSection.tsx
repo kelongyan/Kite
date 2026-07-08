@@ -36,7 +36,6 @@ import {
   setShowHidden,
   setTerminalCursorAnimation,
   setTerminalCursorShape,
-  setTerminalCursorWidth,
   setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalFontWeight,
@@ -52,7 +51,6 @@ import {
 import {
   TERMINAL_CURSOR_ANIMATIONS,
   TERMINAL_CURSOR_SHAPES,
-  TERMINAL_CURSOR_WIDTHS,
   type TerminalCursorAnimation,
   type TerminalCursorShape,
 } from "@/modules/terminal/lib/cursorStyle";
@@ -382,7 +380,6 @@ export function GeneralSection() {
               animation: g.terminal.cursor.animation,
               preview: g.terminal.cursor.preview,
               shape: g.terminal.cursor.shape,
-              width: g.terminal.cursor.width,
             }}
             shapeOptions={TERMINAL_CURSOR_SHAPES.map((shape) => ({
               value: shape,
@@ -400,12 +397,10 @@ export function GeneralSection() {
                 ]
               }`,
             }))}
-            widthOptions={TERMINAL_CURSOR_WIDTHS}
             onShapeChange={(value) => void setTerminalCursorShape(value)}
             onAnimationChange={(value) =>
               void setTerminalCursorAnimation(value)
             }
-            onWidthChange={(value) => void setTerminalCursorWidth(value)}
           />
         </SettingRow>
         <FontFamilyInput

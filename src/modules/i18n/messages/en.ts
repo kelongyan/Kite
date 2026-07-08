@@ -1803,9 +1803,9 @@ export const en: Messages = {
         cursor: {
           title: "Cursor",
           description:
-            "Choose the terminal cursor shape and animation. Motion follows the system reduced-motion setting.",
+            "Choose the terminal cursor shape and style. Motion follows the system reduced-motion setting.",
           shape: "Shape",
-          animation: "Animation",
+          animation: "Style",
           width: "Width",
           preview: "Cursor preview",
           shapes: {

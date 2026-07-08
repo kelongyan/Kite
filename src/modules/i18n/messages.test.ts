@@ -61,6 +61,8 @@ describe("message dictionaries", () => {
     expect(zhCN.settings.about.actions.viewOnGitHub).toBe("在 GitHub 查看");
     expect(en.settings.general.terminal.cursor.shapes.bar).toBe("Bar");
     expect(zhCN.settings.general.terminal.cursor.shapes.bar).toBe("竖线");
+    expect(en.settings.general.terminal.cursor.animation).toBe("Style");
+    expect(zhCN.settings.general.terminal.cursor.animation).toBe("样式");
     expect(en.settings.general.terminal.cursor.animations.expand).toBe(
       "Expand",
     );

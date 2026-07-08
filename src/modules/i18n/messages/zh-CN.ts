@@ -823,9 +823,9 @@ export const zhCN: Messages = {
         cursor: {
           title: "光标",
           description:
-            "选择终端光标的形状和动画。动画会跟随系统的减少动态效果设置。",
+            "选择终端光标的形状和样式。动画会跟随系统的减少动态效果设置。",
           shape: "形状",
-          animation: "动画",
+          animation: "样式",
           width: "宽度",
           preview: "光标预览",
           shapes: {

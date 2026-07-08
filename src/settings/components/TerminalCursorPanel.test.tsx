@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { TerminalCursorPanel } from "./TerminalCursorPanel";
+import { TerminalCursorPanel } from "@/settings/components/TerminalCursorPanel";
 
 describe("TerminalCursorPanel", () => {
-  it("renders the preview before controls and exposes width as segmented choices", () => {
+  it("renders only shape and animation controls in a side-by-side layout", () => {
     const html = renderToStaticMarkup(
       <TerminalCursorPanel
         shape="bar"
@@ -13,7 +13,6 @@ describe("TerminalCursorPanel", () => {
           animation: "Animation",
           preview: "Cursor preview",
           shape: "Shape",
-          width: "Width",
         }}
         shapeOptions={[
           { value: "bar", label: "Bar", ariaLabel: "Shape: Bar" },
@@ -46,10 +45,8 @@ describe("TerminalCursorPanel", () => {
             ariaLabel: "Expand. Expands vertically from the center.",
           },
         ]}
-        widthOptions={[1, 2, 3, 4]}
         onShapeChange={() => {}}
         onAnimationChange={() => {}}
-        onWidthChange={() => {}}
       />,
     );
 
@@ -57,7 +54,9 @@ describe("TerminalCursorPanel", () => {
       html.indexOf("Shape"),
     );
     expect(html).toContain("aria-label=\"Shape: Bar\"");
-    expect(html).toContain("aria-label=\"Width: 2 px\"");
+    expect(html).toContain("grid-cols-[minmax(128px,auto)_minmax(0,1fr)]");
+    expect(html).not.toContain("Width");
+    expect(html).not.toContain("Width: 2 px");
     expect(html).not.toContain("<select");
   });
 });
