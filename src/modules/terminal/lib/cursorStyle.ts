@@ -50,7 +50,7 @@ export type TerminalCursorOverlayVisibilityInput = {
 
 export const DEFAULT_TERMINAL_CURSOR_SHAPE: TerminalCursorShape = "bar";
 export const DEFAULT_TERMINAL_CURSOR_ANIMATION: TerminalCursorAnimation =
-  "steady";
+  "expand";
 export const DEFAULT_TERMINAL_CURSOR_WIDTH: TerminalCursorWidth = 1;
 
 export function coerceTerminalCursorShape(
@@ -78,19 +78,6 @@ export function coerceTerminalCursorWidth(
     (TERMINAL_CURSOR_WIDTHS as readonly number[]).includes(value)
     ? (value as TerminalCursorWidth)
     : DEFAULT_TERMINAL_CURSOR_WIDTH;
-}
-
-export function resolveTerminalCursorAnimation(
-  storedAnimation: unknown,
-  legacyBlink: unknown,
-): TerminalCursorAnimation {
-  if (
-    typeof storedAnimation === "string" &&
-    (TERMINAL_CURSOR_ANIMATIONS as readonly string[]).includes(storedAnimation)
-  ) {
-    return storedAnimation as TerminalCursorAnimation;
-  }
-  return legacyBlink === true ? "blink" : DEFAULT_TERMINAL_CURSOR_ANIMATION;
 }
 
 export function getTerminalCursorRenderStrategy(

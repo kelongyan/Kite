@@ -8,7 +8,6 @@ import {
   getTerminalCursorRenderStrategy,
   shouldShowTerminalCursorOverlay,
   resolveTerminalCursorVisibilityFromOutput,
-  resolveTerminalCursorAnimation,
 } from "./cursorStyle";
 
 describe("terminal cursor style preferences", () => {
@@ -31,10 +30,10 @@ describe("terminal cursor style preferences", () => {
     expect(coerceTerminalCursorAnimation("expand")).toBe("expand");
   });
 
-  it("falls back to steady for unsupported cursor animations", () => {
-    expect(coerceTerminalCursorAnimation("flash")).toBe("steady");
-    expect(coerceTerminalCursorAnimation("")).toBe("steady");
-    expect(coerceTerminalCursorAnimation(undefined)).toBe("steady");
+  it("falls back to expand for unsupported cursor animations", () => {
+    expect(coerceTerminalCursorAnimation("flash")).toBe("expand");
+    expect(coerceTerminalCursorAnimation("")).toBe("expand");
+    expect(coerceTerminalCursorAnimation(undefined)).toBe("expand");
   });
 
   it("keeps supported cursor widths", () => {
@@ -50,17 +49,6 @@ describe("terminal cursor style preferences", () => {
     expect(coerceTerminalCursorWidth(2.5)).toBe(1);
     expect(coerceTerminalCursorWidth(Number.NaN)).toBe(1);
     expect(coerceTerminalCursorWidth(undefined)).toBe(1);
-  });
-
-  it("uses explicit cursor animation when present", () => {
-    expect(resolveTerminalCursorAnimation("expand", true)).toBe("expand");
-    expect(resolveTerminalCursorAnimation("smooth", false)).toBe("smooth");
-  });
-
-  it("migrates the legacy cursor blink preference when animation is absent", () => {
-    expect(resolveTerminalCursorAnimation(undefined, true)).toBe("blink");
-    expect(resolveTerminalCursorAnimation(undefined, false)).toBe("steady");
-    expect(resolveTerminalCursorAnimation(undefined, undefined)).toBe("steady");
   });
 
   it("uses native xterm rendering for steady and blink animations", () => {

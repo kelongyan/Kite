@@ -34,8 +34,6 @@ import {
   setExplorerGitDecorations,
   setRestoreWindowState,
   setShowHidden,
-  setTerminalCursorAnimation,
-  setTerminalCursorShape,
   setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalFontWeight,
@@ -48,12 +46,6 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
 } from "@/modules/settings/store";
-import {
-  TERMINAL_CURSOR_ANIMATIONS,
-  TERMINAL_CURSOR_SHAPES,
-  type TerminalCursorAnimation,
-  type TerminalCursorShape,
-} from "@/modules/terminal/lib/cursorStyle";
 import { useTheme } from "@/modules/theme";
 import {
   ComputerIcon,
@@ -66,7 +58,6 @@ import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
-import { TerminalCursorPanel } from "../components/TerminalCursorPanel";
 
 const APPEARANCE: {
   id: ThemePref;
@@ -83,35 +74,6 @@ const TERMINAL_FONT_WEIGHTS = [
   { value: "600", labelKey: "semiBold" },
   { value: "bold", labelKey: "bold" },
 ] as const;
-
-const TERMINAL_CURSOR_SHAPE_LABEL_KEYS = {
-  bar: "bar",
-  block: "block",
-  underline: "underline",
-} as const satisfies Record<TerminalCursorShape, keyof CursorShapeLabels>;
-
-const TERMINAL_CURSOR_ANIMATION_LABEL_KEYS = {
-  steady: "steady",
-  blink: "blink",
-  smooth: "smooth",
-  expand: "expand",
-} as const satisfies Record<
-  TerminalCursorAnimation,
-  keyof CursorAnimationLabels
->;
-
-type CursorShapeLabels = {
-  bar: string;
-  block: string;
-  underline: string;
-};
-
-type CursorAnimationLabels = {
-  steady: string;
-  blink: string;
-  smooth: string;
-  expand: string;
-};
 
 const LETTER_SPACINGS = [-4, -3, -2, -1, 0, 1, 2, 3, 4] as const;
 
@@ -143,11 +105,6 @@ export function GeneralSection() {
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
-  const terminalCursorShape = usePreferencesStore((s) => s.terminalCursorShape);
-  const terminalCursorAnimation = usePreferencesStore(
-    (s) => s.terminalCursorAnimation,
-  );
-  const terminalCursorWidth = usePreferencesStore((s) => s.terminalCursorWidth);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalShell = usePreferencesStore((s) => s.terminalShell);
@@ -161,12 +118,6 @@ export function GeneralSection() {
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
   const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
-  const cursorShapeLabel = (shape: TerminalCursorShape) =>
-    g.terminal.cursor.shapes[TERMINAL_CURSOR_SHAPE_LABEL_KEYS[shape]];
-  const cursorAnimationLabel = (animation: TerminalCursorAnimation) =>
-    g.terminal.cursor.animations[
-      TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
-    ];
   useEffect(() => {
     let alive = true;
     void isEnabled()
@@ -365,42 +316,6 @@ export function GeneralSection() {
           <Switch
             checked={terminalWebglEnabled}
             onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
-          />
-        </SettingRow>
-        <SettingRow
-          title={g.terminal.cursor.title}
-          description={g.terminal.cursor.description}
-          className="flex-col items-stretch gap-2.5"
-        >
-          <TerminalCursorPanel
-            shape={terminalCursorShape}
-            animation={terminalCursorAnimation}
-            width={terminalCursorWidth}
-            labels={{
-              animation: g.terminal.cursor.animation,
-              preview: g.terminal.cursor.preview,
-              shape: g.terminal.cursor.shape,
-            }}
-            shapeOptions={TERMINAL_CURSOR_SHAPES.map((shape) => ({
-              value: shape,
-              label: cursorShapeLabel(shape),
-              ariaLabel: `${g.terminal.cursor.shape}: ${cursorShapeLabel(
-                shape,
-              )}`,
-            }))}
-            animationOptions={TERMINAL_CURSOR_ANIMATIONS.map((animation) => ({
-              value: animation,
-              label: cursorAnimationLabel(animation),
-              ariaLabel: `${cursorAnimationLabel(animation)}. ${
-                g.terminal.cursor.animationDescriptions[
-                  TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
-                ]
-              }`,
-            }))}
-            onShapeChange={(value) => void setTerminalCursorShape(value)}
-            onAnimationChange={(value) =>
-              void setTerminalCursorAnimation(value)
-            }
           />
         </SettingRow>
         <FontFamilyInput

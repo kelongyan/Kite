@@ -59,24 +59,6 @@ describe("message dictionaries", () => {
     expect(zhCN.settings.agents.snippets.new).toBe("新建片段");
     expect(en.settings.about.actions.viewOnGitHub).toBe("View on GitHub");
     expect(zhCN.settings.about.actions.viewOnGitHub).toBe("在 GitHub 查看");
-    expect(en.settings.general.terminal.cursor.shapes.bar).toBe("Bar");
-    expect(zhCN.settings.general.terminal.cursor.shapes.bar).toBe("竖线");
-    expect(en.settings.general.terminal.cursor.animation).toBe("Style");
-    expect(zhCN.settings.general.terminal.cursor.animation).toBe("样式");
-    expect(en.settings.general.terminal.cursor.animations.expand).toBe(
-      "Expand",
-    );
-    expect(zhCN.settings.general.terminal.cursor.animations.expand).toBe(
-      "伸缩",
-    );
-    expect(en.settings.general.terminal.cursor.preview).toBe("Cursor preview");
-    expect(zhCN.settings.general.terminal.cursor.preview).toBe("光标预览");
-    expect(
-      en.settings.general.terminal.cursor.animationDescriptions.expand,
-    ).toContain("center");
-    expect(
-      zhCN.settings.general.terminal.cursor.animationDescriptions.expand,
-    ).toContain("中心");
   });
 
   it("includes the Phase 3 main shell messages for both languages", () => {

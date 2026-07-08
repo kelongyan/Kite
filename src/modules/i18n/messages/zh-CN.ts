@@ -817,35 +817,6 @@ export const zhCN: Messages = {
           "xterm 的 WebGL 渲染器会把字形缓存到 GPU 纹理图集中。部分 macOS 环境下图集可能损坏，导致终端文字不可读。关闭后会回退到 DOM 渲染。CJK 字体回退在 WebGL 下也可能产生显示异常。",
         webglDescription:
           "硬件加速渲染。文字出现损坏、空白块或 CJK 对齐异常时可关闭。",
-        cursorBlinking: "光标闪烁",
-        cursorBlinkingDescription:
-          "让终端光标闪烁。默认关闭以降低空闲 CPU，占用风格接近 VS Code 和 macOS 终端。",
-        cursor: {
-          title: "光标",
-          description:
-            "选择终端光标的形状和样式。动画会跟随系统的减少动态效果设置。",
-          shape: "形状",
-          animation: "样式",
-          width: "宽度",
-          preview: "光标预览",
-          shapes: {
-            bar: "竖线",
-            block: "方块",
-            underline: "下划线",
-          },
-          animations: {
-            steady: "静止",
-            blink: "闪烁",
-            smooth: "柔和",
-            expand: "伸缩",
-          },
-          animationDescriptions: {
-            steady: "不播放光标动画。",
-            blink: "在显示和变淡之间切换。",
-            smooth: "连续淡入淡出。",
-            expand: "从中心向上下伸缩。",
-          },
-        },
         fontFamily: "字体族",
         fontFamilyPlaceholder:
           "例如 JetBrains Mono, 'Microsoft YaHei', monospace",
