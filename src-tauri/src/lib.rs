@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{agent, fs, git, history, net, pty, secrets, shell, workspace};
+use modules::{agent, fs, git, history, net, pty, secrets, sftp, shell, workspace};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
@@ -176,6 +176,7 @@ pub fn run() {
         })
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
+        .manage(sftp::session::SftpState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
         .manage(history::HistoryState::default())
@@ -244,6 +245,22 @@ pub fn run() {
             shell::shell_bg_logs,
             shell::shell_bg_kill,
             shell::shell_bg_list,
+            sftp::commands::sftp_profile_list,
+            sftp::commands::sftp_profile_save,
+            sftp::commands::sftp_profile_delete,
+            sftp::commands::sftp_connect,
+            sftp::commands::sftp_disconnect,
+            sftp::commands::sftp_read_dir,
+            sftp::commands::sftp_search,
+            sftp::commands::sftp_create_dir,
+            sftp::commands::sftp_rename,
+            sftp::commands::sftp_delete,
+            sftp::commands::sftp_upload_file,
+            sftp::commands::sftp_download_file,
+            sftp::commands::sftp_upload_entries,
+            sftp::commands::sftp_download_entries,
+            sftp::commands::sftp_cancel_transfer,
+            sftp::ssh_config::sftp_ssh_config_templates,
             workspace::wsl_list_distros,
             workspace::wsl_default_distro,
             workspace::wsl_home,

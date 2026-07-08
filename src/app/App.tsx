@@ -10,7 +10,10 @@ import { usePresence } from "@/lib/usePresence";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { AgentNotificationsBridge, nextAttentionTarget } from "@/modules/agents";
+import {
+  AgentNotificationsBridge,
+  nextAttentionTarget,
+} from "@/modules/agents";
 import {
   AgentRunBridge,
   AiMiniWindow,
@@ -23,10 +26,7 @@ import {
 } from "@/modules/ai";
 import { AiComposerProvider } from "@/modules/ai/lib/composer";
 import { native } from "@/modules/ai/lib/native";
-import {
-  CommandPalette,
-  createCommandItems,
-} from "@/modules/command-palette";
+import { CommandPalette, createCommandItems } from "@/modules/command-palette";
 import { useMessages } from "@/modules/i18n";
 import {
   NewEditorDialog,
@@ -122,6 +122,7 @@ export default function App() {
     pinTab,
     newPreviewTab,
     newMarkdownTab,
+    newSftpTab,
     setMarkdownView,
     setOverrideLanguage,
     openAiDiffTab,
@@ -235,7 +236,9 @@ export default function App() {
     const prev = prevSpaceRef.current;
     prevSpaceRef.current = activeSpaceId;
     if (prev === null || prev === activeSpaceId) return;
-    const meta = useSpaces.getState().spaces.find((s) => s.id === activeSpaceId);
+    const meta = useSpaces
+      .getState()
+      .spaces.find((s) => s.id === activeSpaceId);
     if (meta) void adoptWorkspaceEnv(meta.env);
     const inSpace = tabsRef.current.filter((t) => t.spaceId === activeSpaceId);
     if (inSpace.length === 0) return;
@@ -379,7 +382,10 @@ export default function App() {
   // the Ctrl+Tab quick switcher so it cycles by recency, not strip order.
   const mruRef = useRef<number[]>([activeId]);
   useEffect(() => {
-    mruRef.current = [activeId, ...mruRef.current.filter((id) => id !== activeId)];
+    mruRef.current = [
+      activeId,
+      ...mruRef.current.filter((id) => id !== activeId),
+    ];
   }, [activeId]);
   useEffect(() => {
     const live = new Set(tabs.map((t) => t.id));
@@ -609,6 +615,16 @@ export default function App() {
     [newPreviewTab],
   );
 
+  const openNewSftpTab = useCallback(() => {
+    newSftpTab(inheritedCwdForNewTab());
+  }, [newSftpTab, inheritedCwdForNewTab]);
+
+  const openSftpFromTerminalCwd = useCallback(
+    (cwd?: string) => {
+      newSftpTab(cwd ?? inheritedCwdForNewTab());
+    },
+    [newSftpTab, inheritedCwdForNewTab],
+  );
 
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
@@ -937,8 +953,9 @@ export default function App() {
 
   const handleNewTabInSpace = useCallback(
     (spaceId: string) => {
-      const root = useSpaces.getState().spaces.find((s) => s.id === spaceId)
-        ?.root;
+      const root = useSpaces
+        .getState()
+        .spaces.find((s) => s.id === spaceId)?.root;
       newTabInSpace(spaceId, root ?? undefined);
     },
     [newTabInSpace],
@@ -974,35 +991,39 @@ export default function App() {
   const commandPaletteItems = useMemo(
     () =>
       commandPaletteOpen
-        ? createCommandItems({
-            tabs,
-            activeId,
-            searchTarget,
-            explorerRoot,
-            home,
-            openNewTab,
-            openNewBlock: openNewBlockTab,
-            openNewPrivate: openNewPrivateTab,
-            openNewEditor: () => setNewEditorOpen(true),
-            openNewPreview: () => openPreviewTab(""),
-            openGitGraph: openGitGraphFromContext,
-            toggleSourceControl,
-            closeActiveTabOrPane: handleCloseTabOrPane,
-            splitPaneRight: () => splitActivePaneInActiveTab("row"),
-            splitPaneDown: () => splitActivePaneInActiveTab("col"),
-            focusSearch: () => searchInlineRef.current?.focus(),
-            focusExplorerSearch: () => explorerRef.current?.focusSearch(),
-            toggleSidebar,
-            toggleAi: togglePanelAndFocus,
-            askAiSelection: askFromSelection,
-            openSettings: () => void openSettingsWindow(),
-            openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
-            spaces: useSpaces.getState().spaces,
-            activeSpaceId,
-            openSpacesOverview: () => setSwitcherOpen(true),
-            newSpace: () => void handleNewSpace(),
-            switchSpace: (id) => useSpaces.getState().setActive(id),
-          }, messages.mainShell.commandPalette)
+        ? createCommandItems(
+            {
+              tabs,
+              activeId,
+              searchTarget,
+              explorerRoot,
+              home,
+              openNewTab,
+              openNewBlock: openNewBlockTab,
+              openNewPrivate: openNewPrivateTab,
+              openNewEditor: () => setNewEditorOpen(true),
+              openNewPreview: () => openPreviewTab(""),
+              openSftp: openNewSftpTab,
+              openGitGraph: openGitGraphFromContext,
+              toggleSourceControl,
+              closeActiveTabOrPane: handleCloseTabOrPane,
+              splitPaneRight: () => splitActivePaneInActiveTab("row"),
+              splitPaneDown: () => splitActivePaneInActiveTab("col"),
+              focusSearch: () => searchInlineRef.current?.focus(),
+              focusExplorerSearch: () => explorerRef.current?.focusSearch(),
+              toggleSidebar,
+              toggleAi: togglePanelAndFocus,
+              askAiSelection: askFromSelection,
+              openSettings: () => void openSettingsWindow(),
+              openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
+              spaces: useSpaces.getState().spaces,
+              activeSpaceId,
+              openSpacesOverview: () => setSwitcherOpen(true),
+              newSpace: () => void handleNewSpace(),
+              switchSpace: (id) => useSpaces.getState().setActive(id),
+            },
+            messages.mainShell.commandPalette,
+          )
         : [],
     [
       commandPaletteOpen,
@@ -1014,6 +1035,7 @@ export default function App() {
       openNewTab,
       openNewBlockTab,
       openNewPrivateTab,
+      openNewSftpTab,
       openPreviewTab,
       openGitGraphFromContext,
       toggleSourceControl,
@@ -1077,6 +1099,7 @@ export default function App() {
               onNewPrivate={openNewPrivateTab}
               onNewPreview={() => openPreviewTab("")}
               onNewEditor={() => setNewEditorOpen(true)}
+              onNewSftp={openNewSftpTab}
               onNewGitGraph={openGitGraphFromContext}
               onClose={handleClose}
               onPin={pinTab}
@@ -1103,7 +1126,9 @@ export default function App() {
                 id="sidebar"
                 panelRef={sidebarRef}
                 defaultSize={
-                  initialSidebarCollapsed ? "0px" : `${sidebarWidthRef.current}px`
+                  initialSidebarCollapsed
+                    ? "0px"
+                    : `${sidebarWidthRef.current}px`
                 }
                 minSize={`${SIDEBAR_MIN_WIDTH}px`}
                 maxSize={`${SIDEBAR_MAX_WIDTH}px`}
@@ -1115,7 +1140,10 @@ export default function App() {
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
-                  <div key={sidebarView} className="min-h-0 flex-1 terax-panel-in">
+                  <div
+                    key={sidebarView}
+                    className="min-h-0 flex-1 terax-panel-in"
+                  >
                     {sidebarView === "explorer" ? (
                       <FileExplorer
                         ref={explorerRef}
@@ -1161,6 +1189,7 @@ export default function App() {
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
                       onFocusLeaf={handleFocusLeaf}
+                      onOpenSftpFromCwd={openSftpFromTerminalCwd}
                       registerEditorHandle={registerEditorHandle}
                       onEditorDirtyChange={handleEditorDirty}
                       onEditorCloseTab={disposeTab}

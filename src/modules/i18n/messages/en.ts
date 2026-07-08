@@ -28,6 +28,7 @@ type CommandPaletteCommandKey =
   | "newPrivateTerminal"
   | "newEditorTab"
   | "newWebPreview"
+  | "openSftp"
   | "closeTabOrPane"
   | "splitPaneRight"
   | "splitPaneDown"
@@ -84,6 +85,7 @@ export type Messages = {
         privacy: string;
         editor: string;
         preview: string;
+        sftp: string;
         gitGraph: string;
       };
       editorLanguage: {
@@ -243,6 +245,99 @@ export type Messages = {
       noMatches: string;
       partialResults: string;
       copyFailed: (error: string) => string;
+    };
+    sftp: {
+      title: string;
+      notConnected: string;
+      connect: string;
+      disconnect: string;
+      local: string;
+      upload: string;
+      download: string;
+      actions: string;
+      selectedCount: (count: number) => string;
+      newFolder: string;
+      rename: string;
+      delete: string;
+      skip: string;
+      overwrite: string;
+      conflictTitle: string;
+      conflictDescription: (count: number) => string;
+      moreConflicts: (count: number) => string;
+      folderEmpty: string;
+      loading: string;
+      filter: string;
+      remoteSearch: string;
+      remoteSearchPrompt: string;
+      remoteSearchResults: (count: number, query: string) => string;
+      clearRemoteSearch: string;
+      syncLocalToRemote: string;
+      syncRemoteToLocal: string;
+      syncPreviewTitle: string;
+      syncPreviewDescription: (
+        direction: "localToRemote" | "remoteToLocal",
+      ) => string;
+      syncOperation: string;
+      syncCreate: string;
+      syncOverwrite: string;
+      syncSame: string;
+      syncKeepDestination: string;
+      syncConflict: string;
+      syncKindMismatch: string;
+      syncUnknownKind: string;
+      syncNoChanges: string;
+      syncNoDeletes: string;
+      syncBlockedByConflicts: string;
+      syncConfirmOverwrite: string;
+      syncApply: (count: number) => string;
+      syncCreateCount: (count: number) => string;
+      syncOverwriteCount: (count: number) => string;
+      syncUnchangedCount: (count: number) => string;
+      syncKeptCount: (count: number) => string;
+      syncConflictCount: (count: number) => string;
+      tableName: string;
+      tableDateModified: string;
+      tableSize: string;
+      tableKind: string;
+      up: string;
+      refresh: string;
+      connectionTitle: string;
+      profile: string;
+      newProfile: string;
+      sshConfigTemplate: string;
+      noSshConfigTemplates: string;
+      sshCommand: string;
+      sshCommandPlaceholder: string;
+      sshCommandInvalid: string;
+      applySshCommand: string;
+      openFromTerminal: string;
+      name: string;
+      host: string;
+      port: string;
+      username: string;
+      auth: string;
+      password: string;
+      privateKey: string;
+      privateKeyPath: string;
+      passphrase: string;
+      remotePath: string;
+      cancel: string;
+      trustAndConnect: string;
+      trustHostKey: string;
+      hostKeyChanged: string;
+      transferQueue: string;
+      noTransfers: string;
+      clear: string;
+      expand: string;
+      collapse: string;
+      runningCount: (count: number) => string;
+      doneCount: (count: number) => string;
+      failedCount: (count: number) => string;
+      cancelTransfer: string;
+      status: Record<
+        "queued" | "running" | "done" | "failed" | "canceled",
+        string
+      >;
     };
     sourceControl: {
       title: string;
@@ -964,6 +1059,7 @@ export const en: Messages = {
         privacy: "Privacy",
         editor: "Editor",
         preview: "Preview",
+        sftp: "SFTP",
         gitGraph: "Git Graph",
       },
       editorLanguage: {
@@ -1039,6 +1135,10 @@ export const en: Messages = {
         newWebPreview: {
           title: "New web preview",
           keywords: ["browser", "web", "localhost", "preview"],
+        },
+        openSftp: {
+          title: "Open SFTP",
+          keywords: ["sftp", "ssh", "file transfer", "server"],
         },
         closeTabOrPane: {
           title: "Close tab or pane",
@@ -1236,6 +1336,104 @@ export const en: Messages = {
       noMatches: "No matches",
       partialResults: "Showing partial results - refine your query.",
       copyFailed: (error) => `Copy failed: ${error}`,
+    },
+    sftp: {
+      title: "SFTP",
+      notConnected: "Not connected",
+      connect: "Connect",
+      disconnect: "Disconnect",
+      local: "Local",
+      upload: "Upload",
+      download: "Download",
+      actions: "Actions",
+      selectedCount: (count) => `${count} selected`,
+      newFolder: "New folder",
+      rename: "Rename",
+      delete: "Delete",
+      skip: "Skip",
+      overwrite: "Overwrite",
+      conflictTitle: "Name conflict",
+      conflictDescription: (count) =>
+        `${count} item${count === 1 ? "" : "s"} already exist at the destination.`,
+      moreConflicts: (count) => `+${count} more`,
+      folderEmpty: "This folder is empty",
+      loading: "Loading...",
+      filter: "Filter",
+      remoteSearch: "Search remote",
+      remoteSearchPrompt: "Search remote filenames from the current folder",
+      remoteSearchResults: (count, query) => `${count} results for "${query}"`,
+      clearRemoteSearch: "Clear remote search",
+      syncLocalToRemote: "Preview sync to remote",
+      syncRemoteToLocal: "Preview sync to local",
+      syncPreviewTitle: "Sync preview",
+      syncPreviewDescription: (direction) =>
+        direction === "localToRemote"
+          ? "Local entries will be copied to the current remote folder."
+          : "Remote entries will be copied to the current local folder.",
+      syncOperation: "Operation",
+      syncCreate: "Create",
+      syncOverwrite: "Overwrite",
+      syncSame: "Same",
+      syncKeepDestination: "Keep",
+      syncConflict: "Conflict",
+      syncKindMismatch: "File and folder types do not match.",
+      syncUnknownKind: "unknown",
+      syncNoChanges: "No changes to apply",
+      syncNoDeletes: "Sync does not delete destination-only files.",
+      syncBlockedByConflicts: "Resolve conflicts before applying this sync.",
+      syncConfirmOverwrite: "Allow this sync to overwrite destination files.",
+      syncApply: (count) => `Apply ${count}`,
+      syncCreateCount: (count) => `${count} create`,
+      syncOverwriteCount: (count) => `${count} overwrite`,
+      syncUnchangedCount: (count) => `${count} same`,
+      syncKeptCount: (count) => `${count} kept`,
+      syncConflictCount: (count) => `${count} conflict`,
+      tableName: "Name",
+      tableDateModified: "Date Modified",
+      tableSize: "Size",
+      tableKind: "Kind",
+      up: "Up",
+      refresh: "Refresh",
+      connectionTitle: "SFTP Connection",
+      profile: "Profile",
+      newProfile: "New profile",
+      sshConfigTemplate: "SSH config",
+      noSshConfigTemplates: "No template",
+      sshCommand: "SSH command",
+      sshCommandPlaceholder: "ssh deploy@example.com",
+      sshCommandInvalid: "Invalid SSH command",
+      applySshCommand: "Apply",
+      openFromTerminal: "Open SFTP from current directory",
+      name: "Name",
+      host: "Host",
+      port: "Port",
+      username: "Username",
+      auth: "Auth",
+      password: "Password",
+      privateKey: "Private key",
+      privateKeyPath: "Private key path",
+      passphrase: "Passphrase",
+      remotePath: "Remote path",
+      cancel: "Cancel",
+      trustAndConnect: "Trust & Connect",
+      trustHostKey: "Trust host key",
+      hostKeyChanged: "Host key changed",
+      transferQueue: "Transfer Queue",
+      noTransfers: "No transfers",
+      clear: "Clear",
+      expand: "Expand",
+      collapse: "Collapse",
+      runningCount: (count) => `${count} running`,
+      doneCount: (count) => `${count} done`,
+      failedCount: (count) => `${count} failed`,
+      cancelTransfer: "Cancel transfer",
+      status: {
+        queued: "queued",
+        running: "running",
+        done: "done",
+        failed: "failed",
+        canceled: "canceled",
+      },
     },
     sourceControl: {
       title: "Source Control",

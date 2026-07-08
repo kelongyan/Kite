@@ -4,6 +4,7 @@ import { AiDiffStack, EditorStack, GitDiffStack } from "@/modules/editor";
 import { GitHistoryStack } from "@/modules/git-history";
 import { MarkdownStack } from "@/modules/markdown";
 import { PreviewStack } from "@/modules/preview";
+import { SftpTransferStack } from "@/modules/sftp";
 import type { Tab } from "@/modules/tabs";
 import { TerminalStack } from "@/modules/terminal";
 
@@ -22,6 +23,7 @@ type Props = {
   onCwd: TerminalStackProps["onCwd"];
   onExit: TerminalStackProps["onExit"];
   onFocusLeaf: TerminalStackProps["onFocusLeaf"];
+  onOpenSftpFromCwd: TerminalStackProps["onOpenSftpFromCwd"];
   registerEditorHandle: EditorStackProps["registerHandle"];
   onEditorDirtyChange: EditorStackProps["onDirtyChange"];
   onEditorCloseTab: EditorStackProps["onCloseTab"];
@@ -48,6 +50,7 @@ export function WorkspaceSurface({
   onCwd,
   onExit,
   onFocusLeaf,
+  onOpenSftpFromCwd,
   registerEditorHandle,
   onEditorDirtyChange,
   onEditorCloseTab,
@@ -67,6 +70,7 @@ export function WorkspaceSurface({
   const isAiDiffTab = kind === "ai-diff";
   const isGitDiffTab = kind === "git-diff" || kind === "git-commit-file";
   const isGitHistoryTab = kind === "git-history";
+  const isSftpTab = kind === "sftp";
 
   return (
     <div className="relative h-full min-h-0">
@@ -85,6 +89,7 @@ export function WorkspaceSurface({
           onCwd={onCwd}
           onExit={onExit}
           onFocusLeaf={onFocusLeaf}
+          onOpenSftpFromCwd={onOpenSftpFromCwd}
         />
       </div>
       <div
@@ -166,6 +171,15 @@ export function WorkspaceSurface({
           onOpenCommitFile={onOpenCommitFile}
           onSearchHandle={onGitHistorySearchHandle}
         />
+      </div>
+      <div
+        className={cn(
+          "absolute inset-0 px-3 pt-2 pb-2",
+          !isSftpTab && "invisible pointer-events-none",
+        )}
+        aria-hidden={!isSftpTab}
+      >
+        <SftpTransferStack tabs={tabs} activeId={activeId} />
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   LayoutTwoRowIcon,
   PaintBoardIcon,
   Search01Icon,
+  ServerStack01Icon,
   Settings01Icon,
   SidebarLeftIcon,
   SourceCodeIcon,
@@ -47,6 +48,7 @@ export type CommandPaletteActionContext = {
   openNewPrivate: () => void;
   openNewEditor: () => void;
   openNewPreview: () => void;
+  openSftp: () => void;
   openGitGraph: () => void;
   toggleSourceControl: () => void;
   closeActiveTabOrPane: () => void;
@@ -200,6 +202,12 @@ export function createCommandItems(
       icon: Globe02Icon,
       shortcutId: "tab.newPreview",
       run: ctx.openNewPreview,
+    },
+    {
+      id: "sftp.open",
+      ...item("openSftp", "Tabs"),
+      icon: ServerStack01Icon,
+      run: ctx.openSftp,
     },
     {
       id: "tab.close",

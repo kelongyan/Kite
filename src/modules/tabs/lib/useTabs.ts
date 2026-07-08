@@ -111,6 +111,13 @@ export type GitCommitFileDiffTab = TabBase & {
   originalPath: string | null;
 };
 
+export type SftpTab = TabBase & {
+  id: number;
+  kind: "sftp";
+  title: string;
+  localPath?: string;
+};
+
 export type Tab =
   | TerminalTab
   | EditorTab
@@ -119,7 +126,8 @@ export type Tab =
   | AiDiffTab
   | GitDiffTab
   | GitHistoryTab
-  | GitCommitFileDiffTab;
+  | GitCommitFileDiffTab
+  | SftpTab;
 
 export type TabPatch = Partial<{
   title: string;
@@ -232,7 +240,10 @@ export function planSpaceRemoval(
   let activeId = currentActiveId;
   if (!next.some((t) => t.spaceId === fallbackSpaceId)) {
     const tabId = allocId();
-    next = [...next, coldTerminalTab(tabId, allocId(), fallbackSpaceId, fallbackCwd)];
+    next = [
+      ...next,
+      coldTerminalTab(tabId, allocId(), fallbackSpaceId, fallbackCwd),
+    ];
     activeId = tabId;
   } else if (!next.some((t) => t.id === currentActiveId)) {
     const inFallback = next.filter((t) => t.spaceId === fallbackSpaceId);
@@ -697,6 +708,22 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     return targetId;
   }, []);
 
+  const newSftpTab = useCallback((localPath?: string) => {
+    const id = nextIdRef.current++;
+    setTabs((t) => [
+      ...t,
+      {
+        id,
+        kind: "sftp",
+        spaceId: activeSpaceIdRef.current,
+        title: "SFTP",
+        localPath,
+      },
+    ]);
+    setActiveId(id);
+    return id;
+  }, []);
+
   const setOverrideLanguage = useCallback((id: number, lang: string | null) => {
     setTabs((curr) =>
       curr.map((t) => {
@@ -963,9 +990,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
 
   const selectByIndex = useCallback(
     (idx: number, spaceId?: string) => {
-      const t = spaceId
-        ? pickTabBySpaceIndex(tabs, idx, spaceId)
-        : tabs[idx];
+      const t = spaceId ? pickTabBySpaceIndex(tabs, idx, spaceId) : tabs[idx];
       if (t) setActiveId(t.id);
     },
     [tabs],
@@ -1160,6 +1185,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     pinTab,
     newPreviewTab,
     newMarkdownTab,
+    newSftpTab,
     setMarkdownView,
     openAiDiffTab,
     openGitDiffTab,

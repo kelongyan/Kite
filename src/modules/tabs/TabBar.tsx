@@ -33,6 +33,7 @@ import {
   IncognitoIcon,
   PencilEdit02Icon,
   PlusSignIcon,
+  ServerStack01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -56,6 +57,7 @@ type Props = {
   onNewPrivate: () => void;
   onNewPreview: () => void;
   onNewEditor: () => void;
+  onNewSftp: () => void;
   onNewGitGraph: () => void;
   onClose: (id: number) => void;
   /** Pin (promote) a preview tab to persistent on double-click. */
@@ -77,6 +79,7 @@ export function TabBar({
   onNewPrivate,
   onNewPreview,
   onNewEditor,
+  onNewSftp,
   onNewGitGraph,
   onClose,
   onPin,
@@ -599,6 +602,14 @@ export function TabBar({
                 {fmtShortcut(MOD_KEY, "P")}
               </span>
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNewSftp()}>
+              <HugeiconsIcon
+                icon={ServerStack01Icon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              <span className="flex-1">{messages.newTabMenu.sftp}</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onNewGitGraph()}>
               <HugeiconsIcon
                 icon={GitBranchIcon}
@@ -687,6 +698,16 @@ export function TabIcon({ tab }: { tab: Tab }) {
     return (
       <HugeiconsIcon
         icon={Clock01Icon}
+        size={14}
+        strokeWidth={2}
+        className="shrink-0"
+      />
+    );
+  }
+  if (tab.kind === "sftp") {
+    return (
+      <HugeiconsIcon
+        icon={ServerStack01Icon}
         size={14}
         strokeWidth={2}
         className="shrink-0"

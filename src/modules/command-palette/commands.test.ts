@@ -21,6 +21,7 @@ function context(
     openNewPrivate: noop,
     openNewEditor: noop,
     openNewPreview: noop,
+    openSftp: noop,
     openGitGraph: noop,
     toggleSourceControl: noop,
     closeActiveTabOrPane: noop,
@@ -55,5 +56,20 @@ describe("createCommandItems", () => {
     expect(settings?.title).toBe("打开设置");
     expect(settings?.keywords).toContain("preferences");
     expect(splitRight?.disabledReason).toBe("没有终端标签");
+  });
+
+  it("runs the Open SFTP action", () => {
+    let opened = false;
+    const items = createCommandItems(
+      context({
+        openSftp: () => {
+          opened = true;
+        },
+      }),
+    );
+
+    items.find((item) => item.id === "sftp.open")?.run();
+
+    expect(opened).toBe(true);
   });
 });
