@@ -8,6 +8,7 @@ import type {
 type Props = {
   animation: TerminalCursorAnimation;
   animationLabel: string;
+  className?: string;
   previewLabel: string;
   shape: TerminalCursorShape;
   shapeLabel: string;
@@ -17,6 +18,7 @@ type Props = {
 export function TerminalCursorPreview({
   animation,
   animationLabel,
+  className,
   previewLabel,
   shape,
   shapeLabel,
@@ -24,7 +26,10 @@ export function TerminalCursorPreview({
 }: Props) {
   return (
     <div
-      className="flex h-12 w-full items-center rounded-md border border-border/60 bg-background px-3 font-mono text-[12px] text-foreground shadow-inner"
+      className={cn(
+        "flex h-11 w-full items-center rounded-md border border-border/50 bg-muted/35 px-3 font-mono text-[12px] text-foreground shadow-inner",
+        className,
+      )}
       role="img"
       aria-label={`${previewLabel}: ${shapeLabel}, ${animationLabel}`}
     >

@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
@@ -56,7 +55,6 @@ import {
   TERMINAL_CURSOR_WIDTHS,
   type TerminalCursorAnimation,
   type TerminalCursorShape,
-  type TerminalCursorWidth,
 } from "@/modules/terminal/lib/cursorStyle";
 import { useTheme } from "@/modules/theme";
 import {
@@ -67,10 +65,10 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
-import { TerminalCursorPreview } from "../components/TerminalCursorPreview";
+import { TerminalCursorPanel } from "../components/TerminalCursorPanel";
 
 const APPEARANCE: {
   id: ThemePref;
@@ -132,10 +130,6 @@ export function GeneralSection() {
   const messages = useMessages();
   const g = messages.settings.general;
   const { mode, setMode } = useTheme();
-  const cursorShapeLabelId = useId();
-  const cursorAnimationLabelId = useId();
-  const cursorAnimationDescriptionId = useId();
-  const cursorWidthLabelId = useId();
 
   const appLanguage = usePreferencesStore((s) => s.appLanguage);
   const autostart = usePreferencesStore((s) => s.autostart);
@@ -175,11 +169,6 @@ export function GeneralSection() {
     g.terminal.cursor.animations[
       TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
     ];
-  const cursorAnimationDescription =
-    g.terminal.cursor.animationDescriptions[
-      TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[terminalCursorAnimation]
-    ];
-
   useEffect(() => {
     let alive = true;
     void isEnabled()
@@ -383,121 +372,41 @@ export function GeneralSection() {
         <SettingRow
           title={g.terminal.cursor.title}
           description={g.terminal.cursor.description}
-          className="items-stretch"
+          className="flex-col items-stretch gap-2.5"
         >
-          <div className="flex w-[360px] max-w-full flex-col gap-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span
-                id={cursorShapeLabelId}
-                className="text-[11px] text-muted-foreground"
-              >
-                {g.terminal.cursor.shape}
-              </span>
-              <CursorToggleGroup
-                value={terminalCursorShape}
-                ariaLabelledBy={cursorShapeLabelId}
-                onChange={(value) =>
-                  void setTerminalCursorShape(value as TerminalCursorShape)
-                }
-              >
-                {TERMINAL_CURSOR_SHAPES.map((shape) => (
-                  <ToggleGroupItem
-                    key={shape}
-                    value={shape}
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px]"
-                    aria-label={`${g.terminal.cursor.shape}: ${cursorShapeLabel(
-                      shape,
-                    )}`}
-                  >
-                    {cursorShapeLabel(shape)}
-                  </ToggleGroupItem>
-                ))}
-              </CursorToggleGroup>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span
-                id={cursorAnimationLabelId}
-                className="text-[11px] text-muted-foreground"
-              >
-                {g.terminal.cursor.animation}
-              </span>
-              <CursorToggleGroup
-                value={terminalCursorAnimation}
-                ariaLabelledBy={cursorAnimationLabelId}
-                ariaDescribedBy={cursorAnimationDescriptionId}
-                onChange={(value) =>
-                  void setTerminalCursorAnimation(
-                    value as TerminalCursorAnimation,
-                  )
-                }
-              >
-                {TERMINAL_CURSOR_ANIMATIONS.map((animation) => (
-                  <ToggleGroupItem
-                    key={animation}
-                    value={animation}
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px]"
-                    aria-label={`${cursorAnimationLabel(animation)}. ${
-                      g.terminal.cursor.animationDescriptions[
-                        TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
-                      ]
-                    }`}
-                  >
-                    {cursorAnimationLabel(animation)}
-                  </ToggleGroupItem>
-                ))}
-              </CursorToggleGroup>
-              <span id={cursorAnimationDescriptionId} className="sr-only">
-                {cursorAnimationDescription}
-              </span>
-            </div>
-            {terminalCursorShape === "bar" && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span
-                  id={cursorWidthLabelId}
-                  className="text-[11px] text-muted-foreground"
-                >
-                  {g.terminal.cursor.width}
-                </span>
-                <Select
-                  value={String(terminalCursorWidth)}
-                  onValueChange={(v) =>
-                    void setTerminalCursorWidth(
-                      Number(v) as TerminalCursorWidth,
-                    )
-                  }
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="h-7 w-24 text-[11px]"
-                    aria-labelledby={cursorWidthLabelId}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TERMINAL_CURSOR_WIDTHS.map((width) => (
-                      <SelectItem
-                        key={width}
-                        value={String(width)}
-                        className="text-[12px]"
-                      >
-                        {width} px
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <TerminalCursorPreview
-              shape={terminalCursorShape}
-              shapeLabel={cursorShapeLabel(terminalCursorShape)}
-              animation={terminalCursorAnimation}
-              animationLabel={cursorAnimationLabel(terminalCursorAnimation)}
-              width={terminalCursorWidth}
-              previewLabel={g.terminal.cursor.preview}
-            />
-          </div>
+          <TerminalCursorPanel
+            shape={terminalCursorShape}
+            animation={terminalCursorAnimation}
+            width={terminalCursorWidth}
+            labels={{
+              animation: g.terminal.cursor.animation,
+              preview: g.terminal.cursor.preview,
+              shape: g.terminal.cursor.shape,
+              width: g.terminal.cursor.width,
+            }}
+            shapeOptions={TERMINAL_CURSOR_SHAPES.map((shape) => ({
+              value: shape,
+              label: cursorShapeLabel(shape),
+              ariaLabel: `${g.terminal.cursor.shape}: ${cursorShapeLabel(
+                shape,
+              )}`,
+            }))}
+            animationOptions={TERMINAL_CURSOR_ANIMATIONS.map((animation) => ({
+              value: animation,
+              label: cursorAnimationLabel(animation),
+              ariaLabel: `${cursorAnimationLabel(animation)}. ${
+                g.terminal.cursor.animationDescriptions[
+                  TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
+                ]
+              }`,
+            }))}
+            widthOptions={TERMINAL_CURSOR_WIDTHS}
+            onShapeChange={(value) => void setTerminalCursorShape(value)}
+            onAnimationChange={(value) =>
+              void setTerminalCursorAnimation(value)
+            }
+            onWidthChange={(value) => void setTerminalCursorWidth(value)}
+          />
         </SettingRow>
         <FontFamilyInput
           value={terminalFontFamily}
@@ -723,38 +632,6 @@ function Label({ children }: { children: React.ReactNode }) {
     <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
       {children}
     </span>
-  );
-}
-
-function CursorToggleGroup({
-  value,
-  ariaDescribedBy,
-  ariaLabelledBy,
-  onChange,
-  children,
-}: {
-  value: string;
-  ariaDescribedBy?: string;
-  ariaLabelledBy: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <ToggleGroup
-      type="single"
-      value={value}
-      onValueChange={(next) => {
-        if (next) onChange(next);
-      }}
-      variant="outline"
-      size="sm"
-      spacing={0}
-      aria-describedby={ariaDescribedBy}
-      aria-labelledby={ariaLabelledBy}
-      className="rounded-md [&_[data-slot=toggle-group-item]:first-child]:rounded-l-md [&_[data-slot=toggle-group-item]:last-child]:rounded-r-md"
-    >
-      {children}
-    </ToggleGroup>
   );
 }
 
