@@ -710,6 +710,31 @@ export type Messages = {
         webglDescription: string;
         cursorBlinking: string;
         cursorBlinkingDescription: string;
+        cursor: {
+          title: string;
+          description: string;
+          shape: string;
+          animation: string;
+          width: string;
+          preview: string;
+          shapes: {
+            bar: string;
+            block: string;
+            underline: string;
+          };
+          animations: {
+            steady: string;
+            blink: string;
+            smooth: string;
+            expand: string;
+          };
+          animationDescriptions: {
+            steady: string;
+            blink: string;
+            smooth: string;
+            expand: string;
+          };
+        };
         fontFamily: string;
         fontFamilyPlaceholder: string;
         fontWeight: string;
@@ -1775,6 +1800,32 @@ export const en: Messages = {
         cursorBlinking: "Cursor blinking",
         cursorBlinkingDescription:
           "Blink the terminal cursor. Off by default for lower idle CPU, matching VS Code and the macOS terminal.",
+        cursor: {
+          title: "Cursor",
+          description:
+            "Choose the terminal cursor shape and animation. Motion follows the system reduced-motion setting.",
+          shape: "Shape",
+          animation: "Animation",
+          width: "Width",
+          preview: "Cursor preview",
+          shapes: {
+            bar: "Bar",
+            block: "Block",
+            underline: "Underline",
+          },
+          animations: {
+            steady: "Steady",
+            blink: "Blink",
+            smooth: "Smooth",
+            expand: "Expand",
+          },
+          animationDescriptions: {
+            steady: "No cursor animation.",
+            blink: "Alternates between visible and dim.",
+            smooth: "Fades in and out continuously.",
+            expand: "Expands vertically from the center.",
+          },
+        },
         fontFamily: "Font family",
         fontFamilyPlaceholder:
           "e.g. JetBrains Mono, 'Microsoft YaHei', monospace",

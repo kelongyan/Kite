@@ -1,7 +1,9 @@
+import type { TerminalCursorAnimation } from "./cursorStyle";
+
 export function shouldCursorBlink(
-  blinkEnabled: boolean,
+  animation: TerminalCursorAnimation,
   windowActive: boolean,
   slotFocused: boolean,
 ): boolean {
-  return blinkEnabled && windowActive && slotFocused;
+  return animation === "blink" && windowActive && slotFocused;
 }

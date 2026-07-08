@@ -10,6 +10,16 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { type FontWeight, Terminal } from "@xterm/xterm";
 import { shouldCursorBlink } from "./cursorBlink";
 import {
+  computeTerminalCursorOverlayBox,
+  getTerminalCursorRenderStrategy,
+  resolveTerminalCursorVisibilityFromOutput,
+  shouldShowTerminalCursorOverlay,
+  type TerminalCursorVisibilityState,
+  type TerminalCursorAnimation,
+  type TerminalCursorShape,
+  type TerminalCursorWidth,
+} from "./cursorStyle";
+import {
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
@@ -69,6 +79,11 @@ export type Slot = {
   imeRaf: number | null;
   imeTimer: ReturnType<typeof setTimeout> | null;
   imeDisposers: (() => void)[];
+  cursorOverlay: HTMLDivElement | null;
+  cursorOverlayRaf: number | null;
+  cursorDisposers: (() => void)[];
+  cursorVisibility: TerminalCursorVisibilityState;
+  cursorNativeSuppressed: boolean;
   lastCols: number;
   lastRows: number;
   lastW: number;
@@ -83,7 +98,11 @@ let adapter: SlotAdapter | null = null;
 let windowActive =
   typeof document === "undefined" || (!document.hidden && document.hasFocus());
 let windowActivityBound = false;
-let cursorBlinkEnabled = false;
+const initialPreferences = usePreferencesStore.getState();
+let cursorShape: TerminalCursorShape = initialPreferences.terminalCursorShape;
+let cursorAnimation: TerminalCursorAnimation =
+  initialPreferences.terminalCursorAnimation;
+let cursorWidth: TerminalCursorWidth = initialPreferences.terminalCursorWidth;
 
 function bindWindowActivityListeners(): void {
   if (windowActivityBound || typeof window === "undefined") return;
@@ -99,7 +118,7 @@ function setWindowActive(active: boolean): void {
   windowActive = active;
   for (const slot of slots) {
     if (slot.currentLeafId === null) continue;
-    applyCursorBlinkOnSlot(
+    applyCursorRenderingOnSlot(
       slot,
       adapter?.isLeafFocused(slot.currentLeafId) ?? false,
     );
@@ -154,6 +173,53 @@ export function pasteIntoLeaf(leafId: number, text: string): boolean {
   return true;
 }
 
+export function writeToSlot(slot: Slot, data: string | Uint8Array): void {
+  const visibilityChanged = trackSlotCursorVisibility(slot, data);
+  slot.term.write(data);
+  if (visibilityChanged) scheduleSlotCursorOverlaySync(slot);
+}
+
+function trackSlotCursorVisibility(
+  slot: Slot,
+  data: string | Uint8Array,
+): boolean {
+  if (getTerminalCursorRenderStrategy(cursorAnimation) !== "overlay") {
+    return false;
+  }
+  const text = outputTextForCursorTracking(data, slot.cursorVisibility.tail);
+  if (text === null) return false;
+  const next = resolveTerminalCursorVisibilityFromOutput(
+    text,
+    slot.cursorVisibility,
+  );
+  const changed = next.visible !== slot.cursorVisibility.visible;
+  slot.cursorVisibility = next;
+  return changed;
+}
+
+let cursorOutputDecoder: TextDecoder | null = null;
+
+function outputTextForCursorTracking(
+  data: string | Uint8Array,
+  tail: string,
+): string | null {
+  if (typeof data === "string") {
+    return data.includes("\x1b") || tail.includes("\x1b") ? data : null;
+  }
+  if (!tail.includes("\x1b")) {
+    let hasEscape = false;
+    for (const byte of data) {
+      if (byte === 0x1b) {
+        hasEscape = true;
+        break;
+      }
+    }
+    if (!hasEscape) return null;
+  }
+  cursorOutputDecoder ??= new TextDecoder();
+  return cursorOutputDecoder.decode(data);
+}
+
 function getRecycler(): HTMLDivElement {
   if (recyclerEl?.isConnected) return recyclerEl;
   const el = document.createElement("div");
@@ -183,8 +249,13 @@ function termOptions() {
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
     theme: buildTerminalTheme(),
     cursorBlink: false,
-    cursorStyle: "bar" as const,
-    cursorInactiveStyle: "outline" as const,
+    cursorStyle: prefs.terminalCursorShape,
+    cursorWidth: prefs.terminalCursorWidth,
+    cursorInactiveStyle:
+      getTerminalCursorRenderStrategy(prefs.terminalCursorAnimation) ===
+      "overlay"
+        ? ("none" as const)
+        : ("outline" as const),
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
     minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
@@ -212,7 +283,7 @@ function createSlot(): Slot {
   );
 
   const host = document.createElement("div");
-  host.style.cssText = "width:100%;height:100%;";
+  host.style.cssText = "position:relative;width:100%;height:100%;";
   host.setAttribute("data-terax-slot", String(slots.length));
   getRecycler().appendChild(host);
   term.open(host);
@@ -239,6 +310,11 @@ function createSlot(): Slot {
     imeRaf: null,
     imeTimer: null,
     imeDisposers: [],
+    cursorOverlay: null,
+    cursorOverlayRaf: null,
+    cursorDisposers: [],
+    cursorVisibility: { visible: true, tail: "" },
+    cursorNativeSuppressed: false,
     lastCols: term.cols,
     lastRows: term.rows,
     lastW: 0,
@@ -313,6 +389,7 @@ function createSlot(): Slot {
   });
 
   bindSlotImeAnchorSync(slot);
+  bindSlotCursorOverlaySync(slot);
   slots.push(slot);
   return slot;
 }
@@ -463,6 +540,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   if (!fast) {
     slot.term.clear();
     slot.term.reset();
+    resetSlotCursorVisibility(slot);
 
     if (
       p.cols > 0 &&
@@ -474,7 +552,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
 
     if (p.snapshot) {
       try {
-        slot.term.write(p.snapshot);
+        writeToSlot(slot, p.snapshot);
       } catch (e) {
         console.warn("[kite] snapshot replay failed:", e);
       }
@@ -485,10 +563,10 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
       // the TUI redraw from scratch instead.
       p.drainRing(() => {});
     } else {
-      p.drainRing((bytes) => slot.term.write(bytes));
+      p.drainRing((bytes) => writeToSlot(slot, bytes));
     }
     try {
-      slot.term.write("\x1b[?25h");
+      writeToSlot(slot, "\x1b[?25h");
     } catch {}
 
     for (const d of slot.oscDisposers) {
@@ -498,7 +576,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     }
     slot.oscDisposers = p.registerOsc(slot.term);
   } else {
-    p.drainRing((bytes) => slot.term.write(bytes));
+    p.drainRing((bytes) => writeToSlot(slot, bytes));
   }
 
   setupResizeObserver(slot, p);
@@ -519,7 +597,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     } catch {}
   }
 
-  applyCursorBlinkOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
+  applyCursorRenderingOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
 
   if (!fast && p.altScreen && !p.shellExited) {
     adapter?.resolveLeaf(p.leafId)?.kickPty(slot.term.cols, slot.term.rows);
@@ -532,6 +610,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
         slot.term.refresh(0, slot.term.rows - 1);
       } catch {}
       scheduleSlotImeAnchorSync(slot);
+      scheduleSlotCursorOverlaySync(slot);
     }
     if (adapter?.isLeafFocused(p.leafId)) slot.term.focus();
   } else {
@@ -553,6 +632,7 @@ function scheduleUnhide(slot: Slot, stale: boolean): void {
         } catch {}
       }
       scheduleSlotImeAnchorSync(slot);
+      scheduleSlotCursorOverlaySync(slot);
       const leafId = slot.currentLeafId;
       if (leafId !== null && adapter?.isLeafFocused(leafId)) {
         slot.term.focus();
@@ -642,6 +722,202 @@ function cancelSlotImeAnchorSync(slot: Slot): void {
   }
 }
 
+function bindSlotCursorOverlaySync(slot: Slot): void {
+  const syncSoon = () => scheduleSlotCursorOverlaySync(slot);
+  const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
+  const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
+  slot.cursorDisposers.push(
+    () => cursorMoveDisposable.dispose(),
+    () => writeParsedDisposable.dispose(),
+  );
+}
+
+function syncSlotCursorOverlay(slot: Slot): void {
+  const strategy = getTerminalCursorRenderStrategy(cursorAnimation);
+  const overlayStrategy = strategy === "overlay";
+  const hasOwner = slot.currentLeafId !== null || slot.retainedLeafId !== null;
+  setSlotNativeCursorSuppressed(slot, overlayStrategy && hasOwner);
+
+  if (!overlayStrategy || !hasOwner) {
+    hideSlotCursorOverlay(slot);
+    return;
+  }
+
+  const leafId = slot.currentLeafId;
+  const focused = leafId !== null && (adapter?.isLeafFocused(leafId) ?? false);
+  if (
+    !shouldShowTerminalCursorOverlay({
+      strategy,
+      hasOwner,
+      hasLiveLeaf: leafId !== null,
+      parked: slot.parked,
+      focused,
+      windowActive,
+      cursorVisible: slot.cursorVisibility.visible,
+      hostVisible: slot.host.style.visibility !== "hidden",
+    })
+  ) {
+    hideSlotCursorOverlay(slot);
+    return;
+  }
+
+  const screen = slot.term.element?.querySelector<HTMLElement>(".xterm-screen");
+  if (!screen?.isConnected) {
+    hideSlotCursorOverlay(slot);
+    return;
+  }
+
+  const box = computeTerminalCursorOverlayBox({
+    shape: cursorShape,
+    cursorWidth,
+    cols: slot.term.cols,
+    rows: slot.term.rows,
+    cursorX: slot.term.buffer.active.cursorX,
+    cursorY: slot.term.buffer.active.cursorY,
+    screenWidth: dimensionFromStyleOrRect(screen, "width"),
+    screenHeight: dimensionFromStyleOrRect(screen, "height"),
+  });
+  if (!box) {
+    hideSlotCursorOverlay(slot);
+    return;
+  }
+
+  const overlay = ensureSlotCursorOverlay(slot, screen);
+  overlay.className = [
+    "kite-terminal-cursor-overlay",
+    `kite-terminal-cursor-overlay-${cursorAnimation}`,
+    `kite-terminal-cursor-overlay-${cursorShape}`,
+  ].join(" ");
+  overlay.style.display = "block";
+  overlay.style.left = `${box.left}px`;
+  overlay.style.top = `${box.top}px`;
+  overlay.style.width = `${box.width}px`;
+  overlay.style.height = `${box.height}px`;
+}
+
+function scheduleSlotCursorOverlaySync(slot: Slot): void {
+  if (slot.cursorOverlayRaf !== null) return;
+  if (typeof requestAnimationFrame !== "function") {
+    syncSlotCursorOverlay(slot);
+    return;
+  }
+  slot.cursorOverlayRaf = requestAnimationFrame(() => {
+    slot.cursorOverlayRaf = null;
+    syncSlotCursorOverlay(slot);
+  });
+}
+
+function cancelSlotCursorOverlaySync(slot: Slot): void {
+  if (slot.cursorOverlayRaf === null) return;
+  cancelAnimationFrame(slot.cursorOverlayRaf);
+  slot.cursorOverlayRaf = null;
+}
+
+function ensureSlotCursorOverlay(
+  slot: Slot,
+  screen: HTMLElement,
+): HTMLDivElement {
+  let overlay = slot.cursorOverlay;
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.setAttribute("aria-hidden", "true");
+    slot.cursorOverlay = overlay;
+  }
+  if (overlay.parentElement !== screen) screen.appendChild(overlay);
+  return overlay;
+}
+
+function hideSlotCursorOverlay(slot: Slot): void {
+  if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
+}
+
+function disposeSlotCursorOverlay(slot: Slot): void {
+  cancelSlotCursorOverlaySync(slot);
+  slot.cursorOverlay?.remove();
+  slot.cursorOverlay = null;
+  slot.host.classList.remove("kite-terminal-overlay-cursor-active");
+}
+
+export function resetSlotCursorVisibility(slot: Slot): void {
+  slot.cursorVisibility = { visible: true, tail: "" };
+  if (slot.cursorNativeSuppressed) {
+    setXtermCursorHidden(slot.term, true);
+    refreshSlotCursorRow(slot);
+  }
+  scheduleSlotCursorOverlaySync(slot);
+}
+
+function setSlotNativeCursorSuppressed(
+  slot: Slot,
+  suppressed: boolean,
+): void {
+  slot.host.classList.toggle(
+    "kite-terminal-overlay-cursor-active",
+    suppressed,
+  );
+
+  if (suppressed) {
+    if (!slot.cursorNativeSuppressed) {
+      slot.cursorVisibility = {
+        visible: !isXtermCursorHidden(slot.term),
+        tail: "",
+      };
+      slot.cursorNativeSuppressed = true;
+    }
+    if (!isXtermCursorHidden(slot.term)) {
+      setXtermCursorHidden(slot.term, true);
+      refreshSlotCursorRow(slot);
+    }
+    return;
+  }
+
+  if (!slot.cursorNativeSuppressed) return;
+  slot.cursorNativeSuppressed = false;
+  setXtermCursorHidden(slot.term, !slot.cursorVisibility.visible);
+  refreshSlotCursorRow(slot);
+}
+
+type TerminalCursorInternals = Terminal & {
+  _core?: {
+    coreService?: {
+      isCursorHidden?: boolean;
+    };
+  };
+};
+
+function isXtermCursorHidden(term: Terminal): boolean {
+  return (
+    (term as TerminalCursorInternals)._core?.coreService?.isCursorHidden ===
+    true
+  );
+}
+
+function setXtermCursorHidden(term: Terminal, hidden: boolean): void {
+  const coreService = (term as TerminalCursorInternals)._core?.coreService;
+  if (coreService) coreService.isCursorHidden = hidden;
+}
+
+function refreshSlotCursorRow(slot: Slot): void {
+  const row = clampIndex(slot.term.buffer.active.cursorY, 0, slot.term.rows - 1);
+  try {
+    slot.term.refresh(row, row);
+  } catch {}
+}
+
+function dimensionFromStyleOrRect(
+  element: HTMLElement,
+  property: "width" | "height",
+): number {
+  const styled = Number.parseFloat(element.style[property]);
+  if (Number.isFinite(styled) && styled > 0) return styled;
+  const rect = element.getBoundingClientRect();
+  return property === "width" ? rect.width : rect.height;
+}
+
+function clampIndex(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function rewireSlot(slot: Slot, p: AcquireParams): void {
   slot.lastUsedAt = performance.now();
   unparkSlotHost(slot);
@@ -651,6 +927,7 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   setupResizeObserver(slot, p);
   slot.fitAddon.fit();
   syncSlotImeAnchor(slot);
+  applyCursorRenderingOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
   slot.lastW = p.container.clientWidth;
   slot.lastH = p.container.clientHeight;
   if (slot.term.cols !== p.cols || slot.term.rows !== p.rows) {
@@ -692,6 +969,7 @@ function setupResizeObserver(slot: Slot, p: AcquireParams): void {
       slot.lastH = h;
       slot.fitAddon.fit();
       syncSlotImeAnchor(slot);
+      scheduleSlotCursorOverlaySync(slot);
       if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
       slot.ptyTimer = setTimeout(flushPty, PTY_RESIZE_DEBOUNCE_MS);
     }, FIT_DEBOUNCE_MS);
@@ -755,9 +1033,12 @@ function detachSlotFromLeaf(slot: Slot, retain: boolean): void {
 
   cancelPendingUnhide(slot);
   cancelSlotImeAnchorSync(slot);
+  cancelSlotCursorOverlaySync(slot);
+  disposeSlotCursorOverlay(slot);
   slot.host.style.visibility = "";
 
   slot.currentLeafId = null;
+  syncSlotCursorOverlay(slot);
   slot.lastUsedAt = performance.now();
   scheduleWebglReap(slot);
   scheduleSlotReap(slot);
@@ -768,6 +1049,8 @@ function detachSlotFromLeaf(slot: Slot, retain: boolean): void {
 function parkSlotHost(slot: Slot): void {
   if (slot.parked) return;
   slot.parked = true;
+  applyCursorRenderingOnSlot(slot, false);
+  hideSlotCursorOverlay(slot);
   slot.host.style.display = "none";
 }
 
@@ -775,6 +1058,7 @@ function unparkSlotHost(slot: Slot): void {
   if (!slot.parked) return;
   slot.parked = false;
   slot.host.style.display = "";
+  scheduleSlotCursorOverlaySync(slot);
 }
 
 function scheduleWebglReap(slot: Slot): void {
@@ -826,6 +1110,7 @@ function disposeSlot(slot: Slot): void {
   cancelWebglReap(slot);
   cancelPendingUnhide(slot);
   cancelSlotImeAnchorSync(slot);
+  cancelSlotCursorOverlaySync(slot);
   if (slot.fitTimer) clearTimeout(slot.fitTimer);
   if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
   slot.fitTimer = null;
@@ -844,6 +1129,14 @@ function disposeSlot(slot: Slot): void {
     } catch {}
   }
   slot.imeDisposers = [];
+  for (const d of slot.cursorDisposers) {
+    try {
+      d();
+    } catch {}
+  }
+  slot.cursorDisposers = [];
+  setSlotNativeCursorSuppressed(slot, false);
+  disposeSlotCursorOverlay(slot);
   disposeSlotWebgl(slot);
   try {
     slot.term.dispose();
@@ -970,9 +1263,11 @@ export function applyWebglPreference(enabled: boolean): void {
           } catch {}
         }
       }
+      scheduleSlotCursorOverlaySync(slot);
     } else if (slot.webglAddon) {
       cancelWebglReap(slot);
       disposeSlotWebgl(slot);
+      scheduleSlotCursorOverlaySync(slot);
     }
   }
 }
@@ -986,6 +1281,7 @@ function refitSlot(slot: Slot): void {
   }
   slot.fitAddon.fit();
   syncSlotImeAnchor(slot);
+  scheduleSlotCursorOverlaySync(slot);
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
   adapter
@@ -1023,6 +1319,7 @@ export function applyFontWeight(weight: string): void {
     if (slot.term.options.fontWeight === weight) continue;
     slot.term.options.fontWeight = weight as FontWeight;
     scheduleSlotImeAnchorSync(slot);
+    scheduleSlotCursorOverlaySync(slot);
   }
 }
 
@@ -1038,6 +1335,7 @@ export function applyTheme(): void {
   for (const slot of slots) {
     slot.term.options.theme = theme;
     scheduleSlotImeAnchorSync(slot);
+    scheduleSlotCursorOverlaySync(slot);
   }
 }
 
@@ -1045,30 +1343,57 @@ export function focusSlot(leafId: number): void {
   const slot = slots.find((s) => s.currentLeafId === leafId);
   if (!slot) return;
   syncSlotImeAnchor(slot);
+  scheduleSlotCursorOverlaySync(slot);
   slot.term.focus();
 }
 
 export function setSlotFocused(leafId: number, focused: boolean): void {
   const slot = slots.find((s) => s.currentLeafId === leafId);
   if (!slot) return;
-  applyCursorBlinkOnSlot(slot, focused);
+  applyCursorRenderingOnSlot(slot, focused);
 }
 
-export function applyCursorBlink(enabled: boolean): void {
-  cursorBlinkEnabled = enabled;
+export function applyCursorPreferences(
+  shape: TerminalCursorShape,
+  animation: TerminalCursorAnimation,
+  width: TerminalCursorWidth,
+): void {
+  cursorShape = shape;
+  cursorAnimation = animation;
+  cursorWidth = width;
   for (const slot of slots) {
-    if (slot.currentLeafId === null) continue;
-    applyCursorBlinkOnSlot(
+    if (slot.term.options.cursorStyle !== shape) {
+      slot.term.options.cursorStyle = shape;
+    }
+    if (slot.term.options.cursorWidth !== width) {
+      slot.term.options.cursorWidth = width;
+    }
+    applyCursorRenderingOnSlot(
       slot,
-      adapter?.isLeafFocused(slot.currentLeafId) ?? false,
+      slot.currentLeafId !== null
+        ? (adapter?.isLeafFocused(slot.currentLeafId) ?? false)
+        : false,
     );
   }
 }
 
-function applyCursorBlinkOnSlot(slot: Slot, focused: boolean): void {
-  const desired = shouldCursorBlink(cursorBlinkEnabled, windowActive, focused);
-  if (slot.term.options.cursorBlink === desired) return;
-  slot.term.options.cursorBlink = desired;
+export function applyCursorBlink(enabled: boolean): void {
+  applyCursorPreferences(cursorShape, enabled ? "blink" : "steady", cursorWidth);
+}
+
+function applyCursorRenderingOnSlot(slot: Slot, focused: boolean): void {
+  const overlayStrategy =
+    getTerminalCursorRenderStrategy(cursorAnimation) === "overlay";
+  const desiredBlink =
+    !overlayStrategy && shouldCursorBlink(cursorAnimation, windowActive, focused);
+  if (slot.term.options.cursorBlink !== desiredBlink) {
+    slot.term.options.cursorBlink = desiredBlink;
+  }
+  const inactiveStyle = overlayStrategy ? "none" : "outline";
+  if (slot.term.options.cursorInactiveStyle !== inactiveStyle) {
+    slot.term.options.cursorInactiveStyle = inactiveStyle;
+  }
+  syncSlotCursorOverlay(slot);
 }
 
 export function getSlotForLeaf(leafId: number): Slot | null {
@@ -1115,6 +1440,7 @@ export function refreshLeafSlot(leafId: number): void {
     slot.term.refresh(0, slot.term.rows - 1);
   } catch {}
   scheduleSlotImeAnchorSync(slot);
+  scheduleSlotCursorOverlaySync(slot);
 }
 
 export function disposeLeafSlot(leafId: number): void {
@@ -1132,6 +1458,7 @@ export function discardRetainedSlot(leafId: number): void {
   discardRetention(slot);
   slot.term.clear();
   slot.term.reset();
+  resetSlotCursorVisibility(slot);
 }
 
 export function getLiveSlotForLeaf(leafId: number): Slot | null {

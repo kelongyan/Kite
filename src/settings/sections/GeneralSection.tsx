@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
@@ -34,7 +35,9 @@ import {
   setExplorerGitDecorations,
   setRestoreWindowState,
   setShowHidden,
-  setTerminalCursorBlink,
+  setTerminalCursorAnimation,
+  setTerminalCursorShape,
+  setTerminalCursorWidth,
   setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalFontWeight,
@@ -47,6 +50,14 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
 } from "@/modules/settings/store";
+import {
+  TERMINAL_CURSOR_ANIMATIONS,
+  TERMINAL_CURSOR_SHAPES,
+  TERMINAL_CURSOR_WIDTHS,
+  type TerminalCursorAnimation,
+  type TerminalCursorShape,
+  type TerminalCursorWidth,
+} from "@/modules/terminal/lib/cursorStyle";
 import { useTheme } from "@/modules/theme";
 import {
   ComputerIcon,
@@ -56,9 +67,10 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
+import { TerminalCursorPreview } from "../components/TerminalCursorPreview";
 
 const APPEARANCE: {
   id: ThemePref;
@@ -75,6 +87,36 @@ const TERMINAL_FONT_WEIGHTS = [
   { value: "600", labelKey: "semiBold" },
   { value: "bold", labelKey: "bold" },
 ] as const;
+
+const TERMINAL_CURSOR_SHAPE_LABEL_KEYS = {
+  bar: "bar",
+  block: "block",
+  underline: "underline",
+} as const satisfies Record<TerminalCursorShape, keyof CursorShapeLabels>;
+
+const TERMINAL_CURSOR_ANIMATION_LABEL_KEYS = {
+  steady: "steady",
+  blink: "blink",
+  smooth: "smooth",
+  expand: "expand",
+} as const satisfies Record<
+  TerminalCursorAnimation,
+  keyof CursorAnimationLabels
+>;
+
+type CursorShapeLabels = {
+  bar: string;
+  block: string;
+  underline: string;
+};
+
+type CursorAnimationLabels = {
+  steady: string;
+  blink: string;
+  smooth: string;
+  expand: string;
+};
+
 const LETTER_SPACINGS = [-4, -3, -2, -1, 0, 1, 2, 3, 4] as const;
 
 type ShellInfo = { name: string; path: string; integrated: boolean };
@@ -90,6 +132,10 @@ export function GeneralSection() {
   const messages = useMessages();
   const g = messages.settings.general;
   const { mode, setMode } = useTheme();
+  const cursorShapeLabelId = useId();
+  const cursorAnimationLabelId = useId();
+  const cursorAnimationDescriptionId = useId();
+  const cursorWidthLabelId = useId();
 
   const appLanguage = usePreferencesStore((s) => s.appLanguage);
   const autostart = usePreferencesStore((s) => s.autostart);
@@ -105,7 +151,11 @@ export function GeneralSection() {
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
-  const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
+  const terminalCursorShape = usePreferencesStore((s) => s.terminalCursorShape);
+  const terminalCursorAnimation = usePreferencesStore(
+    (s) => s.terminalCursorAnimation,
+  );
+  const terminalCursorWidth = usePreferencesStore((s) => s.terminalCursorWidth);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalShell = usePreferencesStore((s) => s.terminalShell);
@@ -119,6 +169,16 @@ export function GeneralSection() {
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
   const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
+  const cursorShapeLabel = (shape: TerminalCursorShape) =>
+    g.terminal.cursor.shapes[TERMINAL_CURSOR_SHAPE_LABEL_KEYS[shape]];
+  const cursorAnimationLabel = (animation: TerminalCursorAnimation) =>
+    g.terminal.cursor.animations[
+      TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
+    ];
+  const cursorAnimationDescription =
+    g.terminal.cursor.animationDescriptions[
+      TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[terminalCursorAnimation]
+    ];
 
   useEffect(() => {
     let alive = true;
@@ -321,13 +381,123 @@ export function GeneralSection() {
           />
         </SettingRow>
         <SettingRow
-          title={g.terminal.cursorBlinking}
-          description={g.terminal.cursorBlinkingDescription}
+          title={g.terminal.cursor.title}
+          description={g.terminal.cursor.description}
+          className="items-stretch"
         >
-          <Switch
-            checked={terminalCursorBlink}
-            onCheckedChange={(v) => void setTerminalCursorBlink(v)}
-          />
+          <div className="flex w-[360px] max-w-full flex-col gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span
+                id={cursorShapeLabelId}
+                className="text-[11px] text-muted-foreground"
+              >
+                {g.terminal.cursor.shape}
+              </span>
+              <CursorToggleGroup
+                value={terminalCursorShape}
+                ariaLabelledBy={cursorShapeLabelId}
+                onChange={(value) =>
+                  void setTerminalCursorShape(value as TerminalCursorShape)
+                }
+              >
+                {TERMINAL_CURSOR_SHAPES.map((shape) => (
+                  <ToggleGroupItem
+                    key={shape}
+                    value={shape}
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px]"
+                    aria-label={`${g.terminal.cursor.shape}: ${cursorShapeLabel(
+                      shape,
+                    )}`}
+                  >
+                    {cursorShapeLabel(shape)}
+                  </ToggleGroupItem>
+                ))}
+              </CursorToggleGroup>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span
+                id={cursorAnimationLabelId}
+                className="text-[11px] text-muted-foreground"
+              >
+                {g.terminal.cursor.animation}
+              </span>
+              <CursorToggleGroup
+                value={terminalCursorAnimation}
+                ariaLabelledBy={cursorAnimationLabelId}
+                ariaDescribedBy={cursorAnimationDescriptionId}
+                onChange={(value) =>
+                  void setTerminalCursorAnimation(
+                    value as TerminalCursorAnimation,
+                  )
+                }
+              >
+                {TERMINAL_CURSOR_ANIMATIONS.map((animation) => (
+                  <ToggleGroupItem
+                    key={animation}
+                    value={animation}
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px]"
+                    aria-label={`${cursorAnimationLabel(animation)}. ${
+                      g.terminal.cursor.animationDescriptions[
+                        TERMINAL_CURSOR_ANIMATION_LABEL_KEYS[animation]
+                      ]
+                    }`}
+                  >
+                    {cursorAnimationLabel(animation)}
+                  </ToggleGroupItem>
+                ))}
+              </CursorToggleGroup>
+              <span id={cursorAnimationDescriptionId} className="sr-only">
+                {cursorAnimationDescription}
+              </span>
+            </div>
+            {terminalCursorShape === "bar" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span
+                  id={cursorWidthLabelId}
+                  className="text-[11px] text-muted-foreground"
+                >
+                  {g.terminal.cursor.width}
+                </span>
+                <Select
+                  value={String(terminalCursorWidth)}
+                  onValueChange={(v) =>
+                    void setTerminalCursorWidth(
+                      Number(v) as TerminalCursorWidth,
+                    )
+                  }
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-7 w-24 text-[11px]"
+                    aria-labelledby={cursorWidthLabelId}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TERMINAL_CURSOR_WIDTHS.map((width) => (
+                      <SelectItem
+                        key={width}
+                        value={String(width)}
+                        className="text-[12px]"
+                      >
+                        {width} px
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <TerminalCursorPreview
+              shape={terminalCursorShape}
+              shapeLabel={cursorShapeLabel(terminalCursorShape)}
+              animation={terminalCursorAnimation}
+              animationLabel={cursorAnimationLabel(terminalCursorAnimation)}
+              width={terminalCursorWidth}
+              previewLabel={g.terminal.cursor.preview}
+            />
+          </div>
         </SettingRow>
         <FontFamilyInput
           value={terminalFontFamily}
@@ -553,6 +723,38 @@ function Label({ children }: { children: React.ReactNode }) {
     <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
       {children}
     </span>
+  );
+}
+
+function CursorToggleGroup({
+  value,
+  ariaDescribedBy,
+  ariaLabelledBy,
+  onChange,
+  children,
+}: {
+  value: string;
+  ariaDescribedBy?: string;
+  ariaLabelledBy: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(next) => {
+        if (next) onChange(next);
+      }}
+      variant="outline"
+      size="sm"
+      spacing={0}
+      aria-describedby={ariaDescribedBy}
+      aria-labelledby={ariaLabelledBy}
+      className="rounded-md [&_[data-slot=toggle-group-item]:first-child]:rounded-l-md [&_[data-slot=toggle-group-item]:last-child]:rounded-r-md"
+    >
+      {children}
+    </ToggleGroup>
   );
 }
 

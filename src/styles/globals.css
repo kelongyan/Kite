@@ -434,6 +434,95 @@ html *::-webkit-scrollbar {
   animation: terax-shimmer var(--shimmer-duration, 2s) linear infinite;
 }
 
+@keyframes kite-terminal-cursor-smooth {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes kite-terminal-cursor-expand {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleY(0.25);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.kite-terminal-overlay-cursor-active .xterm-cursor {
+  visibility: hidden !important;
+}
+
+.kite-terminal-cursor-overlay {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  background: var(--terminal-cursor);
+  pointer-events: none;
+  contain: strict;
+  will-change: opacity, transform;
+}
+
+.kite-terminal-cursor-overlay-smooth {
+  animation: kite-terminal-cursor-smooth 1.1s var(--ease-soft) infinite;
+}
+
+.kite-terminal-cursor-overlay-expand {
+  transform-origin: center;
+  animation: kite-terminal-cursor-expand 1.1s var(--ease-soft) infinite;
+}
+
+@keyframes kite-terminal-cursor-preview-blink {
+  0%,
+  48% {
+    opacity: 1;
+  }
+  52%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes kite-terminal-cursor-preview-smooth {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes kite-terminal-cursor-preview-expand {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleY(0.25);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.kite-terminal-cursor-preview-blink {
+  animation: kite-terminal-cursor-preview-blink 1.1s steps(1, end) infinite;
+}
+.kite-terminal-cursor-preview-smooth {
+  animation: kite-terminal-cursor-preview-smooth 1.1s var(--ease-soft) infinite;
+}
+.kite-terminal-cursor-preview-expand {
+  transform-origin: center;
+  animation: kite-terminal-cursor-preview-expand 1.1s var(--ease-soft) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-fast: 0.01ms;
@@ -446,5 +535,14 @@ html *::-webkit-scrollbar {
   .terax-shimmer {
     animation: none;
     background-position: 0% center;
+  }
+  .kite-terminal-cursor-preview-blink,
+  .kite-terminal-cursor-preview-smooth,
+  .kite-terminal-cursor-preview-expand,
+  .kite-terminal-cursor-overlay-smooth,
+  .kite-terminal-cursor-overlay-expand {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }

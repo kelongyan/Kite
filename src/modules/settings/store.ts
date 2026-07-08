@@ -17,6 +17,18 @@ import {
 import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
 import { coerceAppLanguage, type AppLanguage } from "@/modules/i18n/locale";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
+import {
+  coerceTerminalCursorAnimation,
+  coerceTerminalCursorShape,
+  coerceTerminalCursorWidth,
+  DEFAULT_TERMINAL_CURSOR_ANIMATION,
+  DEFAULT_TERMINAL_CURSOR_SHAPE,
+  DEFAULT_TERMINAL_CURSOR_WIDTH,
+  resolveTerminalCursorAnimation,
+  type TerminalCursorAnimation,
+  type TerminalCursorShape,
+  type TerminalCursorWidth,
+} from "@/modules/terminal/lib/cursorStyle";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
@@ -149,6 +161,9 @@ export type Preferences = {
   explorerGitDecorations: boolean;
   terminalWebglEnabled: boolean;
   terminalCursorBlink: boolean;
+  terminalCursorShape: TerminalCursorShape;
+  terminalCursorAnimation: TerminalCursorAnimation;
+  terminalCursorWidth: TerminalCursorWidth;
   terminalFontFamily: string;
   terminalFontWeight: string;
   terminalShell: string;
@@ -203,6 +218,9 @@ const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_EXPLORER_GIT_DECORATIONS = "explorerGitDecorations";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_CURSOR_BLINK = "terminalCursorBlink";
+const KEY_TERMINAL_CURSOR_SHAPE = "terminalCursorShape";
+const KEY_TERMINAL_CURSOR_ANIMATION = "terminalCursorAnimation";
+const KEY_TERMINAL_CURSOR_WIDTH = "terminalCursorWidth";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_TERMINAL_SHELL = "terminalShell";
@@ -270,6 +288,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   explorerGitDecorations: true,
   terminalWebglEnabled: true,
   terminalCursorBlink: false,
+  terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
+  terminalCursorAnimation: DEFAULT_TERMINAL_CURSOR_ANIMATION,
+  terminalCursorWidth: DEFAULT_TERMINAL_CURSOR_WIDTH,
   terminalFontFamily: DEFAULT_MONO_FONT_FAMILY,
   terminalFontWeight: "normal",
   terminalShell: "",
@@ -420,6 +441,16 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalCursorBlink:
       get<boolean>(KEY_TERMINAL_CURSOR_BLINK) ??
       DEFAULT_PREFERENCES.terminalCursorBlink,
+    terminalCursorShape: coerceTerminalCursorShape(
+      get<string>(KEY_TERMINAL_CURSOR_SHAPE),
+    ),
+    terminalCursorAnimation: resolveTerminalCursorAnimation(
+      get<string>(KEY_TERMINAL_CURSOR_ANIMATION),
+      get<boolean>(KEY_TERMINAL_CURSOR_BLINK),
+    ),
+    terminalCursorWidth: coerceTerminalCursorWidth(
+      get<number>(KEY_TERMINAL_CURSOR_WIDTH),
+    ),
     terminalFontFamily: normalizeTerminalFontFamily(
       get<string>(KEY_TERMINAL_FONT_FAMILY),
     ),
@@ -634,6 +665,27 @@ export async function setTerminalCursorBlink(value: boolean): Promise<void> {
   await writePref(KEY_TERMINAL_CURSOR_BLINK, value);
 }
 
+export async function setTerminalCursorShape(
+  value: TerminalCursorShape,
+): Promise<void> {
+  await writePref(KEY_TERMINAL_CURSOR_SHAPE, coerceTerminalCursorShape(value));
+}
+
+export async function setTerminalCursorAnimation(
+  value: TerminalCursorAnimation,
+): Promise<void> {
+  await writePref(
+    KEY_TERMINAL_CURSOR_ANIMATION,
+    coerceTerminalCursorAnimation(value),
+  );
+}
+
+export async function setTerminalCursorWidth(
+  value: TerminalCursorWidth,
+): Promise<void> {
+  await writePref(KEY_TERMINAL_CURSOR_WIDTH, coerceTerminalCursorWidth(value));
+}
+
 export async function setTerminalFontFamily(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_FAMILY, normalizeTerminalFontFamily(value));
 }
@@ -763,6 +815,9 @@ export async function onPreferencesChange(
     [KEY_EXPLORER_GIT_DECORATIONS]: "explorerGitDecorations",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_CURSOR_BLINK]: "terminalCursorBlink",
+    [KEY_TERMINAL_CURSOR_SHAPE]: "terminalCursorShape",
+    [KEY_TERMINAL_CURSOR_ANIMATION]: "terminalCursorAnimation",
+    [KEY_TERMINAL_CURSOR_WIDTH]: "terminalCursorWidth",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
     [KEY_TERMINAL_SHELL]: "terminalShell",

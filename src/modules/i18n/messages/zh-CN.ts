@@ -820,6 +820,32 @@ export const zhCN: Messages = {
         cursorBlinking: "光标闪烁",
         cursorBlinkingDescription:
           "让终端光标闪烁。默认关闭以降低空闲 CPU，占用风格接近 VS Code 和 macOS 终端。",
+        cursor: {
+          title: "光标",
+          description:
+            "选择终端光标的形状和动画。动画会跟随系统的减少动态效果设置。",
+          shape: "形状",
+          animation: "动画",
+          width: "宽度",
+          preview: "光标预览",
+          shapes: {
+            bar: "竖线",
+            block: "方块",
+            underline: "下划线",
+          },
+          animations: {
+            steady: "静止",
+            blink: "闪烁",
+            smooth: "柔和",
+            expand: "伸缩",
+          },
+          animationDescriptions: {
+            steady: "不播放光标动画。",
+            blink: "在显示和变淡之间切换。",
+            smooth: "连续淡入淡出。",
+            expand: "从中心向上下伸缩。",
+          },
+        },
         fontFamily: "字体族",
         fontFamilyPlaceholder:
           "例如 JetBrains Mono, 'Microsoft YaHei', monospace",

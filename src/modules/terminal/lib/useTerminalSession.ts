@@ -24,7 +24,7 @@ import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
 import {
   acquireSlot,
   applyBackgroundActive,
-  applyCursorBlink,
+  applyCursorPreferences,
   applyFontFamily,
   applyFontSize,
   applyFontWeight,
@@ -44,7 +44,9 @@ import {
   poolSlotStats,
   refreshLeafSlot,
   releaseSlot,
+  resetSlotCursorVisibility,
   setSlotFocused,
+  writeToSlot,
 } from "./rendererPool";
 
 type Callbacks = {
@@ -485,7 +487,7 @@ function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
-  if (slot) slot.term.write(bytes);
+  if (slot) writeToSlot(slot, bytes);
   else s.dormantRing.push(bytes);
 }
 
@@ -757,6 +759,7 @@ export async function respawnSession(
     slot.term.options.disableStdin = false;
     slot.term.clear();
     slot.term.reset();
+    resetSlotCursorVisibility(slot);
   } else {
     discardRetainedSlot(leafId);
   }
@@ -936,10 +939,12 @@ export function useTerminalSession({
     applyWebglPreference(webglPref);
   }, [webglPref]);
 
-  const cursorBlink = usePreferencesStore((p) => p.terminalCursorBlink);
+  const cursorShape = usePreferencesStore((p) => p.terminalCursorShape);
+  const cursorAnimation = usePreferencesStore((p) => p.terminalCursorAnimation);
+  const cursorWidth = usePreferencesStore((p) => p.terminalCursorWidth);
   useEffect(() => {
-    applyCursorBlink(cursorBlink);
-  }, [cursorBlink]);
+    applyCursorPreferences(cursorShape, cursorAnimation, cursorWidth);
+  }, [cursorShape, cursorAnimation, cursorWidth]);
 
   const bgActive = usePreferencesStore(
     (p) => p.backgroundKind === "image" && !!p.backgroundImageId,
