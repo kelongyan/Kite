@@ -299,8 +299,9 @@ export type Messages = {
       tableDateModified: string;
       tableSize: string;
       tableKind: string;
-      up: string;
+      back: string;
       refresh: string;
+      selectLocalFolder: string;
       connectionTitle: string;
       profile: string;
       newProfile: string;
@@ -1392,8 +1393,9 @@ export const en: Messages = {
       tableDateModified: "Date Modified",
       tableSize: "Size",
       tableKind: "Kind",
-      up: "Up",
+      back: "Back",
       refresh: "Refresh",
+      selectLocalFolder: "Select local folder",
       connectionTitle: "SFTP Connection",
       profile: "Profile",
       newProfile: "New profile",

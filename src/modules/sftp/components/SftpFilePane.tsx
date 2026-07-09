@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { formatBytes, formatDate, formatKind } from "@/modules/sftp/lib/format";
-import { splitRemotePath } from "@/modules/sftp/lib/path";
+import { splitLocalPath, splitRemotePath } from "@/modules/sftp/lib/path";
 import type { SelectMode } from "@/modules/sftp/lib/selection";
 import type { LocalEntry, SftpEntry } from "@/modules/sftp/lib/types";
 import {
-  ArrowUp01Icon,
+  ArrowLeft01Icon,
   File01Icon,
   Folder01Icon,
+  FolderOpenIcon,
   FolderSymlinkIcon,
   MoreHorizontalIcon,
   Refresh01Icon,
@@ -40,6 +41,9 @@ type Props = {
   onOpenDir: (entry: Entry) => void;
   onPathChange: (path: string) => void;
   onRefresh: () => void;
+  canGoBack?: boolean;
+  onBack?: () => void;
+  onSelectFolder?: () => void;
   primaryAction?: {
     label: string;
     disabled?: boolean;
@@ -68,11 +72,16 @@ export function SftpFilePane({
   onOpenDir,
   onPathChange,
   onRefresh,
+  canGoBack,
+  onBack,
+  onSelectFolder,
   primaryAction,
   actions = [],
 }: Props) {
   const messages = useMessages().workspace.sftp;
   const [filter, setFilter] = useState("");
+  const pathSegments =
+    side === "remote" ? splitRemotePath(path) : splitLocalPath(path);
   const visible = useMemo(() => {
     const query = filter.trim().toLowerCase();
     if (!query) return entries;
@@ -147,34 +156,44 @@ export function SftpFilePane({
         <Button
           size="icon-sm"
           variant="ghost"
-          onClick={() => onPathChange(parentPath(path))}
-          aria-label={messages.up}
-          title={messages.up}
+          disabled={!canGoBack || !onBack}
+          onClick={onBack}
+          aria-label={messages.back}
+          title="←"
         >
-          <HugeiconsIcon icon={ArrowUp01Icon} size={14} strokeWidth={2} />
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={14} strokeWidth={2} />
         </Button>
+        {onSelectFolder ? (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={onSelectFolder}
+            aria-label={messages.selectLocalFolder}
+            title="folder"
+          >
+            <HugeiconsIcon icon={FolderOpenIcon} size={14} strokeWidth={2} />
+          </Button>
+        ) : null}
         <Button
           size="icon-sm"
           variant="ghost"
           onClick={onRefresh}
           aria-label={messages.refresh}
-          title={messages.refresh}
+          title="↻"
         >
           <HugeiconsIcon icon={Refresh01Icon} size={14} strokeWidth={2} />
         </Button>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden px-2 text-xs text-muted-foreground">
-          {side === "remote"
-            ? splitRemotePath(path).map((part) => (
-                <button
-                  key={part.path}
-                  type="button"
-                  className="min-w-0 shrink-0 rounded px-1 py-0.5 hover:bg-muted hover:text-foreground"
-                  onClick={() => onPathChange(part.path)}
-                >
-                  {part.label}
-                </button>
-              ))
-            : path}
+          {pathSegments.map((part) => (
+            <button
+              key={part.path}
+              type="button"
+              className="min-w-0 shrink-0 rounded px-1 py-0.5 hover:bg-muted hover:text-foreground"
+              onClick={() => onPathChange(part.path)}
+            >
+              {part.label}
+            </button>
+          ))}
         </div>
         <Input
           value={filter}
@@ -281,11 +300,4 @@ function EntryIcon({ kind }: { kind: Entry["kind"] }) {
       className="shrink-0 text-muted-foreground"
     />
   );
-}
-
-function parentPath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  const idx = normalized.lastIndexOf("/");
-  if (idx <= 0) return normalized.includes(":") ? normalized : "/";
-  return normalized.slice(0, idx);
 }

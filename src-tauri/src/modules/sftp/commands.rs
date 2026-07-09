@@ -94,7 +94,11 @@ pub struct SftpProfileSaveRequest {
 }
 
 #[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase", tag = "status")]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "status"
+)]
 pub enum SftpConnectResult {
     Connected {
         connection_id: String,
@@ -1570,6 +1574,21 @@ fn redact_error(error: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::sftp::profile::SftpAuthMethod;
+
+    fn test_profile() -> SftpProfile {
+        SftpProfile {
+            id: "p1".into(),
+            name: "Server".into(),
+            host: "example.com".into(),
+            port: 22,
+            username: "deploy".into(),
+            auth_method: SftpAuthMethod::PrivateKey,
+            private_key_path: Some("C:/Users/Administrator/.ssh/id_rsa_server".into()),
+            default_remote_path: "/home/deploy".into(),
+            trusted_host_key: Some("SHA256:old".into()),
+        }
+    }
 
     #[test]
     fn permission_format_matches_remote_table_display() {
@@ -1639,5 +1658,38 @@ mod tests {
         assert_eq!(validate_remote_search_query(" deploy ").unwrap(), "deploy");
         assert!(validate_remote_search_query("   ").is_err());
         assert!(validate_remote_search_query("bad\0query").is_err());
+    }
+
+    #[test]
+    fn connect_result_serializes_fields_for_frontend() {
+        let json = serde_json::to_value(SftpConnectResult::Connected {
+            connection_id: "c1".into(),
+            profile: test_profile(),
+            fingerprint: "SHA256:new".into(),
+        })
+        .unwrap();
+
+        assert_eq!(json["status"], "connected");
+        assert_eq!(json["connectionId"], "c1");
+        assert!(json.get("connection_id").is_none());
+    }
+
+    #[test]
+    fn host_key_result_serializes_fields_for_frontend() {
+        let json = serde_json::to_value(SftpConnectResult::HostKeyRequired {
+            profile_id: "p1".into(),
+            host: "example.com".into(),
+            port: 22,
+            fingerprint: "SHA256:new".into(),
+            previous_fingerprint: Some("SHA256:old".into()),
+            changed: true,
+        })
+        .unwrap();
+
+        assert_eq!(json["status"], "hostKeyRequired");
+        assert_eq!(json["profileId"], "p1");
+        assert_eq!(json["previousFingerprint"], "SHA256:old");
+        assert!(json.get("profile_id").is_none());
+        assert!(json.get("previous_fingerprint").is_none());
     }
 }

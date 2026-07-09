@@ -3,9 +3,13 @@ import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { sftpApi } from "@/modules/sftp/lib/api";
 import {
+  createNavigationState,
   dirname,
+  goBack,
   joinLocalPath,
   joinRemotePath,
+  pushNavigation,
+  replaceNavigation,
 } from "@/modules/sftp/lib/path";
 import { buildSyncPlan, type SyncPlan } from "@/modules/sftp/lib/diffEntries";
 import {
@@ -22,8 +26,9 @@ import type {
 } from "@/modules/sftp/lib/types";
 import { useSftpStore } from "@/modules/sftp/store/sftpStore";
 import type { Tab } from "@/modules/tabs";
-import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Plug01Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
@@ -105,8 +110,12 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   const messages = useMessages().workspace.sftp;
 
   const [connectOpen, setConnectOpen] = useState(false);
-  const [localPath, setLocalPath] = useState(initialLocalPath ?? "");
-  const [remotePath, setRemotePath] = useState("/");
+  const [localNav, setLocalNav] = useState(() =>
+    createNavigationState(initialLocalPath ?? ""),
+  );
+  const [remoteNav, setRemoteNav] = useState(() => createNavigationState("/"));
+  const localPath = localNav.current;
+  const remotePath = remoteNav.current;
   const [local, setLocal] = useState<PaneState<LocalEntry>>({
     entries: [],
     selectedPaths: new Set(),
@@ -136,7 +145,11 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   useEffect(() => {
     if (initialLocalPath || localPath) return;
     void invoke<string>("workspace_current_dir")
-      .then(setLocalPath)
+      .then((path) => {
+        setLocalNav((state) =>
+          state.current ? state : replaceNavigation(state, path),
+        );
+      })
       .catch(() => {});
   }, [initialLocalPath, localPath]);
 
@@ -196,6 +209,33 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   useEffect(() => {
     if (connection) void loadRemote();
   }, [connection, loadRemote]);
+
+  const navigateLocal = useCallback((path: string) => {
+    setLocalNav((state) => pushNavigation(state, path));
+  }, []);
+
+  const navigateRemote = useCallback((path: string) => {
+    setRemoteNav((state) => pushNavigation(state, path));
+  }, []);
+
+  const selectLocalFolder = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: localPath || undefined,
+      });
+      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+      if (typeof selectedPath === "string" && selectedPath) {
+        navigateLocal(selectedPath);
+      }
+    } catch (err) {
+      setLocal((state) => ({
+        ...state,
+        error: String(err),
+      }));
+    }
+  }, [localPath, navigateLocal]);
 
   const localSelected = useMemo(
     () => selectedEntries(local.entries, local.selectedPaths),
@@ -446,6 +486,7 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
               onClick={() => {
                 void sftpApi.disconnect(connection.id);
                 setConnection(null);
+                setRemoteNav(createNavigationState("/"));
                 setRemoteSearch(null);
                 setSyncPlan(null);
                 setRemote({
@@ -479,9 +520,12 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
           error={local.error}
           emptyLabel={messages.folderEmpty}
           onSelect={updateLocalSelection}
-          onOpenDir={(entry) => setLocalPath(entry.path)}
-          onPathChange={setLocalPath}
+          onOpenDir={(entry) => navigateLocal(entry.path)}
+          onPathChange={navigateLocal}
           onRefresh={() => void loadLocal()}
+          canGoBack={localNav.back.length > 0}
+          onBack={() => setLocalNav(goBack)}
+          onSelectFolder={() => void selectLocalFolder()}
           primaryAction={{
             label: messages.upload,
             disabled: !canUpload,
@@ -518,9 +562,11 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
             error={remote.error}
             emptyLabel={messages.folderEmpty}
             onSelect={updateRemoteSelection}
-            onOpenDir={(entry) => setRemotePath(entry.path)}
-            onPathChange={setRemotePath}
+            onOpenDir={(entry) => navigateRemote(entry.path)}
+            onPathChange={navigateRemote}
             onRefresh={() => void loadRemote()}
+            canGoBack={remoteNav.back.length > 0}
+            onBack={() => setRemoteNav(goBack)}
             primaryAction={{
               label: messages.download,
               disabled: !canDownload,
@@ -614,7 +660,7 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
           });
           setRemoteSearch(null);
           setSyncPlan(null);
-          setRemotePath(result.profile.defaultRemotePath);
+          setRemoteNav(createNavigationState(result.profile.defaultRemotePath));
         }}
       />
     </div>
