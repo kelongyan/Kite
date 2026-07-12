@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeImeAnchor,
+  findVisibleCursorCell,
   resolveImeAnchorCursor,
   syncImeTextarea,
 } from "./imeAnchor";
@@ -79,6 +80,67 @@ describe("resolveImeAnchorCursor", () => {
         preferVisibleCursor: true,
       }),
     ).toEqual({ cursorX: 2, cursorY: 3 });
+  });
+
+  it("identifies an inverse blank cell as a synthetic TUI cursor", () => {
+    const buffer = createBuffer({
+      cursorX: 28,
+      cursorY: 12,
+      lines: [
+        "Claude Code",
+        [{ chars: ">" }, { chars: " " }, cursorCell(), { chars: " " }],
+        "? for shortcuts",
+      ],
+    });
+
+    expect(
+      findVisibleCursorCell({
+        buffer,
+        cols: 40,
+        rows: 3,
+        preferVisibleCursor: true,
+      }),
+    ).toEqual({ cursorX: 2, cursorY: 1, inverse: true });
+  });
+
+  it("skips background highlights when an inverse cursor is required", () => {
+    const buffer = createBuffer({
+      cursorX: 28,
+      cursorY: 12,
+      lines: [
+        [{ chars: ">" }, cursorCell(), { chars: " ", bgDefault: false }],
+        [{ chars: " " }, { chars: " ", bgDefault: false }],
+      ],
+    });
+
+    expect(
+      findVisibleCursorCell({
+        buffer,
+        cols: 40,
+        rows: 2,
+        requireInverse: true,
+      }),
+    ).toEqual({ cursorX: 1, cursorY: 0, inverse: true });
+  });
+
+  it("rejects ambiguous inverse cursor candidates", () => {
+    const buffer = createBuffer({
+      cursorX: 28,
+      cursorY: 12,
+      lines: [
+        [{ chars: ">" }, cursorCell()],
+        [{ chars: "status" }, cursorCell()],
+      ],
+    });
+
+    expect(
+      findVisibleCursorCell({
+        buffer,
+        cols: 40,
+        rows: 2,
+        requireInverse: true,
+      }),
+    ).toBeNull();
   });
 
   it("falls back to the terminal cursor when no TUI cursor cell is visible", () => {

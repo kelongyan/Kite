@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use portable_pty::CommandBuilder;
@@ -18,6 +19,11 @@ const ZSHRC_SCRIPT: &str = include_str!("scripts/zshrc.zsh");
 const FISH_INIT_SCRIPT: &str = include_str!("scripts/init.fish");
 const FISH_REINSTALL_PROMPT: &str =
     "functions -q __terax_install_prompt; and __terax_install_prompt";
+const CLAUDE_NATIVE_CURSOR_ENV: &str = "CLAUDE_CODE_NATIVE_CURSOR";
+
+fn claude_native_cursor_value() -> OsString {
+    std::env::var_os(CLAUDE_NATIVE_CURSOR_ENV).unwrap_or_else(|| OsString::from("1"))
+}
 
 #[cfg(windows)]
 fn bashrc_script() -> &'static str {
@@ -177,6 +183,7 @@ fn apply_common(
     cmd.env("TERM_PROGRAM", "Kite");
     cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     cmd.env("TERAX_TERMINAL", "1");
+    cmd.env(CLAUDE_NATIVE_CURSOR_ENV, claude_native_cursor_value());
     if blocks {
         cmd.env("TERAX_BLOCKS", "1");
     }
@@ -659,6 +666,7 @@ mod windows {
             &distro,
             &shell_path,
             shell_kind,
+            &super::claude_native_cursor_value().to_string_lossy(),
             integration,
         );
         let mut cmd = CommandBuilder::new("wsl.exe");
@@ -681,6 +689,7 @@ mod windows {
         distro: &str,
         shell_path: &str,
         shell_kind: ShellKind,
+        claude_native_cursor: &str,
         integration: WslShellIntegration,
     ) -> WslLaunchSpec {
         let mut args = vec![
@@ -689,6 +698,8 @@ mod windows {
             "--cd".to_string(),
             cwd.filter(|s| !s.is_empty()).unwrap_or("~").to_string(),
             "--exec".to_string(),
+            "env".to_string(),
+            format!("{}={claude_native_cursor}", super::CLAUDE_NATIVE_CURSOR_ENV),
         ];
         match (shell_kind, integration) {
             (
@@ -698,7 +709,6 @@ mod windows {
                     user_zdotdir,
                 },
             ) => {
-                args.push("env".to_string());
                 if let Some(user_zdotdir) = user_zdotdir {
                     args.push(format!("TERAX_USER_ZDOTDIR={user_zdotdir}"));
                 }
@@ -713,7 +723,6 @@ mod windows {
                 args.push("-i".to_string());
             }
             (ShellKind::Fish, WslShellIntegration::Fish) => {
-                args.push("env".to_string());
                 args.push("fish_features=no-mark-prompt".to_string());
                 args.push(shell_path.to_string());
                 args.push("-i".to_string());
@@ -914,6 +923,7 @@ mod windows {
                 "Ubuntu",
                 "/usr/bin/zsh",
                 ShellKind::Zsh,
+                "1",
                 WslShellIntegration::Zsh {
                     zdotdir: "/home/vinicios/.cache/terax/shell-integration/zsh".into(),
                     user_zdotdir: None,
@@ -928,6 +938,7 @@ mod windows {
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
                     "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "ZDOTDIR=/home/vinicios/.cache/terax/shell-integration/zsh".to_string(),
                     "/usr/bin/zsh".to_string(),
                     "-l".to_string(),
@@ -942,6 +953,7 @@ mod windows {
                 "Ubuntu",
                 "/usr/bin/zsh",
                 ShellKind::Zsh,
+                "1",
                 WslShellIntegration::Zsh {
                     zdotdir: "/home/vinicios/.cache/terax/shell-integration/zsh".into(),
                     user_zdotdir: Some("/home/vinicios/.config/zsh".into()),
@@ -956,6 +968,7 @@ mod windows {
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
                     "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "TERAX_USER_ZDOTDIR=/home/vinicios/.config/zsh".to_string(),
                     "ZDOTDIR=/home/vinicios/.cache/terax/shell-integration/zsh".to_string(),
                     "/usr/bin/zsh".to_string(),
@@ -971,6 +984,7 @@ mod windows {
                 "Ubuntu",
                 "/usr/bin/zsh",
                 ShellKind::Zsh,
+                "1",
                 WslShellIntegration::None,
             );
             assert_eq!(
@@ -981,6 +995,8 @@ mod windows {
                     "--cd".to_string(),
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
+                    "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "/usr/bin/zsh".to_string(),
                     "-l".to_string(),
                 ]
@@ -994,6 +1010,7 @@ mod windows {
                 "Ubuntu",
                 "/bin/bash",
                 ShellKind::Bash,
+                "1",
                 WslShellIntegration::Bash {
                     rcfile: "/home/vinicios/.cache/terax/shell-integration/bash/bashrc".into(),
                 },
@@ -1006,6 +1023,8 @@ mod windows {
                     "--cd".to_string(),
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
+                    "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "/bin/bash".to_string(),
                     "--rcfile".to_string(),
                     "/home/vinicios/.cache/terax/shell-integration/bash/bashrc".to_string(),
@@ -1021,6 +1040,7 @@ mod windows {
                 "Ubuntu",
                 "/usr/bin/fish",
                 ShellKind::Fish,
+                "1",
                 WslShellIntegration::Fish,
             );
             assert_eq!(
@@ -1032,6 +1052,7 @@ mod windows {
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
                     "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "fish_features=no-mark-prompt".to_string(),
                     "/usr/bin/fish".to_string(),
                     "-i".to_string(),
@@ -1048,6 +1069,7 @@ mod windows {
                 "Ubuntu",
                 "/usr/bin/nu",
                 ShellKind::Other,
+                "1",
                 WslShellIntegration::None,
             );
             assert_eq!(
@@ -1058,6 +1080,8 @@ mod windows {
                     "--cd".to_string(),
                     "~".to_string(),
                     "--exec".to_string(),
+                    "env".to_string(),
+                    "CLAUDE_CODE_NATIVE_CURSOR=1".to_string(),
                     "/usr/bin/nu".to_string(),
                 ]
             );
@@ -1107,7 +1131,9 @@ fn which_in_path(name: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_common, sanitize_shell_override, TerminalThemeMode};
+    use super::{
+        apply_common, sanitize_shell_override, TerminalThemeMode, CLAUDE_NATIVE_CURSOR_ENV,
+    };
     use portable_pty::CommandBuilder;
 
     #[test]
@@ -1141,6 +1167,12 @@ mod tests {
         assert_eq!(
             cmd.get_env("TERM_PROGRAM_VERSION").and_then(|v| v.to_str()),
             Some(env!("CARGO_PKG_VERSION"))
+        );
+        let expected = std::env::var_os(CLAUDE_NATIVE_CURSOR_ENV)
+            .unwrap_or_else(|| std::ffi::OsString::from("1"));
+        assert_eq!(
+            cmd.get_env(CLAUDE_NATIVE_CURSOR_ENV),
+            Some(expected.as_os_str())
         );
     }
 

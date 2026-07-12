@@ -7,28 +7,37 @@ import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { type FontWeight, Terminal } from "@xterm/xterm";
+import { type FontWeight, type ITheme, Terminal } from "@xterm/xterm";
 import { shouldCursorBlink } from "./cursorBlink";
 import {
   computeTerminalCursorOverlayBox,
   getTerminalCursorRenderStrategy,
-  resolveTerminalCursorVisibilityFromOutput,
+  resolveTerminalNativeCursorShape,
+  resolveTerminalNativeCursorWidth,
+  shouldInterceptTerminalCursorColor,
+  shouldInterceptTerminalCursorStyle,
   shouldShowTerminalCursorOverlay,
-  type TerminalCursorVisibilityState,
+  shouldSuppressNativeCursor,
+  terminalCursorMaskColor,
   type TerminalCursorAnimation,
   type TerminalCursorShape,
   type TerminalCursorWidth,
 } from "./cursorStyle";
-import {
-  readTerminalClipboard,
-  writeTerminalClipboard,
-} from "./terminalClipboard";
-import { syncTerminalImeAnchor } from "./imeAnchor";
+import { findVisibleCursorCell, syncTerminalImeAnchor } from "./imeAnchor";
 import {
   terminalDeleteSequence,
   terminalLineNavigationSequence,
   terminalWordNavigationSequence,
 } from "./keymap";
+import { formatOscColorReply } from "./osc-handlers";
+import {
+  isNoopSynchronizedOutputFrame,
+  shouldDropNoopSynchronizedOutput,
+} from "./synchronizedOutput";
+import {
+  readTerminalClipboard,
+  writeTerminalClipboard,
+} from "./terminalClipboard";
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -65,6 +74,10 @@ export type Slot = {
   webglAddon: WebglAddon | null;
   webglCanvases: HTMLCanvasElement[];
   currentLeafId: number | null;
+  pendingTerminalWrites: number;
+  // A write callback can leave the VT parser mid-sequence. A parsed no-op
+  // frame establishes a safe boundary before later identical frames are dropped.
+  noopSynchronizedOutputPrimed: boolean;
   // Leaf whose buffer this slot still holds intact after release; serialized
   // only if another leaf steals the slot.
   retainedLeafId: number | null;
@@ -80,9 +93,9 @@ export type Slot = {
   imeTimer: ReturnType<typeof setTimeout> | null;
   imeDisposers: (() => void)[];
   cursorOverlay: HTMLDivElement | null;
+  cursorOverlayMask: HTMLDivElement | null;
   cursorOverlayRaf: number | null;
   cursorDisposers: (() => void)[];
-  cursorVisibility: TerminalCursorVisibilityState;
   cursorNativeSuppressed: boolean;
   lastCols: number;
   lastRows: number;
@@ -174,50 +187,45 @@ export function pasteIntoLeaf(leafId: number, text: string): boolean {
 }
 
 export function writeToSlot(slot: Slot, data: string | Uint8Array): void {
-  const visibilityChanged = trackSlotCursorVisibility(slot, data);
-  slot.term.write(data);
-  if (visibilityChanged) scheduleSlotCursorOverlaySync(slot);
-}
-
-function trackSlotCursorVisibility(
-  slot: Slot,
-  data: string | Uint8Array,
-): boolean {
-  if (getTerminalCursorRenderStrategy(cursorAnimation) !== "overlay") {
-    return false;
+  const alternateScreen = isAltScreen(slot);
+  const synchronizedOutputActive = slot.term.modes.synchronizedOutputMode;
+  const noopSynchronizedOutput =
+    alternateScreen &&
+    !synchronizedOutputActive &&
+    isNoopSynchronizedOutputFrame(data);
+  if (
+    shouldDropNoopSynchronizedOutput(data, {
+      alternateScreen,
+      synchronizedOutputActive,
+      pendingTerminalWrites: slot.pendingTerminalWrites,
+      noopSynchronizedOutputPrimed: slot.noopSynchronizedOutputPrimed,
+    })
+  ) {
+    return;
   }
-  const text = outputTextForCursorTracking(data, slot.cursorVisibility.tail);
-  if (text === null) return false;
-  const next = resolveTerminalCursorVisibilityFromOutput(
-    text,
-    slot.cursorVisibility,
-  );
-  const changed = next.visible !== slot.cursorVisibility.visible;
-  slot.cursorVisibility = next;
-  return changed;
-}
-
-let cursorOutputDecoder: TextDecoder | null = null;
-
-function outputTextForCursorTracking(
-  data: string | Uint8Array,
-  tail: string,
-): string | null {
-  if (typeof data === "string") {
-    return data.includes("\x1b") || tail.includes("\x1b") ? data : null;
-  }
-  if (!tail.includes("\x1b")) {
-    let hasEscape = false;
-    for (const byte of data) {
-      if (byte === 0x1b) {
-        hasEscape = true;
-        break;
-      }
+  slot.noopSynchronizedOutputPrimed = false;
+  let settled = false;
+  const settleWrite = (parsed: boolean) => {
+    if (settled) return;
+    settled = true;
+    slot.pendingTerminalWrites -= 1;
+    if (
+      parsed &&
+      noopSynchronizedOutput &&
+      slot.pendingTerminalWrites === 0 &&
+      isAltScreen(slot) &&
+      !slot.term.modes.synchronizedOutputMode
+    ) {
+      slot.noopSynchronizedOutputPrimed = true;
     }
-    if (!hasEscape) return null;
+  };
+  slot.pendingTerminalWrites += 1;
+  try {
+    slot.term.write(data, () => settleWrite(true));
+  } catch (error) {
+    settleWrite(false);
+    throw error;
   }
-  cursorOutputDecoder ??= new TextDecoder();
-  return cursorOutputDecoder.decode(data);
 }
 
 function getRecycler(): HTMLDivElement {
@@ -247,10 +255,16 @@ function termOptions() {
     fontWeight: prefs.terminalFontWeight as FontWeight,
     letterSpacing: prefs.terminalLetterSpacing,
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
-    theme: buildTerminalTheme(),
+    theme: terminalThemeForCursorAnimation(prefs.terminalCursorAnimation),
     cursorBlink: false,
-    cursorStyle: prefs.terminalCursorShape,
-    cursorWidth: prefs.terminalCursorWidth,
+    cursorStyle: resolveTerminalNativeCursorShape(
+      prefs.terminalCursorAnimation,
+      prefs.terminalCursorShape,
+    ),
+    cursorWidth: resolveTerminalNativeCursorWidth(
+      prefs.terminalCursorAnimation,
+      prefs.terminalCursorWidth,
+    ),
     cursorInactiveStyle:
       getTerminalCursorRenderStrategy(prefs.terminalCursorAnimation) ===
       "overlay"
@@ -259,6 +273,19 @@ function termOptions() {
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
     minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
+  };
+}
+
+function terminalThemeForCursorAnimation(
+  animation: TerminalCursorAnimation,
+): ITheme {
+  const theme = buildTerminalTheme();
+  if (!shouldSuppressNativeCursor(animation)) return theme;
+  const suppressedCursorColor = theme.background ?? "rgb(0, 0, 0)";
+  return {
+    ...theme,
+    cursor: suppressedCursorColor,
+    cursorAccent: suppressedCursorColor,
   };
 }
 
@@ -298,6 +325,8 @@ function createSlot(): Slot {
     webglAddon: null,
     webglCanvases: [],
     currentLeafId: null,
+    pendingTerminalWrites: 0,
+    noopSynchronizedOutputPrimed: false,
     retainedLeafId: null,
     parked: false,
     oscDisposers: [],
@@ -311,9 +340,9 @@ function createSlot(): Slot {
     imeTimer: null,
     imeDisposers: [],
     cursorOverlay: null,
+    cursorOverlayMask: null,
     cursorOverlayRaf: null,
     cursorDisposers: [],
-    cursorVisibility: { visible: true, tail: "" },
     cursorNativeSuppressed: false,
     lastCols: term.cols,
     lastRows: term.rows,
@@ -373,7 +402,8 @@ function createSlot(): Slot {
       if (event.type === "keydown") {
         const targetLeafId = slot.currentLeafId;
         void readTerminalClipboard().then((text) => {
-          if (text && slot.currentLeafId === targetLeafId) slot.term.paste(text);
+          if (text && slot.currentLeafId === targetLeafId)
+            slot.term.paste(text);
         });
       }
       event.preventDefault();
@@ -389,6 +419,7 @@ function createSlot(): Slot {
   });
 
   bindSlotImeAnchorSync(slot);
+  bindSlotCursorControlInterceptors(slot);
   bindSlotCursorOverlaySync(slot);
   slots.push(slot);
   return slot;
@@ -540,6 +571,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   if (!fast) {
     slot.term.clear();
     slot.term.reset();
+    slot.noopSynchronizedOutputPrimed = false;
     resetSlotCursorVisibility(slot);
 
     if (
@@ -722,12 +754,39 @@ function cancelSlotImeAnchorSync(slot: Slot): void {
   }
 }
 
+function bindSlotCursorControlInterceptors(slot: Slot): void {
+  const colorDisposable = slot.term.parser.registerOscHandler(12, (data) => {
+    if (data.trim() === "?" && shouldSuppressNativeCursor(cursorAnimation)) {
+      const leafId = slot.currentLeafId ?? slot.retainedLeafId;
+      const bridge = leafId === null ? null : adapter?.resolveLeaf(leafId);
+      if (!bridge) return false;
+      const theme = buildTerminalTheme();
+      bridge.writeToPty(
+        formatOscColorReply(
+          12,
+          theme.cursor ?? theme.foreground ?? "rgb(255, 255, 255)",
+        ),
+      );
+      return true;
+    }
+    return shouldInterceptTerminalCursorColor(cursorAnimation, data);
+  });
+  const styleDisposable = slot.term.parser.registerCsiHandler(
+    { intermediates: " ", final: "q" },
+    () => shouldInterceptTerminalCursorStyle(cursorAnimation),
+  );
+  slot.cursorDisposers.push(
+    () => colorDisposable.dispose(),
+    () => styleDisposable.dispose(),
+  );
+}
+
 function bindSlotCursorOverlaySync(slot: Slot): void {
   const syncSoon = () => scheduleSlotCursorOverlaySync(slot);
-  const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
+  const renderDisposable = slot.term.onRender(syncSoon);
   const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
   slot.cursorDisposers.push(
-    () => cursorMoveDisposable.dispose(),
+    () => renderDisposable.dispose(),
     () => writeParsedDisposable.dispose(),
   );
 }
@@ -753,10 +812,16 @@ function syncSlotCursorOverlay(slot: Slot): void {
       parked: slot.parked,
       focused,
       windowActive,
-      cursorVisible: slot.cursorVisibility.visible,
+      cursorVisible: true,
       hostVisible: slot.host.style.visibility !== "hidden",
     })
   ) {
+    hideSlotCursorOverlay(slot);
+    return;
+  }
+
+  const visualCursor = resolveSlotVisualCursor(slot);
+  if (!visualCursor) {
     hideSlotCursorOverlay(slot);
     return;
   }
@@ -767,32 +832,101 @@ function syncSlotCursorOverlay(slot: Slot): void {
     return;
   }
 
+  const screenWidth = dimensionFromStyleOrRect(screen, "width");
+  const screenHeight = dimensionFromStyleOrRect(screen, "height");
   const box = computeTerminalCursorOverlayBox({
     shape: cursorShape,
     cursorWidth,
     cols: slot.term.cols,
     rows: slot.term.rows,
-    cursorX: slot.term.buffer.active.cursorX,
-    cursorY: slot.term.buffer.active.cursorY,
-    screenWidth: dimensionFromStyleOrRect(screen, "width"),
-    screenHeight: dimensionFromStyleOrRect(screen, "height"),
+    cursorX: visualCursor.cursorX,
+    cursorY: visualCursor.cursorY,
+    screenWidth,
+    screenHeight,
   });
   if (!box) {
     hideSlotCursorOverlay(slot);
     return;
   }
 
+  syncSlotCursorOverlayMask(
+    slot,
+    screen,
+    visualCursor.maskColor
+      ? computeTerminalCursorOverlayBox({
+          shape: "block",
+          cursorWidth,
+          cols: slot.term.cols,
+          rows: slot.term.rows,
+          cursorX: visualCursor.cursorX,
+          cursorY: visualCursor.cursorY,
+          screenWidth,
+          screenHeight,
+        })
+      : null,
+    visualCursor.maskColor,
+  );
   const overlay = ensureSlotCursorOverlay(slot, screen);
-  overlay.className = [
+  const className = [
     "kite-terminal-cursor-overlay",
     `kite-terminal-cursor-overlay-${cursorAnimation}`,
     `kite-terminal-cursor-overlay-${cursorShape}`,
   ].join(" ");
-  overlay.style.display = "block";
-  overlay.style.left = `${box.left}px`;
-  overlay.style.top = `${box.top}px`;
-  overlay.style.width = `${box.width}px`;
-  overlay.style.height = `${box.height}px`;
+  if (overlay.className !== className) overlay.className = className;
+  setOverlayStyle(overlay.style, "display", "block");
+  setOverlayStyle(overlay.style, "left", `${box.left}px`);
+  setOverlayStyle(overlay.style, "top", `${box.top}px`);
+  setOverlayStyle(overlay.style, "width", `${box.width}px`);
+  setOverlayStyle(overlay.style, "height", `${box.height}px`);
+}
+
+type SlotVisualCursor = {
+  cursorX: number;
+  cursorY: number;
+  maskColor: string | null;
+};
+
+function resolveSlotVisualCursor(slot: Slot): SlotVisualCursor | null {
+  const buffer = slot.term.buffer.active;
+  if (!isXtermCursorHidden(slot.term)) {
+    return slotVisualCursor(slot, buffer.cursorX, buffer.cursorY);
+  }
+  if (buffer.type !== "normal") return null;
+
+  const visibleCursor = findVisibleCursorCell({
+    buffer,
+    cols: slot.term.cols,
+    rows: slot.term.rows,
+    requireInverse: true,
+  });
+  if (!visibleCursor?.inverse) return null;
+  return slotVisualCursor(slot, visibleCursor.cursorX, visibleCursor.cursorY);
+}
+
+function slotVisualCursor(
+  slot: Slot,
+  cursorX: number,
+  cursorY: number,
+): SlotVisualCursor {
+  const x = Math.max(0, Math.min(slot.term.cols - 1, Math.trunc(cursorX)));
+  const y = Math.max(0, Math.min(slot.term.rows - 1, Math.trunc(cursorY)));
+  const buffer = slot.term.buffer.active;
+  const cell = buffer.getLine(buffer.viewportY + y)?.getCell(x);
+  return {
+    cursorX: x,
+    cursorY: y,
+    maskColor: terminalCursorMaskColor(cell, (index) =>
+      xtermPaletteColor(slot.term, index),
+    ),
+  };
+}
+
+function setOverlayStyle(
+  style: CSSStyleDeclaration,
+  property: "background" | "display" | "left" | "top" | "width" | "height",
+  value: string,
+): void {
+  if (style[property] !== value) style[property] = value;
 }
 
 function scheduleSlotCursorOverlaySync(slot: Slot): void {
@@ -827,60 +961,79 @@ function ensureSlotCursorOverlay(
   return overlay;
 }
 
+function syncSlotCursorOverlayMask(
+  slot: Slot,
+  screen: HTMLElement,
+  box: ReturnType<typeof computeTerminalCursorOverlayBox>,
+  color: string | null,
+): void {
+  if (!box || !color) {
+    hideSlotCursorOverlayMask(slot);
+    return;
+  }
+  let mask = slot.cursorOverlayMask;
+  if (!mask) {
+    mask = document.createElement("div");
+    mask.className = "kite-terminal-cursor-overlay-mask";
+    mask.setAttribute("aria-hidden", "true");
+    slot.cursorOverlayMask = mask;
+  }
+  if (mask.parentElement !== screen) screen.appendChild(mask);
+  setOverlayStyle(mask.style, "background", color);
+  setOverlayStyle(mask.style, "display", "block");
+  setOverlayStyle(mask.style, "left", `${box.left}px`);
+  setOverlayStyle(mask.style, "top", `${box.top}px`);
+  setOverlayStyle(mask.style, "width", `${box.width}px`);
+  setOverlayStyle(mask.style, "height", `${box.height}px`);
+}
+
+function hideSlotCursorOverlayMask(slot: Slot): void {
+  if (slot.cursorOverlayMask) slot.cursorOverlayMask.style.display = "none";
+}
+
 function hideSlotCursorOverlay(slot: Slot): void {
   if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
+  hideSlotCursorOverlayMask(slot);
 }
 
 function disposeSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlaySync(slot);
   slot.cursorOverlay?.remove();
   slot.cursorOverlay = null;
+  slot.cursorOverlayMask?.remove();
+  slot.cursorOverlayMask = null;
   slot.host.classList.remove("kite-terminal-overlay-cursor-active");
 }
 
 export function resetSlotCursorVisibility(slot: Slot): void {
-  slot.cursorVisibility = { visible: true, tail: "" };
-  if (slot.cursorNativeSuppressed) {
-    setXtermCursorHidden(slot.term, true);
-    refreshSlotCursorRow(slot);
-  }
   scheduleSlotCursorOverlaySync(slot);
 }
 
-function setSlotNativeCursorSuppressed(
-  slot: Slot,
-  suppressed: boolean,
-): void {
-  slot.host.classList.toggle(
-    "kite-terminal-overlay-cursor-active",
-    suppressed,
-  );
+function setSlotNativeCursorSuppressed(slot: Slot, suppressed: boolean): void {
+  slot.host.classList.toggle("kite-terminal-overlay-cursor-active", suppressed);
 
   if (suppressed) {
-    if (!slot.cursorNativeSuppressed) {
-      slot.cursorVisibility = {
-        visible: !isXtermCursorHidden(slot.term),
-        tail: "",
-      };
-      slot.cursorNativeSuppressed = true;
-    }
-    if (!isXtermCursorHidden(slot.term)) {
-      setXtermCursorHidden(slot.term, true);
-      refreshSlotCursorRow(slot);
-    }
+    slot.cursorNativeSuppressed = true;
     return;
   }
 
   if (!slot.cursorNativeSuppressed) return;
   slot.cursorNativeSuppressed = false;
-  setXtermCursorHidden(slot.term, !slot.cursorVisibility.visible);
-  refreshSlotCursorRow(slot);
 }
 
 type TerminalCursorInternals = Terminal & {
   _core?: {
     coreService?: {
+      decPrivateModes?: {
+        cursorBlink?: boolean;
+        cursorStyle?: "bar" | "block" | "underline";
+      };
       isCursorHidden?: boolean;
+    };
+    _themeService?: {
+      colors?: {
+        ansi?: { css?: string }[];
+      };
     };
   };
 };
@@ -892,16 +1045,20 @@ function isXtermCursorHidden(term: Terminal): boolean {
   );
 }
 
-function setXtermCursorHidden(term: Terminal, hidden: boolean): void {
-  const coreService = (term as TerminalCursorInternals)._core?.coreService;
-  if (coreService) coreService.isCursorHidden = hidden;
+export function clearXtermCursorStyleOverride(term: Terminal): void {
+  const modes = (term as TerminalCursorInternals)._core?.coreService
+    ?.decPrivateModes;
+  if (!modes) return;
+  modes.cursorStyle = undefined;
+  modes.cursorBlink = undefined;
 }
 
-function refreshSlotCursorRow(slot: Slot): void {
-  const row = clampIndex(slot.term.buffer.active.cursorY, 0, slot.term.rows - 1);
-  try {
-    slot.term.refresh(row, row);
-  } catch {}
+function xtermPaletteColor(term: Terminal, index: number): string | null {
+  return (
+    (term as TerminalCursorInternals)._core?._themeService?.colors?.ansi?.[
+      index
+    ]?.css ?? null
+  );
 }
 
 function dimensionFromStyleOrRect(
@@ -912,10 +1069,6 @@ function dimensionFromStyleOrRect(
   if (Number.isFinite(styled) && styled > 0) return styled;
   const rect = element.getBoundingClientRect();
   return property === "width" ? rect.width : rect.height;
-}
-
-function clampIndex(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 function rewireSlot(slot: Slot, p: AcquireParams): void {
@@ -1331,7 +1484,7 @@ export function applyScrollback(value: number): void {
 }
 
 export function applyTheme(): void {
-  const theme = buildTerminalTheme();
+  const theme = terminalThemeForCursorAnimation(cursorAnimation);
   for (const slot of slots) {
     slot.term.options.theme = theme;
     scheduleSlotImeAnchorSync(slot);
@@ -1358,15 +1511,32 @@ export function applyCursorPreferences(
   animation: TerminalCursorAnimation,
   width: TerminalCursorWidth,
 ): void {
+  const previousStrategy = getTerminalCursorRenderStrategy(cursorAnimation);
+  const nextStrategy = getTerminalCursorRenderStrategy(animation);
+  const enteringOverlay =
+    previousStrategy !== nextStrategy && nextStrategy === "overlay";
+  const theme =
+    previousStrategy === nextStrategy
+      ? null
+      : terminalThemeForCursorAnimation(animation);
+  const nativeShape = resolveTerminalNativeCursorShape(animation, shape);
+  const nativeWidth = resolveTerminalNativeCursorWidth(animation, width);
   cursorShape = shape;
   cursorAnimation = animation;
   cursorWidth = width;
   for (const slot of slots) {
-    if (slot.term.options.cursorStyle !== shape) {
-      slot.term.options.cursorStyle = shape;
+    if (enteringOverlay) {
+      clearXtermCursorStyleOverride(slot.term);
+      slot.term.options.cursorBlink = true;
     }
-    if (slot.term.options.cursorWidth !== width) {
-      slot.term.options.cursorWidth = width;
+    if (theme) {
+      slot.term.options.theme = theme;
+    }
+    if (slot.term.options.cursorStyle !== nativeShape) {
+      slot.term.options.cursorStyle = nativeShape;
+    }
+    if (slot.term.options.cursorWidth !== nativeWidth) {
+      slot.term.options.cursorWidth = nativeWidth;
     }
     applyCursorRenderingOnSlot(
       slot,
@@ -1378,14 +1548,19 @@ export function applyCursorPreferences(
 }
 
 export function applyCursorBlink(enabled: boolean): void {
-  applyCursorPreferences(cursorShape, enabled ? "blink" : "steady", cursorWidth);
+  applyCursorPreferences(
+    cursorShape,
+    enabled ? "blink" : "steady",
+    cursorWidth,
+  );
 }
 
 function applyCursorRenderingOnSlot(slot: Slot, focused: boolean): void {
   const overlayStrategy =
     getTerminalCursorRenderStrategy(cursorAnimation) === "overlay";
   const desiredBlink =
-    !overlayStrategy && shouldCursorBlink(cursorAnimation, windowActive, focused);
+    !overlayStrategy &&
+    shouldCursorBlink(cursorAnimation, windowActive, focused);
   if (slot.term.options.cursorBlink !== desiredBlink) {
     slot.term.options.cursorBlink = desiredBlink;
   }
@@ -1458,6 +1633,7 @@ export function discardRetainedSlot(leafId: number): void {
   discardRetention(slot);
   slot.term.clear();
   slot.term.reset();
+  slot.noopSynchronizedOutputPrimed = false;
   resetSlotCursorVisibility(slot);
 }
 

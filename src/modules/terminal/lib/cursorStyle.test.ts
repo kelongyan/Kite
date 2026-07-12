@@ -6,8 +6,13 @@ import {
   coerceTerminalCursorShape,
   coerceTerminalCursorWidth,
   getTerminalCursorRenderStrategy,
+  resolveTerminalNativeCursorShape,
+  resolveTerminalNativeCursorWidth,
+  shouldInterceptTerminalCursorColor,
+  shouldInterceptTerminalCursorStyle,
   shouldShowTerminalCursorOverlay,
-  resolveTerminalCursorVisibilityFromOutput,
+  shouldSuppressNativeCursor,
+  terminalCursorMaskColor,
 } from "./cursorStyle";
 
 describe("terminal cursor style preferences", () => {
@@ -61,6 +66,53 @@ describe("terminal cursor style preferences", () => {
     expect(getTerminalCursorRenderStrategy("expand")).toBe("overlay");
   });
 
+  it("suppresses the xterm native cursor behind overlay animations", () => {
+    expect(shouldSuppressNativeCursor("expand")).toBe(true);
+    expect(shouldSuppressNativeCursor("smooth")).toBe(true);
+    expect(shouldSuppressNativeCursor("blink")).toBe(false);
+    expect(shouldSuppressNativeCursor("steady")).toBe(false);
+  });
+
+  it("keeps the suppressed native cursor to a one-pixel bar", () => {
+    expect(resolveTerminalNativeCursorShape("expand", "block")).toBe("bar");
+    expect(resolveTerminalNativeCursorWidth("smooth", 4)).toBe(1);
+    expect(resolveTerminalNativeCursorShape("steady", "underline")).toBe(
+      "underline",
+    );
+    expect(resolveTerminalNativeCursorWidth("blink", 3)).toBe(3);
+  });
+
+  it("intercepts TUI cursor overrides only while an overlay owns rendering", () => {
+    expect(shouldInterceptTerminalCursorColor("expand", "#f8f8f2")).toBe(true);
+    expect(shouldInterceptTerminalCursorColor("expand", "?")).toBe(false);
+    expect(shouldInterceptTerminalCursorColor("steady", "#f8f8f2")).toBe(false);
+    expect(shouldInterceptTerminalCursorStyle("smooth")).toBe(true);
+    expect(shouldInterceptTerminalCursorStyle("blink")).toBe(false);
+  });
+
+  it("resolves a safe mask color for blank cursor cells", () => {
+    expect(terminalCursorMaskColor(cursorMaskCell())).toBe(
+      "var(--terminal-background)",
+    );
+    expect(
+      terminalCursorMaskColor(
+        cursorMaskCell({ bgDefault: false, bgRgb: true, bgColor: 0x44475a }),
+      ),
+    ).toBe("rgb(68, 71, 90)");
+    expect(
+      terminalCursorMaskColor(
+        cursorMaskCell({ bgDefault: false, bgPalette: true, bgColor: 4 }),
+      ),
+    ).toBe("var(--terminal-ansi-blue)");
+    expect(
+      terminalCursorMaskColor(
+        cursorMaskCell({ bgDefault: false, bgPalette: true, bgColor: 231 }),
+        (index) => (index === 231 ? "rgb(255, 255, 255)" : null),
+      ),
+    ).toBe("rgb(255, 255, 255)");
+    expect(terminalCursorMaskColor(cursorMaskCell({ chars: "x" }))).toBeNull();
+  });
+
   it("shows the overlay cursor only for a focused visible live leaf", () => {
     expect(
       shouldShowTerminalCursorOverlay({
@@ -100,9 +152,9 @@ describe("terminal cursor style preferences", () => {
     expect(shouldShowTerminalCursorOverlay({ ...visible, parked: true })).toBe(
       false,
     );
-    expect(shouldShowTerminalCursorOverlay({ ...visible, focused: false })).toBe(
-      false,
-    );
+    expect(
+      shouldShowTerminalCursorOverlay({ ...visible, focused: false }),
+    ).toBe(false);
     expect(
       shouldShowTerminalCursorOverlay({ ...visible, windowActive: false }),
     ).toBe(false);
@@ -111,6 +163,21 @@ describe("terminal cursor style preferences", () => {
     ).toBe(false);
     expect(
       shouldShowTerminalCursorOverlay({ ...visible, hostVisible: false }),
+    ).toBe(false);
+  });
+
+  it("hides the overlay when neither a native nor synthetic cursor is visible", () => {
+    expect(
+      shouldShowTerminalCursorOverlay({
+        strategy: "overlay",
+        hasOwner: true,
+        hasLiveLeaf: true,
+        parked: false,
+        focused: true,
+        windowActive: true,
+        cursorVisible: false,
+        hostVisible: true,
+      }),
     ).toBe(false);
   });
 
@@ -206,29 +273,23 @@ describe("terminal cursor style preferences", () => {
       }),
     ).toBeNull();
   });
-
-  it("tracks terminal cursor visibility escape sequences", () => {
-    expect(
-      resolveTerminalCursorVisibilityFromOutput("\x1b[?25l", {
-        visible: true,
-        tail: "",
-      }).visible,
-    ).toBe(false);
-    expect(
-      resolveTerminalCursorVisibilityFromOutput("\x1b[?25h", {
-        visible: false,
-        tail: "",
-      }).visible,
-    ).toBe(true);
-  });
-
-  it("tracks split terminal cursor visibility escape sequences", () => {
-    const first = resolveTerminalCursorVisibilityFromOutput("\x1b[?", {
-      visible: true,
-      tail: "",
-    });
-    const second = resolveTerminalCursorVisibilityFromOutput("25l", first);
-
-    expect(second.visible).toBe(false);
-  });
 });
+
+function cursorMaskCell(
+  input: {
+    chars?: string;
+    bgDefault?: boolean;
+    bgRgb?: boolean;
+    bgPalette?: boolean;
+    bgColor?: number;
+  } = {},
+) {
+  return {
+    getChars: () => input.chars ?? " ",
+    getWidth: () => 1,
+    getBgColor: () => input.bgColor ?? 0,
+    isBgDefault: () => input.bgDefault !== false,
+    isBgPalette: () => input.bgPalette === true,
+    isBgRGB: () => input.bgRgb === true,
+  };
+}

@@ -17,9 +17,13 @@ export type ImeAnchor = {
   lineHeight: number;
 };
 
-type ImeCursor = {
+export type ImeCursor = {
   cursorX: number;
   cursorY: number;
+};
+
+export type VisibleCursorCell = ImeCursor & {
+  inverse: boolean;
 };
 
 type ImeBufferCell = {
@@ -32,7 +36,7 @@ type ImeBufferCell = {
 
 type ImeBufferLine = {
   length: number;
-  getCell(index: number): ImeBufferCell | undefined;
+  getCell(index: number, cell?: ImeBufferCell): ImeBufferCell | undefined;
 };
 
 type ImeBuffer = {
@@ -48,6 +52,7 @@ export type ImeCursorInput = {
   cols: number;
   rows: number;
   preferVisibleCursor?: boolean;
+  requireInverse?: boolean;
 };
 
 export type ImeSyncOptions = {
@@ -91,7 +96,9 @@ export function resolveImeAnchorCursor(input: ImeCursorInput): ImeCursor {
   if (!input.preferVisibleCursor) return fallback;
 
   const visibleCursor = findVisibleCursorCell(input);
-  return visibleCursor ?? fallback;
+  return visibleCursor
+    ? { cursorX: visibleCursor.cursorX, cursorY: visibleCursor.cursorY }
+    : fallback;
 }
 
 export function syncImeTextarea(
@@ -158,29 +165,43 @@ export function syncTerminalImeAnchor(term: Terminal): boolean {
   );
 }
 
-function findVisibleCursorCell(input: ImeCursorInput): ImeCursor | null {
+export function findVisibleCursorCell(
+  input: ImeCursorInput,
+): VisibleCursorCell | null {
   const viewportY = Math.max(0, Math.trunc(input.buffer.viewportY ?? 0));
   const rows = Math.max(0, input.rows);
   const cols = Math.max(0, input.cols);
+  let inverseCandidate: VisibleCursorCell | null = null;
+  let workCell: ImeBufferCell | undefined;
 
   for (let y = rows - 1; y >= 0; y--) {
     const line = input.buffer.getLine(viewportY + y);
     if (!line) continue;
     const maxX = Math.min(cols, line.length);
     for (let x = 0; x < maxX; x++) {
-      const cell = line.getCell(x);
-      if (!cell || !isCursorLikeBlankCell(cell)) continue;
+      const cell = line.getCell(x, workCell);
+      if (!cell) continue;
+      workCell = cell;
+      if (!isCursorLikeBlankCell(cell)) continue;
+      if (input.requireInverse && !cell.isInverse()) continue;
       if (
-        isCursorLikeNeighbor(line, x - 1) ||
-        isCursorLikeNeighbor(line, x + 1)
+        isCursorLikeNeighbor(line, x - 1, input.requireInverse) ||
+        isCursorLikeNeighbor(line, x + 1, input.requireInverse)
       ) {
         continue;
       }
-      return { cursorX: x, cursorY: y };
+      const candidate = {
+        cursorX: x,
+        cursorY: y,
+        inverse: cell.isInverse() !== 0,
+      };
+      if (!input.requireInverse) return candidate;
+      if (inverseCandidate) return null;
+      inverseCandidate = candidate;
     }
   }
 
-  return null;
+  return inverseCandidate;
 }
 
 function isCursorLikeBlankCell(cell: ImeBufferCell): boolean {
@@ -190,9 +211,14 @@ function isCursorLikeBlankCell(cell: ImeBufferCell): boolean {
   return isHighlightedCell(cell);
 }
 
-function isCursorLikeNeighbor(line: ImeBufferLine, index: number): boolean {
+function isCursorLikeNeighbor(
+  line: ImeBufferLine,
+  index: number,
+  requireInverse = false,
+): boolean {
   if (index < 0 || index >= line.length) return false;
   const cell = line.getCell(index);
+  if (requireInverse && !cell?.isInverse()) return false;
   return !!cell && isCursorLikeBlankCell(cell);
 }
 

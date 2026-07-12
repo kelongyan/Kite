@@ -460,6 +460,15 @@ html *::-webkit-scrollbar {
   visibility: hidden !important;
 }
 
+.kite-terminal-cursor-overlay-mask {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  background: var(--terminal-background);
+  pointer-events: none;
+  contain: strict;
+}
+
 .kite-terminal-cursor-overlay {
   position: absolute;
   z-index: 4;

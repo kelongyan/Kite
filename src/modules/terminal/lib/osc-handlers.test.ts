@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import {
   createShellIntegrationState,
+  formatOscColorReply,
   registerCwdHandler,
   registerOsc52ClipboardHandler,
   registerThemeQueryHandler,
@@ -223,6 +224,12 @@ describe("OSC 52 clipboard handler", () => {
 });
 
 describe("OSC 10/11 theme query handler", () => {
+  it("formats cursor color replies without exposing the suppressed color", () => {
+    expect(formatOscColorReply(12, "rgb(248, 248, 242)")).toBe(
+      "\x1b]12;rgb:f8f8/f8f8/f2f2\x1b\\",
+    );
+  });
+
   it("answers foreground and background color queries", () => {
     const { term, handlers } = makeFakeTerm();
     const writeToPty = vi.fn();

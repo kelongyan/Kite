@@ -99,7 +99,9 @@ fn osc_command(agent: &str, event: &str) -> String {
     let exe = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "kite.exe".to_string());
-    format!(r#""{exe}" __terax_notify {agent} {event}"#)
+    // Codex may execute hooks through PowerShell, where a quoted path alone is
+    // a string literal. Explicit cmd invocation works from both Windows shells.
+    format!(r#"cmd.exe /d /c call "{exe}" __terax_notify {agent} {event}"#)
 }
 
 // The stable substring that proves a given (agent, event) hook is installed.
@@ -324,6 +326,14 @@ mod tests {
         // Codex Stop rejects empty/non-JSON stdout; the hook must emit a no-op.
         assert!(stop.contains("printf '{}'"));
         assert!(!stop.contains("terminalSequence"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_hook_invokes_helper_through_cmd() {
+        let working = hook_command(spec("codex"), "working");
+        assert!(working.starts_with("cmd.exe /d /c call \""));
+        assert!(working.ends_with("\" __terax_notify codex working"));
     }
 
     #[cfg(unix)]

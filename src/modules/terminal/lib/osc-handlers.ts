@@ -170,7 +170,7 @@ function parseOsc52Clipboard(data: string): string | null {
   }
 }
 
-function formatOscColorReply(code: 10 | 11, color: string): string {
+export function formatOscColorReply(code: 10 | 11 | 12, color: string): string {
   const rgb = parseCssRgb(color);
   return `\x1b]${code};rgb:${toHex16(rgb.r)}/${toHex16(rgb.g)}/${toHex16(rgb.b)}\x1b\\`;
 }
