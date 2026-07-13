@@ -306,6 +306,54 @@ fn read_dir_skips_gitignore_outside_a_repo() {
 }
 
 #[test]
+fn read_dir_does_not_treat_empty_dot_git_directory_as_repo() {
+    let fx = FsFixture::new();
+    fx.mkdir(".git");
+    fx.write(".gitignore", "ignored.txt\n");
+    fx.write("ignored.txt", "");
+
+    let entries = fs_read_dir(fx.root_str(), false, Some(true), None).expect("read_dir");
+    assert!(entries.iter().all(|entry| !entry.gitignored));
+}
+
+#[test]
+fn read_dir_flags_gitignored_entries_in_a_linked_worktree() {
+    if !git_available() {
+        return;
+    }
+    let fx = GitRepoFixture::new();
+    fx.write_file(".gitignore", "ignored.txt\n");
+    fx.write_file("seed.txt", "");
+    fx.run_git(&["add", "."]);
+    fx.run_git(&["commit", "-q", "-m", "seed"]);
+
+    let worktree_parent = tempfile::tempdir().expect("tempdir");
+    let worktree = worktree_parent.path().join("linked");
+    fx.run_git(&[
+        "worktree",
+        "add",
+        "-q",
+        "-b",
+        "feature",
+        worktree.to_str().expect("UTF-8 worktree path"),
+    ]);
+    std::fs::write(worktree.join("ignored.txt"), "").expect("write ignored file");
+
+    let entries = fs_read_dir(
+        worktree.to_string_lossy().into_owned(),
+        false,
+        Some(true),
+        None,
+    )
+    .expect("read_dir");
+    let ignored = entries
+        .iter()
+        .find(|entry| entry.name == "ignored.txt")
+        .expect("ignored.txt entry");
+    assert!(ignored.gitignored);
+}
+
+#[test]
 fn read_dir_returns_size_for_files() {
     let fx = FsFixture::new();
     fx.write("known.txt", "abcdef");

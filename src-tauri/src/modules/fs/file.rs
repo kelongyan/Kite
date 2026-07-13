@@ -140,11 +140,11 @@ pub fn fs_canonicalize(path: String, workspace: Option<WorkspaceEnv>) -> Result<
 pub fn fs_stat(path: String, workspace: Option<WorkspaceEnv>) -> Result<FileStat, String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     let p = resolve_path(&path, &workspace);
-    let meta = std::fs::metadata(&p).map_err(|e| e.to_string())?;
-    let kind = if meta.is_dir() {
-        StatKind::Dir
-    } else if meta.file_type().is_symlink() {
+    let meta = std::fs::symlink_metadata(&p).map_err(|e| e.to_string())?;
+    let kind = if meta.file_type().is_symlink() {
         StatKind::Symlink
+    } else if meta.is_dir() {
+        StatKind::Dir
     } else {
         StatKind::File
     };
@@ -164,6 +164,23 @@ pub fn fs_stat(path: String, workspace: Option<WorkspaceEnv>) -> Result<FileStat
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn create_file_symlink(target: &Path, link: &Path) -> bool {
+        #[cfg(unix)]
+        let result = std::os::unix::fs::symlink(target, link);
+        #[cfg(windows)]
+        let result = std::os::windows::fs::symlink_file(target, link);
+
+        match result {
+            Ok(()) => true,
+            #[cfg(windows)]
+            Err(error) if error.raw_os_error() == Some(1314) => {
+                eprintln!("skipping symlink assertion: Windows privilege not enabled");
+                false
+            }
+            Err(error) => panic!("create symlink: {error}"),
+        }
+    }
 
     #[test]
     fn read_file_classifies_utf8_as_text() {
@@ -209,6 +226,35 @@ mod tests {
         std::fs::write(&target, b"old").unwrap();
         write_atomic(&target, b"new").unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"new");
+    }
+
+    #[test]
+    fn stat_reports_file_symlinks_without_following_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target.txt");
+        let link = dir.path().join("link.txt");
+        std::fs::write(&target, b"target").unwrap();
+
+        if !create_file_symlink(&target, &link) {
+            return;
+        }
+
+        let stat = fs_stat(link.to_string_lossy().into_owned(), None).unwrap();
+        assert!(matches!(stat.kind, StatKind::Symlink));
+    }
+
+    #[test]
+    fn stat_reports_dangling_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing.txt");
+        let link = dir.path().join("dangling.txt");
+
+        if !create_file_symlink(&missing, &link) {
+            return;
+        }
+
+        let stat = fs_stat(link.to_string_lossy().into_owned(), None).unwrap();
+        assert!(matches!(stat.kind, StatKind::Symlink));
     }
 
     #[cfg(unix)]

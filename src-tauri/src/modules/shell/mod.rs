@@ -1,4 +1,5 @@
 pub mod background;
+mod process_tree;
 pub mod ringbuffer;
 pub mod session;
 
@@ -12,7 +13,6 @@ use std::thread;
 use std::time::Duration;
 
 use serde::Serialize;
-use shared_child::SharedChild;
 
 use crate::modules::workspace::{authorize_spawn_cwd, WorkspaceEnv, WorkspaceRegistry};
 #[cfg(windows)]
@@ -65,14 +65,9 @@ pub async fn shell_run_command(
             .clamp(1, MAX_TIMEOUT_SECS),
     );
 
-    // The blocking spawn + wait runs on a worker thread so the Tauri async
-    // runtime stays unblocked.
-    let (tx, rx) = mpsc::channel::<Result<CommandOutput, String>>();
-    thread::spawn(move || {
-        let _ = tx.send(run_blocking(trimmed, cwd_path, workspace, dur));
-    });
-
-    rx.recv().map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || run_blocking(trimmed, cwd_path, workspace, dur))
+        .await
+        .map_err(|e| format!("shell_run_command worker failed: {e}"))?
 }
 
 pub(crate) fn run_blocking_inner(
@@ -99,16 +94,18 @@ fn run_blocking(
         .stderr(Stdio::piped());
     crate::modules::proc::hide_console(&mut cmd);
 
-    let child = Arc::new(SharedChild::spawn(&mut cmd).map_err(|e| {
+    let (child, tree) = process_tree::spawn(&mut cmd).map_err(|e| {
         log::warn!("shell_run_command spawn failed: {e}");
         e.to_string()
-    })?);
+    })?;
     let mut stdout_pipe = child.take_stdout().ok_or_else(|| {
-        let _ = child.kill();
+        let _ = tree.kill();
+        let _ = child.wait();
         "no stdout pipe".to_string()
     })?;
     let mut stderr_pipe = child.take_stderr().ok_or_else(|| {
-        let _ = child.kill();
+        let _ = tree.kill();
+        let _ = child.wait();
         "no stderr pipe".to_string()
     })?;
 
@@ -125,7 +122,7 @@ fn run_blocking(
         Ok(Ok(status)) => (status.code(), false),
         Ok(Err(e)) => return Err(e.to_string()),
         Err(mpsc::RecvTimeoutError::Timeout) => {
-            let _ = child.kill();
+            let _ = tree.kill();
             let _ = child.wait();
             (None, true)
         }
@@ -134,6 +131,10 @@ fn run_blocking(
         }
     };
 
+    // The shell leader may exit while descendants keep inherited output
+    // handles open. Kill the remaining tree before joining the drainers so a
+    // detached grandchild cannot hang this command forever.
+    let _ = tree.kill();
     let (stdout_bytes, stdout_truncated) = stdout_handle.join().unwrap_or((Vec::new(), false));
     let (stderr_bytes, stderr_truncated) = stderr_handle.join().unwrap_or((Vec::new(), false));
 
@@ -217,11 +218,9 @@ pub async fn shell_session_run(
             .unwrap_or(DEFAULT_TIMEOUT_SECS)
             .clamp(1, MAX_TIMEOUT_SECS),
     );
-    let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
-        let _ = tx.send(session.run(command, cwd, workspace, dur));
-    });
-    rx.recv().map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || session.run(command, cwd, workspace, dur))
+        .await
+        .map_err(|e| format!("shell_session_run worker failed: {e}"))?
 }
 
 #[tauri::command]
@@ -393,6 +392,44 @@ mod tests {
     }
 
     #[test]
+    fn run_blocking_timeout_kills_descendants() {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let survived = dir.path().join("survived");
+        let quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "'\\''");
+        let command = format!(
+            "(printf ready > '{}'; sleep 2; printf survived > '{}') & sleep 30",
+            quote(&ready),
+            quote(&survived),
+        );
+
+        let out = run(&command, 1);
+        assert!(out.timed_out);
+        assert!(ready.exists(), "descendant must start before timeout");
+        std::thread::sleep(Duration::from_secs(2));
+        assert!(!survived.exists(), "timed-out descendant survived");
+    }
+
+    #[test]
+    fn run_blocking_normal_exit_kills_descendants() {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let survived = dir.path().join("survived");
+        let quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "'\\''");
+        let command = format!(
+            "(printf ready > '{}'; sleep 2; printf survived > '{}') &",
+            quote(&ready),
+            quote(&survived),
+        );
+
+        let out = run(&command, 5);
+        assert!(!out.timed_out);
+        assert!(ready.exists(), "descendant must start before shell exit");
+        std::thread::sleep(Duration::from_secs(2));
+        assert!(!survived.exists(), "descendant survived shell exit");
+    }
+
+    #[test]
     fn run_blocking_truncates_huge_output() {
         let big = MAX_OUTPUT_BYTES + 4096;
         let out = run(&format!("head -c {big} /dev/zero"), 10);
@@ -406,5 +443,37 @@ mod tests {
         assert_eq!(cmd.get_program(), "/bin/sh");
         let args: Vec<_> = cmd.get_args().collect();
         assert_eq!(args, vec!["-c", "echo hi"]);
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn run_blocking_timeout_kills_descendants() {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let survived = dir.path().join("survived");
+        let script = dir.path().join("child.ps1");
+        let ps_quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "''");
+        std::fs::write(
+            &script,
+            format!(
+                "Set-Content -LiteralPath '{}' -Value ready\nStart-Sleep -Seconds 3\nSet-Content -LiteralPath '{}' -Value survived\n",
+                ps_quote(&ready),
+                ps_quote(&survived),
+            ),
+        )
+        .unwrap();
+
+        let command = format!("& powershell.exe -NoProfile -File '{}'", ps_quote(&script));
+        let out = run_blocking_inner(command, None, WorkspaceEnv::Local, Duration::from_secs(1))
+            .expect("run");
+
+        assert!(out.timed_out);
+        assert!(ready.exists(), "descendant must start before timeout");
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(!survived.exists(), "timed-out descendant survived");
     }
 }

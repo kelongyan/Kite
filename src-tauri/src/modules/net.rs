@@ -4,8 +4,11 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::Method;
+use reqwest::header::{
+    HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_ENCODING, CONTENT_LANGUAGE,
+    CONTENT_LOCATION, CONTENT_TYPE, COOKIE, LOCATION, PROXY_AUTHORIZATION, WWW_AUTHENTICATE,
+};
+use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 
@@ -21,6 +24,7 @@ const HEADER_BLOCKLIST: &[&str] = &[
     "trailer",
     "expect",
 ];
+const MAX_REDIRECTS: usize = 10;
 
 fn is_blocked_host_name(host: &str) -> bool {
     let host = host.to_ascii_lowercase();
@@ -225,78 +229,175 @@ pub struct HttpResponse {
     pub body: Vec<u8>,
 }
 
-fn build_request(
-    client: &reqwest::Client,
-    method: &str,
+#[derive(Debug, Clone)]
+struct RedirectRequest {
     url: reqwest::Url,
-    headers: Option<HashMap<String, String>>,
-    body: Option<Vec<u8>>,
-) -> Result<reqwest::RequestBuilder, String> {
-    let method = Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string())?;
-    let mut req = client.request(method, url);
-    let map = sanitize_headers(headers)?;
-    req = req.headers(map);
-    if let Some(b) = body {
-        req = req.body(b);
-    }
-    Ok(req)
+    method: Method,
+    headers: HeaderMap,
+    body: Option<Bytes>,
 }
 
-fn build_safe_client(
+fn initial_redirect_request(
+    url: &str,
+    method: &str,
+    headers: Option<HashMap<String, String>>,
+    body: Option<Vec<u8>>,
     allow_private: bool,
-    pinned: &[(String, Vec<IpAddr>)],
-) -> Result<reqwest::Client, String> {
+) -> Result<RedirectRequest, String> {
+    Ok(RedirectRequest {
+        url: validate_url(url, allow_private)?,
+        method: Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string())?,
+        headers: sanitize_headers(headers)?,
+        body: body.map(Bytes::from),
+    })
+}
+
+fn build_request(
+    client: &reqwest::Client,
+    request: &RedirectRequest,
+    url: reqwest::Url,
+) -> reqwest::RequestBuilder {
+    let mut builder = client
+        .request(request.method.clone(), url)
+        .headers(request.headers.clone());
+    if let Some(body) = &request.body {
+        builder = builder.body(body.clone());
+    }
+    builder
+}
+
+fn build_safe_client(host: &str, safe_ips: &[IpAddr]) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(10));
+        .connect_timeout(Duration::from_secs(10))
+        // Redirects are handled manually so every hop is URL-validated,
+        // DNS-classified, and pinned before reqwest is allowed to connect.
+        .redirect(reqwest::redirect::Policy::none());
     // Pin reqwest's resolver to the IPs we just classified. Without this,
     // reqwest's own DNS lookup could return a different (private/metadata) IP
     // for the same hostname between classify and connect — classic DNS
     // rebinding attack. We pin port 0 because reqwest fills in the actual
     // port from the URL when wiring up the override map.
-    for (host, ips) in pinned {
-        let addrs: Vec<SocketAddr> = ips.iter().map(|ip| SocketAddr::new(*ip, 0)).collect();
-        if !addrs.is_empty() {
-            builder = builder.resolve_to_addrs(host, &addrs);
-        }
+    let addrs: Vec<SocketAddr> = safe_ips.iter().map(|ip| SocketAddr::new(*ip, 0)).collect();
+    if !addrs.is_empty() {
+        builder = builder.resolve_to_addrs(host, &addrs);
     }
-    builder
-        .redirect(reqwest::redirect::Policy::custom(move |attempt| {
-            if attempt.previous().len() > 10 {
-                return attempt.error("too many redirects");
-            }
-            let next = attempt.url();
-            match next.scheme() {
-                "http" | "https" => {}
-                _ => return attempt.stop(),
-            }
-            if next.username() != "" || next.password().is_some() {
-                return attempt.stop();
-            }
-            let Some(host) = next.host_str() else {
-                return attempt.stop();
-            };
-            if is_blocked_host_name(host) {
-                return attempt.stop();
-            }
-            if let Ok(ip) = host.parse::<IpAddr>() {
-                let k = ip_kind(ip);
-                if k == IpKind::BlockedMetadata {
-                    return attempt.stop();
-                }
-                if !allow_private && matches!(k, IpKind::Loopback | IpKind::Private) {
-                    return attempt.stop();
-                }
-            } else if !allow_private {
-                if let Some(prev) = attempt.previous().last() {
-                    if prev.host_str() != Some(host) {
-                        return attempt.stop();
-                    }
-                }
-            }
-            attempt.follow()
-        }))
-        .build()
-        .map_err(|e| e.to_string())
+    builder.build().map_err(|e| e.to_string())
+}
+
+fn redirect_target(
+    status: StatusCode,
+    current_url: &reqwest::Url,
+    headers: &HeaderMap,
+    allow_private: bool,
+) -> Result<Option<reqwest::Url>, String> {
+    if !matches!(
+        status,
+        StatusCode::MOVED_PERMANENTLY
+            | StatusCode::FOUND
+            | StatusCode::SEE_OTHER
+            | StatusCode::TEMPORARY_REDIRECT
+            | StatusCode::PERMANENT_REDIRECT
+    ) {
+        return Ok(None);
+    }
+    let Some(location) = headers.get(LOCATION) else {
+        return Ok(None);
+    };
+    let location = location
+        .to_str()
+        .map_err(|_| "redirect location is not valid UTF-8".to_string())?;
+    let next = current_url
+        .join(location)
+        .map_err(|e| format!("invalid redirect location: {e}"))?;
+    let next = validate_url(next.as_str(), allow_private)?;
+    if current_url.scheme() == "https" && next.scheme() == "http" {
+        return Err("https to http redirect is not allowed".into());
+    }
+    Ok(Some(next))
+}
+
+fn same_origin(left: &reqwest::Url, right: &reqwest::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn remove_body_headers(headers: &mut HeaderMap) {
+    headers.remove(CONTENT_ENCODING);
+    headers.remove(CONTENT_LANGUAGE);
+    headers.remove(CONTENT_LOCATION);
+    headers.remove(CONTENT_TYPE);
+}
+
+fn remove_sensitive_headers(headers: &mut HeaderMap) {
+    headers.remove(AUTHORIZATION);
+    headers.remove(COOKIE);
+    headers.remove("cookie2");
+    headers.remove(PROXY_AUTHORIZATION);
+    headers.remove(WWW_AUTHENTICATE);
+    headers.remove("x-api-key");
+    headers.remove("api-key");
+    headers.remove("x-goog-api-key");
+}
+
+fn redirected_request(
+    mut request: RedirectRequest,
+    status: StatusCode,
+    next_url: reqwest::Url,
+) -> RedirectRequest {
+    let drops_body = status == StatusCode::SEE_OTHER
+        || matches!(status, StatusCode::MOVED_PERMANENTLY | StatusCode::FOUND)
+            && request.method == Method::POST;
+    if drops_body {
+        if request.method != Method::HEAD {
+            request.method = Method::GET;
+        }
+        request.body = None;
+        remove_body_headers(&mut request.headers);
+    }
+    if !same_origin(&request.url, &next_url) {
+        remove_sensitive_headers(&mut request.headers);
+    }
+    request.url = next_url;
+    request
+}
+
+async fn send_with_safe_redirects(
+    mut request: RedirectRequest,
+    allow_private: bool,
+) -> Result<reqwest::Response, String> {
+    let mut redirects_followed = 0usize;
+    loop {
+        // Re-parse and re-validate on every iteration, including the first
+        // request. Redirect targets are not trusted merely because they came
+        // from an already validated server.
+        let url = validate_url(request.url.as_str(), allow_private)?;
+        let host = url
+            .host_str()
+            .ok_or_else(|| "missing host".to_string())?
+            .to_string();
+        let safe_ips = classify_and_collect_safe_ips(&host, allow_private).await?;
+        let client = build_safe_client(&host, &safe_ips)?;
+        let response = build_request(&client, &request, url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let Some(next_url) = redirect_target(
+            response.status(),
+            &request.url,
+            response.headers(),
+            allow_private,
+        )?
+        else {
+            return Ok(response);
+        };
+        if redirects_followed >= MAX_REDIRECTS {
+            return Err(format!("too many redirects (max {MAX_REDIRECTS})"));
+        }
+        redirects_followed += 1;
+        request = redirected_request(request, response.status(), next_url);
+    }
 }
 
 fn header_map_to_strings(headers: &HeaderMap) -> HashMap<String, String> {
@@ -318,17 +419,8 @@ pub async fn ai_http_request(
     allow_private_network: Option<bool>,
 ) -> Result<HttpResponse, String> {
     let allow_private = allow_private_network.unwrap_or(false);
-    let parsed = validate_url(&url, allow_private)?;
-    let host = parsed
-        .host_str()
-        .ok_or_else(|| "missing host".to_string())?
-        .to_string();
-    let safe_ips = classify_and_collect_safe_ips(&host, allow_private).await?;
-
-    let client = build_safe_client(allow_private, &[(host, safe_ips)])?;
-
-    let req = build_request(&client, &method, parsed, headers, body)?;
-    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let request = initial_redirect_request(&url, &method, headers, body, allow_private)?;
+    let resp = send_with_safe_redirects(request, allow_private).await?;
 
     let status = resp.status().as_u16();
     let headers = header_map_to_strings(resp.headers());
@@ -366,39 +458,18 @@ pub async fn ai_http_stream(
     on_event: Channel<AiStreamEvent>,
 ) -> Result<(), String> {
     let allow_private = allow_private_network.unwrap_or(false);
-    let parsed = match validate_url(&url, allow_private) {
-        Ok(p) => p,
+    let request = match initial_redirect_request(&url, &method, headers, body, allow_private) {
+        Ok(request) => request,
         Err(e) => {
             let _ = on_event.send(AiStreamEvent::Error { message: e.clone() });
             return Err(e);
         }
     };
-    let host = match parsed.host_str() {
-        Some(h) => h.to_string(),
-        None => {
-            let e = "missing host".to_string();
-            let _ = on_event.send(AiStreamEvent::Error { message: e.clone() });
-            return Err(e);
-        }
-    };
-    let safe_ips = match classify_and_collect_safe_ips(&host, allow_private).await {
-        Ok(v) => v,
+    let resp = match send_with_safe_redirects(request, allow_private).await {
+        Ok(response) => response,
         Err(e) => {
             let _ = on_event.send(AiStreamEvent::Error { message: e.clone() });
             return Err(e);
-        }
-    };
-
-    let client = build_safe_client(allow_private, &[(host, safe_ips)])?;
-
-    let req = build_request(&client, &method, parsed, headers, body)?;
-    let resp = match req.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            let _ = on_event.send(AiStreamEvent::Error {
-                message: e.to_string(),
-            });
-            return Err(e.to_string());
         }
     };
 
@@ -544,5 +615,167 @@ mod tests {
                 "expected {hop} to be rejected"
             );
         }
+    }
+
+    fn test_redirect_request(method: Method) -> RedirectRequest {
+        let mut headers = HeaderMap::new();
+        headers.insert(AUTHORIZATION, HeaderValue::from_static("Bearer secret"));
+        headers.insert(COOKIE, HeaderValue::from_static("session=secret"));
+        headers.insert("cookie2", HeaderValue::from_static("legacy=secret"));
+        headers.insert(
+            PROXY_AUTHORIZATION,
+            HeaderValue::from_static("Basic c2VjcmV0"),
+        );
+        headers.insert(WWW_AUTHENTICATE, HeaderValue::from_static("secret"));
+        headers.insert("x-api-key", HeaderValue::from_static("anthropic-secret"));
+        headers.insert("api-key", HeaderValue::from_static("azure-secret"));
+        headers.insert("x-goog-api-key", HeaderValue::from_static("google-secret"));
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert("x-request-id", HeaderValue::from_static("keep-me"));
+        RedirectRequest {
+            url: reqwest::Url::parse("https://example.com/api/v1/chat").unwrap(),
+            method,
+            headers,
+            body: Some(Bytes::from_static(b"{}")),
+        }
+    }
+
+    #[test]
+    fn redirect_target_resolves_relative_locations() {
+        let current = reqwest::Url::parse("https://example.com/api/v1/chat").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(LOCATION, HeaderValue::from_static("../v2/models?limit=1"));
+
+        let next = redirect_target(StatusCode::FOUND, &current, &headers, false)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(next.as_str(), "https://example.com/api/v2/models?limit=1");
+    }
+
+    #[test]
+    fn redirect_target_only_follows_supported_statuses_with_location() {
+        let current = reqwest::Url::parse("https://example.com/start").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(LOCATION, HeaderValue::from_static("/next"));
+
+        assert!(
+            redirect_target(StatusCode::MULTIPLE_CHOICES, &current, &headers, false)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            redirect_target(StatusCode::FOUND, &current, &HeaderMap::new(), false)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn redirect_target_revalidates_the_new_url() {
+        let current = reqwest::Url::parse("https://example.com/start").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            LOCATION,
+            HeaderValue::from_static("http://metadata.google.internal/latest/meta-data"),
+        );
+
+        assert!(redirect_target(StatusCode::FOUND, &current, &headers, true).is_err());
+    }
+
+    #[test]
+    fn redirect_target_rejects_https_downgrades() {
+        let current = reqwest::Url::parse("https://example.com/start").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            LOCATION,
+            HeaderValue::from_static("http://example.com/insecure"),
+        );
+
+        assert!(redirect_target(StatusCode::FOUND, &current, &headers, false).is_err());
+    }
+
+    #[test]
+    fn redirect_origin_uses_scheme_host_and_effective_port() {
+        let implicit = reqwest::Url::parse("https://example.com/path").unwrap();
+        let explicit = reqwest::Url::parse("https://example.com:443/other").unwrap();
+        let downgrade = reqwest::Url::parse("http://example.com/other").unwrap();
+        let other_port = reqwest::Url::parse("https://example.com:8443/other").unwrap();
+
+        assert!(same_origin(&implicit, &explicit));
+        assert!(!same_origin(&implicit, &downgrade));
+        assert!(!same_origin(&implicit, &other_port));
+    }
+
+    #[test]
+    fn post_301_302_and_303_switch_to_get_and_drop_body_headers() {
+        for status in [
+            StatusCode::MOVED_PERMANENTLY,
+            StatusCode::FOUND,
+            StatusCode::SEE_OTHER,
+        ] {
+            let next = reqwest::Url::parse("https://example.com/next").unwrap();
+            let redirected = redirected_request(test_redirect_request(Method::POST), status, next);
+
+            assert_eq!(redirected.method, Method::GET);
+            assert!(redirected.body.is_none());
+            assert!(!redirected.headers.contains_key(CONTENT_TYPE));
+            assert!(redirected.headers.contains_key(AUTHORIZATION));
+        }
+    }
+
+    #[test]
+    fn redirect_303_keeps_head_but_drops_any_body() {
+        let next = reqwest::Url::parse("https://example.com/next").unwrap();
+        let redirected = redirected_request(
+            test_redirect_request(Method::HEAD),
+            StatusCode::SEE_OTHER,
+            next,
+        );
+
+        assert_eq!(redirected.method, Method::HEAD);
+        assert!(redirected.body.is_none());
+        assert!(!redirected.headers.contains_key(CONTENT_TYPE));
+    }
+
+    #[test]
+    fn redirect_307_308_and_non_post_301_preserve_method_and_body() {
+        for status in [
+            StatusCode::TEMPORARY_REDIRECT,
+            StatusCode::PERMANENT_REDIRECT,
+            StatusCode::MOVED_PERMANENTLY,
+        ] {
+            let next = reqwest::Url::parse("https://example.com/next").unwrap();
+            let redirected = redirected_request(test_redirect_request(Method::PUT), status, next);
+
+            assert_eq!(redirected.method, Method::PUT);
+            assert_eq!(redirected.body.as_deref(), Some(&b"{}"[..]));
+            assert!(redirected.headers.contains_key(CONTENT_TYPE));
+        }
+    }
+
+    #[test]
+    fn cross_origin_redirect_strips_credentials_but_keeps_other_headers() {
+        let next = reqwest::Url::parse("https://api.example.net/next").unwrap();
+        let redirected = redirected_request(
+            test_redirect_request(Method::POST),
+            StatusCode::TEMPORARY_REDIRECT,
+            next,
+        );
+
+        for sensitive in [
+            AUTHORIZATION,
+            COOKIE,
+            HeaderName::from_static("cookie2"),
+            PROXY_AUTHORIZATION,
+            WWW_AUTHENTICATE,
+            HeaderName::from_static("x-api-key"),
+            HeaderName::from_static("api-key"),
+            HeaderName::from_static("x-goog-api-key"),
+        ] {
+            assert!(!redirected.headers.contains_key(sensitive));
+        }
+        assert_eq!(redirected.headers["x-request-id"], "keep-me");
+        assert_eq!(redirected.body.as_deref(), Some(&b"{}"[..]));
     }
 }

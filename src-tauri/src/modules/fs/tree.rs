@@ -1,5 +1,6 @@
 use std::collections::HashSet;
-use std::path::Path;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use ignore::WalkBuilder;
@@ -25,12 +26,71 @@ pub struct DirEntry {
     pub gitignored: bool,
 }
 
+const MAX_GIT_FILE_BYTES: u64 = 4096;
+
+fn read_git_path_file(path: &Path) -> Option<String> {
+    let mut file = std::fs::File::open(path).ok()?;
+    if file.metadata().ok()?.len() > MAX_GIT_FILE_BYTES {
+        return None;
+    }
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).ok()?;
+    let target = contents.lines().next()?.trim();
+    if target.is_empty() {
+        return None;
+    }
+    Some(target.to_owned())
+}
+
+fn resolve_git_path(base: &Path, target: &str) -> PathBuf {
+    let target = Path::new(target);
+    if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        base.join(target)
+    }
+}
+
+fn is_git_dir(path: &Path) -> bool {
+    if !path.join("HEAD").is_file() {
+        return false;
+    }
+    if path.join("objects").is_dir() {
+        return true;
+    }
+
+    read_git_path_file(&path.join("commondir"))
+        .map(|target| resolve_git_path(path, &target))
+        .is_some_and(|common_dir| common_dir.join("objects").is_dir())
+}
+
+fn git_file_target(marker: &Path, worktree: &Path) -> Option<PathBuf> {
+    let contents = read_git_path_file(marker)?;
+    let target = contents.strip_prefix("gitdir: ")?.trim();
+    if target.is_empty() {
+        return None;
+    }
+    Some(resolve_git_path(worktree, target))
+}
+
+fn has_valid_git_marker(worktree: &Path) -> bool {
+    let marker = worktree.join(".git");
+    if marker.is_dir() {
+        return is_git_dir(&marker);
+    }
+    if marker.is_file() {
+        return git_file_target(&marker, worktree).is_some_and(|target| is_git_dir(&target));
+    }
+    false
+}
+
 // Whether `dir` is inside a git repo. Walks up only; never descends into
 // siblings, so it does not touch protected macOS folders (Desktop, ...).
 fn in_git_repo(dir: &Path) -> bool {
     let mut cur = dir;
     loop {
-        if cur.join(".git").exists() {
+        if has_valid_git_marker(cur) {
             return true;
         }
         match cur.parent() {
@@ -177,4 +237,86 @@ pub fn list_subdirs(
 
     dirs.sort_by_key(|a| a.to_lowercase());
     Ok(dirs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::in_git_repo;
+    use std::path::Path;
+
+    fn write_regular_git_dir(path: &Path) {
+        std::fs::create_dir_all(path.join("objects")).expect("create objects");
+        std::fs::write(path.join("HEAD"), "ref: refs/heads/main\n").expect("write HEAD");
+    }
+
+    #[test]
+    fn empty_dot_git_directory_is_not_a_repo() {
+        let root = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(root.path().join(".git")).expect("create .git");
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).expect("create nested");
+
+        assert!(!in_git_repo(&nested));
+    }
+
+    #[test]
+    fn regular_dot_git_directory_is_a_repo() {
+        let root = tempfile::tempdir().expect("tempdir");
+        write_regular_git_dir(&root.path().join(".git"));
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).expect("create nested");
+
+        assert!(in_git_repo(&nested));
+    }
+
+    #[test]
+    fn submodule_style_git_file_is_a_repo() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let worktree = root.path().join("checkout");
+        let git_dir = root.path().join("module-git-dir");
+        std::fs::create_dir(&worktree).expect("create checkout");
+        write_regular_git_dir(&git_dir);
+        std::fs::write(worktree.join(".git"), "gitdir: ../module-git-dir\n")
+            .expect("write .git file");
+
+        assert!(in_git_repo(&worktree));
+    }
+
+    #[test]
+    fn worktree_style_git_file_is_a_repo() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let worktree = root.path().join("checkout");
+        let common_dir = root.path().join("repo.git");
+        let git_dir = root.path().join("repo.git/worktrees/topic");
+        std::fs::create_dir(&worktree).expect("create checkout");
+        std::fs::create_dir_all(common_dir.join("objects")).expect("create common objects");
+        std::fs::create_dir_all(&git_dir).expect("create worktree git dir");
+        std::fs::write(git_dir.join("HEAD"), "ref: refs/heads/topic\n").expect("write HEAD");
+        std::fs::write(git_dir.join("commondir"), "../..\n").expect("write commondir");
+        std::fs::write(
+            worktree.join(".git"),
+            "gitdir: ../repo.git/worktrees/topic\n",
+        )
+        .expect("write .git file");
+
+        assert!(in_git_repo(&worktree));
+    }
+
+    #[test]
+    fn worktree_style_git_file_requires_a_valid_common_dir() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let worktree = root.path().join("checkout");
+        let git_dir = root.path().join("repo.git/worktrees/topic");
+        std::fs::create_dir(&worktree).expect("create checkout");
+        std::fs::create_dir_all(&git_dir).expect("create worktree git dir");
+        std::fs::write(git_dir.join("HEAD"), "ref: refs/heads/topic\n").expect("write HEAD");
+        std::fs::write(git_dir.join("commondir"), "../..\n").expect("write commondir");
+        std::fs::write(
+            worktree.join(".git"),
+            "gitdir: ../repo.git/worktrees/topic\n",
+        )
+        .expect("write .git file");
+
+        assert!(!in_git_repo(&worktree));
+    }
 }

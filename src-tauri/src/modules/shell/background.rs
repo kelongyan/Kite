@@ -8,6 +8,7 @@ use std::time::SystemTime;
 use serde::Serialize;
 use shared_child::SharedChild;
 
+use super::process_tree::ProcessTree;
 use super::ringbuffer::BoundedRingBuffer;
 use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 
@@ -18,6 +19,7 @@ pub struct BackgroundProc {
     pub cwd: Option<String>,
     pub started_at_ms: u64,
     pub child: Arc<SharedChild>,
+    tree: ProcessTree,
     pub buffer: Mutex<BoundedRingBuffer>,
     pub exited: AtomicBool,
     pub exit_code: AtomicI32,
@@ -62,7 +64,7 @@ impl BackgroundProc {
     }
 
     pub fn kill(&self) {
-        let _ = self.child.kill();
+        let _ = self.tree.kill();
     }
 
     pub fn info(&self, handle: u32) -> BackgroundProcInfo {
@@ -113,9 +115,10 @@ pub fn spawn(
         .stderr(Stdio::piped());
     crate::modules::proc::hide_console(&mut cmd);
 
-    let shared = Arc::new(SharedChild::spawn(&mut cmd).map_err(|e| e.to_string())?);
+    let (shared, tree) = super::process_tree::spawn(&mut cmd).map_err(|e| e.to_string())?;
     let kill_on_fail = || {
-        let _ = shared.kill();
+        let _ = tree.kill();
+        let _ = shared.wait();
     };
     let stdout_pipe = shared.take_stdout().ok_or_else(|| {
         kill_on_fail();
@@ -137,6 +140,7 @@ pub fn spawn(
         cwd,
         started_at_ms,
         child,
+        tree,
         buffer: Mutex::new(BoundedRingBuffer::new(RING_CAP)),
         exited: AtomicBool::new(false),
         exit_code: AtomicI32::new(0),
@@ -182,9 +186,91 @@ pub fn spawn(
                 },
                 Err(_) => proc_ref.exit_unknown.store(true, Ordering::Release),
             }
+            // A shell can exit after launching a detached child. Tear down the
+            // remaining tree before exposing `exited` to callers.
+            let _ = proc_ref.tree.kill();
             proc_ref.exited.store(true, Ordering::Release);
         });
     }
 
     Ok(proc)
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    fn wait_until(timeout: Duration, check: impl Fn() -> bool) -> bool {
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            if check() {
+                return true;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        check()
+    }
+
+    #[test]
+    fn kill_terminates_the_process_tree() {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let survived = dir.path().join("survived");
+        let script = dir.path().join("child.ps1");
+        let ps_quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "''");
+        std::fs::write(
+            &script,
+            format!(
+                "Set-Content -LiteralPath '{}' -Value ready\nStart-Sleep -Seconds 3\nSet-Content -LiteralPath '{}' -Value survived\n",
+                ps_quote(&ready),
+                ps_quote(&survived),
+            ),
+        )
+        .unwrap();
+        let command = format!("& powershell.exe -NoProfile -File '{}'", ps_quote(&script));
+        let proc = spawn(command, None, WorkspaceEnv::Local).expect("spawn");
+
+        assert!(
+            wait_until(Duration::from_secs(5), || ready.exists()),
+            "descendant must start before kill",
+        );
+        proc.kill();
+        assert!(wait_until(Duration::from_secs(5), || {
+            proc.read_logs(0).exited
+        }));
+        thread::sleep(Duration::from_secs(3));
+        assert!(!survived.exists(), "background descendant survived kill");
+    }
+
+    #[test]
+    fn leader_exit_terminates_the_remaining_process_tree() {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let survived = dir.path().join("survived");
+        let script = dir.path().join("child.ps1");
+        let ps_quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "''");
+        std::fs::write(
+            &script,
+            format!(
+                "Set-Content -LiteralPath '{}' -Value ready\nStart-Sleep -Seconds 3\nSet-Content -LiteralPath '{}' -Value survived\n",
+                ps_quote(&ready),
+                ps_quote(&survived),
+            ),
+        )
+        .unwrap();
+        let command = format!(
+            "$p = Start-Process -PassThru -WindowStyle Hidden powershell.exe -ArgumentList @('-NoProfile', '-File', '{}'); while (-not (Test-Path -LiteralPath '{}')) {{ Start-Sleep -Milliseconds 20 }}",
+            ps_quote(&script),
+            ps_quote(&ready),
+        );
+        let proc = spawn(command, None, WorkspaceEnv::Local).expect("spawn");
+
+        assert!(wait_until(Duration::from_secs(5), || {
+            proc.read_logs(0).exited
+        }));
+        assert!(ready.exists(), "descendant must start before shell exit");
+        thread::sleep(Duration::from_secs(3));
+        assert!(!survived.exists(), "descendant survived shell exit");
+    }
 }

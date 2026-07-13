@@ -74,6 +74,60 @@ fn kill_terminates_a_running_process() {
 }
 
 #[test]
+fn kill_terminates_the_process_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    let ready = dir.path().join("ready");
+    let survived = dir.path().join("survived");
+    let quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "'\\''");
+    let proc = background::spawn(
+        format!(
+            "(printf ready > '{}'; sleep 2; printf survived > '{}') & sleep 30",
+            quote(&ready),
+            quote(&survived),
+        ),
+        None,
+        WorkspaceEnv::Local,
+    )
+    .expect("spawn");
+
+    assert!(
+        wait_until(Duration::from_secs(5), || ready.exists()),
+        "descendant must start before kill",
+    );
+    proc.kill();
+    assert!(wait_until(Duration::from_secs(5), || {
+        proc.read_logs(0).exited
+    }));
+    std::thread::sleep(Duration::from_secs(2));
+    assert!(!survived.exists(), "background descendant survived kill");
+}
+
+#[test]
+fn leader_exit_terminates_the_remaining_process_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    let ready = dir.path().join("ready");
+    let survived = dir.path().join("survived");
+    let quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "'\\''");
+    let proc = background::spawn(
+        format!(
+            "(printf ready > '{}'; sleep 2; printf survived > '{}') &",
+            quote(&ready),
+            quote(&survived),
+        ),
+        None,
+        WorkspaceEnv::Local,
+    )
+    .expect("spawn");
+
+    assert!(wait_until(Duration::from_secs(5), || {
+        proc.read_logs(0).exited
+    }));
+    assert!(ready.exists(), "descendant must start before shell exit");
+    std::thread::sleep(Duration::from_secs(2));
+    assert!(!survived.exists(), "descendant survived shell exit");
+}
+
+#[test]
 fn read_logs_advances_offset() {
     let proc = background::spawn(
         "printf 'one\\n'; printf 'two\\n'".into(),

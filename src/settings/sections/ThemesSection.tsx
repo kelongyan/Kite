@@ -150,8 +150,8 @@ export function ThemesSection() {
         description={themeMessages.description}
       />
 
-      <div
-        role="presentation"
+      <section
+        aria-labelledby="theme-files-label"
         className="flex flex-col gap-2"
         onDragOver={(e) => {
           e.preventDefault();
@@ -163,7 +163,9 @@ export function ThemesSection() {
         }}
       >
         <div className="flex items-center justify-between">
-          <Label>{themeMessages.theme.title}</Label>
+          <div id="theme-files-label">
+            <Label>{themeMessages.theme.title}</Label>
+          </div>
           <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
@@ -211,79 +213,78 @@ export function ThemesSection() {
             const selected = themeId === t.id;
             const isCustom = customIds.has(t.id);
             return (
-              <button
+              <div
                 key={t.id}
-                type="button"
-                onClick={() => setThemeId(t.id)}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
+                  "group/theme flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all focus-within:ring-1 focus-within:ring-foreground/20",
                   selected
                     ? "border-foreground/60 ring-1 ring-foreground/20"
                     : "border-border/60 hover:border-border",
                 )}
               >
-                <div
-                  className="flex h-10 w-14 shrink-0 items-center justify-center gap-1 rounded-md border border-border/40"
-                  style={{ background: swatchBg }}
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setThemeId(t.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none"
                 >
-                  <span
-                    className="h-5 w-2 rounded-sm"
-                    style={{ background: swatchAccent }}
-                  />
-                  <span
-                    className="h-5 w-2 rounded-sm"
-                    style={{ background: swatchFg, opacity: 0.7 }}
-                  />
-                  <span
-                    className="h-5 w-2 rounded-sm"
-                    style={{ background: swatchMuted }}
-                  />
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[12.5px] font-medium">
-                    {t.name}
-                  </span>
-                  {t.description ? (
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {t.description}
-                    </span>
-                  ) : null}
-                </div>
-                {isCustom ? (
-                  <span className="ml-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                  <div
+                    className="flex h-10 w-14 shrink-0 items-center justify-center gap-1 rounded-md border border-border/40"
+                    style={{ background: swatchBg }}
+                  >
                     <span
-                      role="button"
+                      className="h-5 w-2 rounded-sm"
+                      style={{ background: swatchAccent }}
+                    />
+                    <span
+                      className="h-5 w-2 rounded-sm"
+                      style={{ background: swatchFg, opacity: 0.7 }}
+                    />
+                    <span
+                      className="h-5 w-2 rounded-sm"
+                      style={{ background: swatchMuted }}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[12.5px] font-medium">
+                      {t.name}
+                    </span>
+                    {t.description ? (
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {t.description}
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+                {isCustom ? (
+                  <span className="ml-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/theme:opacity-100 group-focus-within/theme:opacity-100">
+                    <button
+                      type="button"
                       aria-label={themeMessages.theme.editTheme(t.name)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditTheme(t.id);
-                      }}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      onClick={() => onEditTheme(t.id)}
                     >
                       <HugeiconsIcon
                         icon={Edit02Icon}
                         size={12}
                         strokeWidth={1.75}
                       />
-                    </span>
-                    <span
-                      role="button"
+                    </button>
+                    <button
+                      type="button"
                       aria-label={themeMessages.theme.removeTheme(t.name)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void onRemoveCustomTheme(t.id);
-                      }}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      onClick={() => void onRemoveCustomTheme(t.id)}
                     >
                       ×
-                    </span>
+                    </button>
                   </span>
                 ) : null}
-              </button>
+              </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
@@ -326,8 +327,8 @@ export function ThemesSection() {
         </div>
       </div>
 
-      <div
-        role="presentation"
+      <section
+        aria-labelledby="background-image-label"
         className="flex flex-col gap-2"
         onDragOver={(e) => {
           e.preventDefault();
@@ -339,7 +340,9 @@ export function ThemesSection() {
         }}
       >
         <div className="flex items-center justify-between">
-          <Label>{themeMessages.background.title}</Label>
+          <div id="background-image-label">
+            <Label>{themeMessages.background.title}</Label>
+          </div>
           <div className="flex items-center gap-2">
             {backgroundKind === "image" && backgroundImageId ? (
               <Button
@@ -416,7 +419,7 @@ export function ThemesSection() {
             {themeMessages.background.emptyHint}
           </p>
         )}
-      </div>
+      </section>
     </div>
   );
 }

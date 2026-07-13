@@ -211,9 +211,11 @@ function ShortcutRow({
           />
         ) : (
           <>
-            <div
+            <button
+              type="button"
+              aria-label={messages.actions[shortcut.id]}
               onClick={onStartRecording}
-              className="flex min-w-[100px] cursor-pointer items-center justify-end gap-1"
+              className="flex min-w-[100px] cursor-pointer items-center justify-end gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               {hasBindings ? (
                 <KbdGroup>
@@ -231,7 +233,7 @@ function ShortcutRow({
                   {messages.unassigned}
                 </span>
               )}
-            </div>
+            </button>
 
             <div className="flex items-center gap-1">
               {isModified && (

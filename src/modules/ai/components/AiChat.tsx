@@ -338,6 +338,14 @@ const RenderedMessage = memo(function RenderedMessage({
   onApproval: (id: string, approved: boolean) => void;
   streaming: boolean;
 }) {
+  const groups = useMemo(
+    () =>
+      message.role === "user"
+        ? null
+        : buildPartGroups(message.parts as AnyPart[]),
+    [message.role, message.parts],
+  );
+
   // Index of the trailing text part — only that one is "live" mid-stream.
   // Earlier text parts (separated by tool calls) are already finalized.
   let lastTextIdx = -1;
@@ -375,15 +383,11 @@ const RenderedMessage = memo(function RenderedMessage({
     );
   }
 
-  const groups = useMemo(() => buildPartGroups(message.parts as AnyPart[]), [
-    message.parts,
-  ]);
-
   return (
     <Message from={message.role}>
       <MessageContent>
         <div className="flex flex-col gap-3">
-          {groups.map((g) => {
+          {groups?.map((g) => {
             if (g.kind === "reads") {
               return (
                 <PartAppear key={`${message.id}-${g.key}`}>
