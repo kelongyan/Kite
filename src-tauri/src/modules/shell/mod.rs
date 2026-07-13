@@ -417,9 +417,10 @@ mod tests {
         let survived = dir.path().join("survived");
         let quote = |path: &std::path::Path| path.to_string_lossy().replace('\'', "'\\''");
         let command = format!(
-            "(printf ready > '{}'; sleep 2; printf survived > '{}') &",
+            "(printf ready > '{}'; sleep 2; printf survived > '{}') & while [ ! -e '{}' ]; do sleep 0.01; done",
             quote(&ready),
             quote(&survived),
+            quote(&ready),
         );
 
         let out = run(&command, 5);
