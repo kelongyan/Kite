@@ -1186,4 +1186,14 @@ mod tests {
             Some("15;0")
         );
     }
+
+    #[test]
+    fn powershell_profile_syncs_codex_colors_at_command_lookup() {
+        let profile = include_str!("scripts/profile.ps1");
+
+        assert!(profile.contains("PreCommandLookupAction"));
+        assert!(profile.contains("GetFileNameWithoutExtension($eventArgs.CommandName)"));
+        assert!(profile.contains("[System.Delegate]::Combine"));
+        assert!(profile.contains("COLORFGBG -eq '0;15'"));
+    }
 }

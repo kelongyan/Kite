@@ -12,6 +12,37 @@ try {
     $global:OutputEncoding    = [System.Text.UTF8Encoding]::new($false)
 } catch {}
 
+# Codex falls back to Win32 console attributes when ConPTY consumes its OSC
+# color queries. PowerShell resets those attributes after ReadLine returns.
+try {
+    $kiteLookup = [System.EventHandler[System.Management.Automation.CommandLookupEventArgs]] {
+        param($sender, $eventArgs)
+        try {
+            $name = [IO.Path]::GetFileNameWithoutExtension($eventArgs.CommandName)
+            if (-not [string]::Equals(
+                $name,
+                'codex',
+                [StringComparison]::OrdinalIgnoreCase
+            )) { return }
+
+            if ($env:COLORFGBG -eq '0;15') {
+                [Console]::ForegroundColor = [ConsoleColor]::Black
+                [Console]::BackgroundColor = [ConsoleColor]::White
+            } else {
+                [Console]::ForegroundColor = [ConsoleColor]::Gray
+                [Console]::BackgroundColor = [ConsoleColor]::Black
+            }
+        } catch {}
+    }
+    $existingLookup = $ExecutionContext.InvokeCommand.PreCommandLookupAction
+    if ($null -eq $existingLookup) {
+        $ExecutionContext.InvokeCommand.PreCommandLookupAction = $kiteLookup
+    } else {
+        $ExecutionContext.InvokeCommand.PreCommandLookupAction =
+            [System.Delegate]::Combine($existingLookup, $kiteLookup)
+    }
+} catch {}
+
 if (Test-Path Function:prompt) {
     Copy-Item Function:prompt Function:__terax_user_prompt -Force -ErrorAction SilentlyContinue
 }
