@@ -100,7 +100,11 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const prevIsBusyRef = useRef(false);
   useEffect(() => {
     if (prevIsBusyRef.current && !isBusy) {
-      requestAnimationFrame(() => textareaRef.current?.focus());
+      requestAnimationFrame(() => {
+        if (document.activeElement !== textareaRef.current) {
+          textareaRef.current?.focus();
+        }
+      });
     }
     prevIsBusyRef.current = isBusy;
   }, [isBusy, textareaRef]);

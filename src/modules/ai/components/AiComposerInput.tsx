@@ -86,6 +86,7 @@ export function AiComposerInput() {
   }, [c.value, c.textareaRef]);
 
   const updateTrigger = () => {
+    if (isComposingRef.current) return;
     const el = c.textareaRef.current;
     if (!el) {
       setTrigger(null);
@@ -198,6 +199,8 @@ export function AiComposerInput() {
     if (it) onPickItem(it);
   };
 
+  const isComposingRef = useRef(false);
+
   const voiceLabel = c.voice.recording
     ? messages.listening
     : c.voice.transcribing
@@ -215,7 +218,17 @@ export function AiComposerInput() {
             <textarea
               ref={c.textareaRef}
               value={c.value}
-              onChange={(e) => c.setValue(e.target.value)}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={(e) => {
+                isComposingRef.current = false;
+                c.setValue(e.currentTarget.value);
+              }}
+              onChange={(e) => {
+                if (isComposingRef.current) return;
+                c.setValue(e.target.value);
+              }}
               onKeyUp={updateTrigger}
               onClick={updateTrigger}
               onSelect={updateTrigger}
@@ -254,7 +267,7 @@ export function AiComposerInput() {
                     return;
                   }
                 }
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   c.submit();
                 }
