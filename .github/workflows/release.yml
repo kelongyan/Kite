@@ -10,6 +10,12 @@ on:
         description: "Release tag (e.g. v0.8.2)"
         required: true
 
+# Required to create/update GitHub Releases and upload assets.
+# Setting at workflow level ensures the token has write access regardless of
+# how the workflow is triggered (tag push vs. workflow_dispatch).
+permissions:
+  contents: write
+
 env:
   RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
