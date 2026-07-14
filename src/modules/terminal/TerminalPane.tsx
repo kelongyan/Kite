@@ -3,10 +3,13 @@ import type { SearchAddon } from "@xterm/addon-search";
 import {
   forwardRef,
   memo,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
+import { CopiedBubble } from "./CopiedBubble";
 import { BlockOverlay } from "./block/BlockOverlay";
 import { BlockWatermark } from "./block/BlockWatermark";
 import {
@@ -53,6 +56,11 @@ export const TerminalPane = memo(
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const downYRef = useRef<number | null>(null);
+    const mousePosRef = useRef({ x: 0, y: 0 });
+    const [copiedPos, setCopiedPos] = useState<{ x: number; y: number } | null>(
+      null,
+    );
+    const clearCopied = useCallback(() => setCopiedPos(null), []);
     const { resolvedMode, themeId, customThemes } = useTheme();
 
     const session = useTerminalSession({
@@ -86,6 +94,15 @@ export const TerminalPane = memo(
       [session],
     );
 
+    // Show "Copied" bubble at the last mouse-up position when a copy fires.
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      const handler = () => setCopiedPos({ ...mousePosRef.current });
+      el.addEventListener("terminal:copied", handler);
+      return () => el.removeEventListener("terminal:copied", handler);
+    }, []);
+
     const hideStyle = {
       visibility: visible ? ("visible" as const) : ("hidden" as const),
       pointerEvents: visible ? ("auto" as const) : ("none" as const),
@@ -108,6 +125,7 @@ export const TerminalPane = memo(
                 downYRef.current = e.clientY;
               }}
               onMouseUp={(e) => {
+                mousePosRef.current = { x: e.clientX, y: e.clientY };
                 const moved =
                   downYRef.current != null &&
                   Math.abs(e.clientY - downYRef.current) > 4;
@@ -134,16 +152,27 @@ export const TerminalPane = memo(
               }}
             />
           </div>
+          {copiedPos && (
+            <CopiedBubble x={copiedPos.x} y={copiedPos.y} onDone={clearCopied} />
+          )}
         </div>
       );
     }
 
     return (
-      <div
-        ref={containerRef}
-        className="zoom-exempt h-full w-full"
-        style={hideStyle}
-      />
+      <>
+        <div
+          ref={containerRef}
+          className="zoom-exempt h-full w-full"
+          style={hideStyle}
+          onMouseUp={(e) => {
+            mousePosRef.current = { x: e.clientX, y: e.clientY };
+          }}
+        />
+        {copiedPos && (
+          <CopiedBubble x={copiedPos.x} y={copiedPos.y} onDone={clearCopied} />
+        )}
+      </>
     );
   }),
 );

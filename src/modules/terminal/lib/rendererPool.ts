@@ -393,10 +393,30 @@ function createSlot(): Slot {
     if (isTerminalCopy(event)) {
       if (event.type === "keydown" && slot.term.hasSelection()) {
         const sel = slot.term.getSelection();
-        if (sel) void writeTerminalClipboard(sel);
+        if (sel) {
+          void writeTerminalClipboard(sel);
+          slot.term.element?.dispatchEvent(
+            new CustomEvent("terminal:copied", { bubbles: true }),
+          );
+        }
       }
       event.preventDefault();
       return false;
+    }
+    if (isTerminalSmartCopy(event)) {
+      // Ctrl+C with a selection → copy; without a selection → SIGINT passes through.
+      if (event.type === "keydown" && slot.term.hasSelection()) {
+        const sel = slot.term.getSelection();
+        if (sel) {
+          void writeTerminalClipboard(sel);
+          slot.term.element?.dispatchEvent(
+            new CustomEvent("terminal:copied", { bubbles: true }),
+          );
+          event.preventDefault();
+          return false;
+        }
+      }
+      return true;
     }
     if (isTerminalPaste(event)) {
       if (event.type === "keydown") {
@@ -1661,13 +1681,27 @@ function isTerminalCopy(e: KeyboardEvent): boolean {
 }
 
 function isTerminalPaste(e: KeyboardEvent): boolean {
+  // Ctrl+V or Ctrl+Shift+V (Windows convention); Shift variant kept for
+  // terminals that assign a meaning to bare Ctrl+V (e.g. literal-next).
   return (
     !IS_MAC &&
     e.ctrlKey &&
-    e.shiftKey &&
     !e.altKey &&
     !e.metaKey &&
     (e.code === "KeyV" || e.key === "v" || e.key === "V")
+  );
+}
+
+// Ctrl+C without Shift: copy when text is selected, otherwise let xterm
+// forward SIGINT to the PTY (smart-copy, à la Windows Terminal).
+function isTerminalSmartCopy(e: KeyboardEvent): boolean {
+  return (
+    !IS_MAC &&
+    e.ctrlKey &&
+    !e.shiftKey &&
+    !e.altKey &&
+    !e.metaKey &&
+    (e.code === "KeyC" || e.key === "c" || e.key === "C")
   );
 }
 
