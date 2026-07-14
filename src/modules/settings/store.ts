@@ -225,6 +225,7 @@ const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
+const KEY_VERSION = "_version";
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -306,6 +307,17 @@ export function normalizeTerminalFontFamily(value: string | undefined): string {
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
 
+// ── Plan B: schema versioning ─────────────────────────────────────────────
+// Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
+// Preferences schema changes (field rename, type change, etc.).
+const SETTINGS_VERSION = 1;
+const SETTINGS_MIGRATIONS: Record<
+  number,
+  (map: Map<string, unknown>) => void
+> = {
+  // reserved — example: 2: (m) => { m.set("newKey", m.get("oldKey")); m.delete("oldKey"); }
+};
+
 // LazyStore.onChange only fires within the writing process. The settings
 // page lives in a separate webview, so writes there never reach the main
 // window's subscribers. Mirror every setter through a Tauri event so any
@@ -323,6 +335,24 @@ export async function loadPreferences(): Promise<Preferences> {
   // `plugin:store|get` per setting and is the dominant boot cost.
   const entries = await store.entries();
   const map = new Map<string, unknown>(entries);
+
+  // ── Schema migration ────────────────────────────────────────────────────
+  // Stores created before versioning was introduced are treated as version 1
+  // (the baseline) so no migrations run on existing data.
+  const storedVersion = (map.get(KEY_VERSION) as number) ?? 1;
+  let migrated = !map.has(KEY_VERSION);
+  for (let v = storedVersion + 1; v <= SETTINGS_VERSION; v++) {
+    SETTINGS_MIGRATIONS[v]?.(map);
+    migrated = true;
+  }
+  if (migrated) {
+    map.set(KEY_VERSION, SETTINGS_VERSION);
+    for (const [k, v] of map) {
+      await store.set(k, v);
+    }
+    await store.save();
+  }
+
   const get = <T>(k: string): T | undefined => map.get(k) as T | undefined;
   return {
     theme: get<ThemePref>(KEY_THEME) ?? DEFAULT_PREFERENCES.theme,

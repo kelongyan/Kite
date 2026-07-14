@@ -22,9 +22,21 @@ const STORE_PATH = "terax-spaces.json";
 const KEY_SPACES = "spaces";
 const KEY_ACTIVE = "activeId";
 const STATE_PREFIX = "state:";
+const KEY_VERSION = "_version";
 const stateKey = (id: string) => `${STATE_PREFIX}${id}`;
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 500 });
+
+// ── Schema versioning ────────────────────────────────────────────────────
+// Bump SPACES_VERSION and add an entry to SPACES_MIGRATIONS when SpaceMeta
+// or SpaceState structure changes.
+const SPACES_VERSION = 1;
+const SPACES_MIGRATIONS: Record<
+  number,
+  (map: Map<string, unknown>) => void
+> = {
+  // reserved
+};
 
 export type LoadedSpaces = {
   spaces: SpaceMeta[];
@@ -34,10 +46,27 @@ export type LoadedSpaces = {
 
 export async function loadAll(): Promise<LoadedSpaces> {
   const entries = await store.entries();
+  const map = new Map<string, unknown>(entries);
+
+  // ── Schema migration ─────────────────────────────────────────────────────
+  const storedVersion = (map.get(KEY_VERSION) as number) ?? 1;
+  let migrated = !map.has(KEY_VERSION);
+  for (let v = storedVersion + 1; v <= SPACES_VERSION; v++) {
+    SPACES_MIGRATIONS[v]?.(map);
+    migrated = true;
+  }
+  if (migrated) {
+    map.set(KEY_VERSION, SPACES_VERSION);
+    for (const [k, v] of map) {
+      await store.set(k, v);
+    }
+    await store.save();
+  }
+
   let spaces: SpaceMeta[] = [];
   let activeId: string | null = null;
   const states = new Map<string, SpaceState>();
-  for (const [k, v] of entries) {
+  for (const [k, v] of map) {
     if (k === KEY_SPACES) spaces = (v as SpaceMeta[]) ?? [];
     else if (k === KEY_ACTIVE) activeId = (v as string | null) ?? null;
     else if (k.startsWith(STATE_PREFIX)) {
