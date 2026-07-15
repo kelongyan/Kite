@@ -303,21 +303,15 @@ export type Messages = {
       refresh: string;
       selectLocalFolder: string;
       connectionTitle: string;
-      profile: string;
-      newProfile: string;
-      sshConfigTemplate: string;
-      noSshConfigTemplates: string;
-      sshCommand: string;
-      sshCommandPlaceholder: string;
-      sshCommandInvalid: string;
-      applySshCommand: string;
+      savedServers: string;
+      newConnection: string;
       openFromTerminal: string;
-      name: string;
       host: string;
       port: string;
       username: string;
       auth: string;
       password: string;
+      savedPassword: string;
       privateKey: string;
       privateKeyPath: string;
       passphrase: string;
@@ -326,6 +320,10 @@ export type Messages = {
       trustAndConnect: string;
       trustHostKey: string;
       hostKeyChanged: string;
+      saveServerPrompt: string;
+      serverName: string;
+      saveAndClose: string;
+      dontSave: string;
       transferQueue: string;
       noTransfers: string;
       clear: string;
@@ -1397,21 +1395,15 @@ export const en: Messages = {
       refresh: "Refresh",
       selectLocalFolder: "Select local folder",
       connectionTitle: "SFTP Connection",
-      profile: "Profile",
-      newProfile: "New profile",
-      sshConfigTemplate: "SSH config",
-      noSshConfigTemplates: "No template",
-      sshCommand: "SSH command",
-      sshCommandPlaceholder: "ssh deploy@example.com",
-      sshCommandInvalid: "Invalid SSH command",
-      applySshCommand: "Apply",
+      savedServers: "Saved servers",
+      newConnection: "New connection",
       openFromTerminal: "Open SFTP from current directory",
-      name: "Name",
       host: "Host",
       port: "Port",
       username: "Username",
       auth: "Auth",
       password: "Password",
+      savedPassword: "Saved",
       privateKey: "Private key",
       privateKeyPath: "Private key path",
       passphrase: "Passphrase",
@@ -1420,6 +1412,10 @@ export const en: Messages = {
       trustAndConnect: "Trust & Connect",
       trustHostKey: "Trust host key",
       hostKeyChanged: "Host key changed",
+      saveServerPrompt: "Connected! Save this server for quick access?",
+      serverName: "Server name",
+      saveAndClose: "Save & Close",
+      dontSave: "Don't save",
       transferQueue: "Transfer Queue",
       noTransfers: "No transfers",
       clear: "Clear",
