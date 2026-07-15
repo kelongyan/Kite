@@ -77,12 +77,20 @@ export function buildSyncPlan({
         };
       }
       if (source.kind === "file" && destination.kind === "file") {
+        // Compare by size and mtime for better accuracy
+        const sameSize = source.size === destination.size;
+        const sameMtime = Math.abs(source.mtime - destination.mtime) < 2000; // 2s tolerance
         return change(
-          source.size === destination.size ? "same" : "overwrite",
+          sameSize && sameMtime ? "same" : "overwrite",
           direction,
           source,
           destination,
         );
+      }
+      // For directories, always mark as "create" to trigger recursive sync
+      // The backend will recursively handle all contents
+      if (source.kind === "dir" && destination.kind === "dir") {
+        return change("create", direction, source, destination);
       }
       return change("same", direction, source, destination);
     }

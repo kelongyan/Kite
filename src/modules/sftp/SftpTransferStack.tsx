@@ -1,4 +1,12 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { sftpApi } from "@/modules/sftp/lib/api";
@@ -31,7 +39,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Plug01Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   conflictDecisionReducer,
   initialConflictDecisionState,
@@ -107,7 +115,8 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   const setProfiles = useSftpStore((state) => state.setProfiles);
   const setConnection = useSftpStore((state) => state.setConnection);
   const clearCompleted = useSftpStore((state) => state.clearCompleted);
-  const messages = useMessages().workspace.sftp;
+  const allMessages = useMessages();
+  const messages = allMessages.workspace.sftp;
 
   const [connectOpen, setConnectOpen] = useState(false);
   const [localNav, setLocalNav] = useState(() =>
@@ -141,6 +150,25 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   );
   const [pendingTransfer, setPendingTransfer] =
     useState<PendingTransfer | null>(null);
+
+  // Dialog state — replaces window.prompt / window.confirm
+  type DialogState =
+    | { kind: "idle" }
+    | {
+        kind: "input";
+        title: string;
+        placeholder?: string;
+        defaultValue?: string;
+        onSubmit: (value: string) => Promise<void>;
+      }
+    | {
+        kind: "confirm";
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+      };
+  const [dialog, setDialog] = useState<DialogState>({ kind: "idle" });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialLocalPath || localPath) return;
@@ -349,67 +377,97 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
     setPendingTransfer(null);
   };
 
-  const createRemoteFolder = async () => {
+  const createRemoteFolder = () => {
     if (!connection) return;
-    const name = window.prompt(messages.newFolder);
-    if (!name) return;
-    await sftpApi.createRemoteDir(
-      connection.id,
-      joinRemotePath(remotePath, name),
-    );
-    await loadRemote();
+    setDialog({
+      kind: "input",
+      title: messages.newFolder,
+      placeholder: messages.newFolder,
+      defaultValue: "",
+      onSubmit: async (name) => {
+        const trimmed = name.trim();
+        if (!trimmed || trimmed.includes("/")) return;
+        await sftpApi.createRemoteDir(
+          connection.id,
+          joinRemotePath(remotePath, trimmed),
+        );
+        await loadRemote();
+      },
+    });
   };
 
-  const renameRemoteSelected = async () => {
+  const renameRemoteSelected = () => {
     if (!connection || remoteSelected.length !== 1) return;
     const entry = remoteSelected[0];
-    const name = window.prompt(messages.rename, entry.name);
-    if (!name || name === entry.name) return;
-    await sftpApi.renameRemote(
-      connection.id,
-      entry.path,
-      joinRemotePath(dirname(entry.path), name),
-    );
-    await loadRemote();
+    setDialog({
+      kind: "input",
+      title: messages.rename,
+      placeholder: entry.name,
+      defaultValue: entry.name,
+      onSubmit: async (name) => {
+        const trimmed = name.trim();
+        if (!trimmed || trimmed === entry.name || trimmed.includes("/")) return;
+        await sftpApi.renameRemote(
+          connection.id,
+          entry.path,
+          joinRemotePath(dirname(entry.path), trimmed),
+        );
+        await loadRemote();
+      },
+    });
   };
 
-  const deleteRemoteSelected = async () => {
+  const deleteRemoteSelected = () => {
     if (!connection || remoteSelected.length === 0) return;
-    if (!window.confirm(`${messages.delete} ${remoteSelected.length}?`)) return;
-    await sftpApi.deleteRemote(
-      connection.id,
-      remoteSelected.map((entry) => entry.path),
-    );
-    await loadRemote();
+    const count = remoteSelected.length;
+    setDialog({
+      kind: "confirm",
+      title: messages.delete,
+      description: `${messages.delete} ${count} item${count === 1 ? "" : "s"}?`,
+      onConfirm: async () => {
+        await sftpApi.deleteRemote(
+          connection.id,
+          remoteSelected.map((entry) => entry.path),
+        );
+        await loadRemote();
+      },
+    });
   };
 
-  const searchRemote = async () => {
+  const searchRemote = () => {
     if (!connection) return;
-    const query = window.prompt(messages.remoteSearchPrompt);
-    const trimmed = query?.trim();
-    if (!trimmed) return;
-    setRemote((state) => ({ ...state, loading: true, error: null }));
-    try {
-      const entries = await sftpApi.searchRemote(
-        connection.id,
-        remotePath,
-        trimmed,
-      );
-      setRemote({
-        entries,
-        selectedPaths: new Set(),
-        anchorPath: null,
-        loading: false,
-        error: null,
-      });
-      setRemoteSearch({ query: trimmed, count: entries.length });
-    } catch (err) {
-      setRemote((state) => ({
-        ...state,
-        loading: false,
-        error: String(err),
-      }));
-    }
+    setDialog({
+      kind: "input",
+      title: messages.remoteSearch,
+      placeholder: messages.remoteSearchPrompt,
+      defaultValue: "",
+      onSubmit: async (query) => {
+        const trimmed = query.trim();
+        if (!trimmed) return;
+        setRemote((state) => ({ ...state, loading: true, error: null }));
+        try {
+          const entries = await sftpApi.searchRemote(
+            connection.id,
+            remotePath,
+            trimmed,
+          );
+          setRemote({
+            entries,
+            selectedPaths: new Set(),
+            anchorPath: null,
+            loading: false,
+            error: null,
+          });
+          setRemoteSearch({ query: trimmed, count: entries.length });
+        } catch (err) {
+          setRemote((state) => ({
+            ...state,
+            loading: false,
+            error: String(err),
+          }));
+        }
+      },
+    });
   };
 
   const previewSync = (direction: SyncPlan["direction"]) => {
@@ -460,7 +518,35 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
   }, [connectedSubtitle, messages, remoteSearch]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background">
+    <div
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        // Ignore when typing in an input/textarea
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+          case "u":
+            if (canUpload) { e.preventDefault(); void uploadSelected(); }
+            break;
+          case "d":
+            if (canDownload) { e.preventDefault(); void downloadSelected(); }
+            break;
+          case "r":
+            e.preventDefault();
+            void loadLocal();
+            if (connection) void loadRemote();
+            break;
+          case "n":
+            if (connection) { e.preventDefault(); createRemoteFolder(); }
+            break;
+          case "f":
+            if (connection) { e.preventDefault(); searchRemote(); }
+            break;
+        }
+      }}
+    >
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/60 bg-card/70 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <HugeiconsIcon
@@ -663,6 +749,80 @@ function SftpTransferPane({ initialLocalPath }: { initialLocalPath?: string }) {
           setRemoteNav(createNavigationState(result.profile.defaultRemotePath));
         }}
       />
+
+      {/* Input dialog — replaces window.prompt */}
+      <Dialog
+        open={dialog.kind === "input"}
+        onOpenChange={(open) => { if (!open) setDialog({ kind: "idle" }); }}
+      >
+        <DialogContent className="max-w-sm rounded-xl">
+          {dialog.kind === "input" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{dialog.title}</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const value = inputRef.current?.value ?? "";
+                  void dialog.onSubmit(value).then(() => setDialog({ kind: "idle" }));
+                }}
+              >
+                <Input
+                  ref={inputRef}
+                  placeholder={dialog.placeholder}
+                  defaultValue={dialog.defaultValue}
+                  className="rounded-md"
+                  autoFocus
+                />
+                <DialogFooter className="mt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setDialog({ kind: "idle" })}
+                  >
+                    {messages.cancel}
+                  </Button>
+                  <Button type="submit">{allMessages.common.save}</Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm dialog — replaces window.confirm */}
+      <Dialog
+        open={dialog.kind === "confirm"}
+        onOpenChange={(open) => { if (!open) setDialog({ kind: "idle" }); }}
+      >
+        <DialogContent className="max-w-sm rounded-xl">
+          {dialog.kind === "confirm" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{dialog.title}</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">{dialog.description}</p>
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={() => setDialog({ kind: "idle" })}
+                >
+                  {messages.cancel}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void dialog.onConfirm().then(() => setDialog({ kind: "idle" }));
+                  }}
+                >
+                  {messages.delete}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

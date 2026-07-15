@@ -695,6 +695,10 @@ fn connect_blocking(
     let mut session = ssh2::Session::new().map_err(|e| e.to_string())?;
     session.set_tcp_stream(tcp);
     session.handshake().map_err(|e| e.to_string())?;
+
+    // Enable keepalive to detect connection issues early
+    session.set_keepalive(true, 60); // Send keepalive every 60s
+
     let fingerprint = fingerprint(&session)?;
     let trust = compare_host_key(profile.trusted_host_key.as_deref(), &fingerprint);
     match trust {
@@ -1405,6 +1409,8 @@ fn run_upload(
         let mut buf = vec![0; TRANSFER_CHUNK_SIZE];
         loop {
             if cancel.load(Ordering::Relaxed) {
+                // Clean up the remote partial to avoid leaving orphaned .kitepart files
+                let _ = sftp.unlink(Path::new(&temp_remote));
                 return Err("canceled".into());
             }
             let read = local_file.read(&mut buf).map_err(|e| e.to_string())?;
@@ -1480,6 +1486,8 @@ fn run_download(
         let mut buf = vec![0; TRANSFER_CHUNK_SIZE];
         loop {
             if cancel.load(Ordering::Relaxed) {
+                // Clean up the local partial to avoid leaving orphaned .kitepart files
+                let _ = fs::remove_file(&partial);
                 return Err("canceled".into());
             }
             let read = remote_file.read(&mut buf).map_err(|e| e.to_string())?;
