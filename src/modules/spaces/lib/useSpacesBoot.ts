@@ -82,7 +82,11 @@ export function useSpacesBoot({
         for (const space of spaces) {
           const st = states.get(space.id);
           if (!st) continue;
-          restored.push(...hydrateTabs(st.tabs, space.id, allocId));
+          // Strip saved cwds when Kite is launched directly (no right-click path).
+          // Terminals will fall back to home via user_spawn_cwd_or_home in Rust.
+          restored.push(
+            ...hydrateTabs(st.tabs, space.id, allocId, /* stripCwd= */ !launchCwd),
+          );
         }
 
         const active =
@@ -102,6 +106,21 @@ export function useSpacesBoot({
           restored.push(freshTerminalTab(active, cwd, allocId));
         }
 
+        // Right-click "Open in Kite": inject a new terminal tab at the target
+        // directory and make it the first active tab in the active space.
+        let launchTab: ReturnType<typeof freshTerminalTab> | null = null;
+        if (launchCwd) {
+          launchTab = freshTerminalTab(active, launchCwd, allocId);
+          const firstActiveIdx = restored.findIndex(
+            (t) => t.spaceId === active,
+          );
+          if (firstActiveIdx >= 0) {
+            restored.splice(firstActiveIdx, 0, launchTab);
+          } else {
+            restored.push(launchTab);
+          }
+        }
+
         await Promise.allSettled(
           uniqueCwds(restored).map((cwd) => native.workspaceAuthorize(cwd)),
         );
@@ -113,7 +132,9 @@ export function useSpacesBoot({
 
         const inActive = restored.filter((t) => t.spaceId === active);
         const idx = states.get(active)?.activeTabIndex ?? 0;
-        const activeTab = inActive[idx] ?? inActive[0] ?? restored[0];
+        // Right-click launch: always activate the injected launch tab.
+        const activeTab =
+          launchTab ?? inActive[idx] ?? inActive[0] ?? restored[0];
         replaceTabs(restored, activeTab.id);
       } catch (e) {
         console.error("[kite] spaces boot failed:", e);

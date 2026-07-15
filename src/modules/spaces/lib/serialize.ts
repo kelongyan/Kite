@@ -107,6 +107,7 @@ function hydrateNode(
   node: SerializedNode,
   allocId: () => number,
   acc: { activeLeafId: number | null },
+  stripCwd: boolean,
 ): PaneNode {
   if (node.kind === "leaf") {
     const id = allocId();
@@ -114,10 +115,12 @@ function hydrateNode(
     return {
       kind: "leaf",
       id,
-      ...(node.cwd !== undefined && { cwd: node.cwd }),
+      ...(!stripCwd && node.cwd !== undefined && { cwd: node.cwd }),
     };
   }
-  const children = node.children.map((c) => hydrateNode(c, allocId, acc));
+  const children = node.children.map((c) =>
+    hydrateNode(c, allocId, acc, stripCwd),
+  );
   if (children.length === 0) return { kind: "leaf", id: allocId() };
   if (children.length === 1) return children[0];
   return { kind: "split", id: allocId(), dir: node.dir, children };
@@ -126,9 +129,10 @@ function hydrateNode(
 function hydrateTree(
   tree: SerializedNode,
   allocId: () => number,
+  stripCwd: boolean,
 ): HydratedTree {
   const acc: { activeLeafId: number | null } = { activeLeafId: null };
-  const paneTree = hydrateNode(tree, allocId, acc);
+  const paneTree = hydrateNode(tree, allocId, acc, stripCwd);
   const leaves = collectLeaves(paneTree);
   const activeLeafId = acc.activeLeafId ?? leaves[0]?.id ?? allocId();
   const firstLeafCwd =
@@ -145,10 +149,15 @@ function hydrateTab(
   s: SerializedTab,
   spaceId: string,
   allocId: () => number,
+  stripCwd: boolean,
 ): Tab | null {
   switch (s.kind) {
     case "terminal": {
-      const { tree, activeLeafId, firstLeafCwd } = hydrateTree(s.tree, allocId);
+      const { tree, activeLeafId, firstLeafCwd } = hydrateTree(
+        s.tree,
+        allocId,
+        stripCwd,
+      );
       const title =
         s.customTitle ??
         (firstLeafCwd ? basename(firstLeafCwd) : s.blocks ? "blocks" : "shell");
@@ -221,12 +230,13 @@ export function hydrateTabs(
   serialized: SerializedTab[],
   spaceId: string,
   allocId: () => number,
+  stripCwd = false,
 ): Tab[] {
   if (!Array.isArray(serialized)) return [];
   const out: Tab[] = [];
   for (const s of serialized) {
     try {
-      const tab = hydrateTab(s, spaceId, allocId);
+      const tab = hydrateTab(s, spaceId, allocId, stripCwd);
       if (tab) out.push(tab);
     } catch {
       // Skip corrupted entries rather than failing the whole restore.
