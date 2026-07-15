@@ -18,11 +18,9 @@ import {
   AgentRunBridge,
   AiMiniWindow,
   LocalAgentNotificationsBridge,
-  SelectionAskAi,
   useAiBootstrap,
   useAiLiveBridge,
   useChatStore,
-  useSelectionAskAi,
 } from "@/modules/ai";
 import { AiComposerProvider } from "@/modules/ai/lib/composer";
 import { native } from "@/modules/ai/lib/native";
@@ -483,12 +481,6 @@ export default function App() {
     attachSelection,
     activeTab,
   ]);
-
-  const { askPopup, setAskPopup, onAskFromSelection } = useSelectionAskAi({
-    captureActiveSelection,
-    askFromSelection,
-  });
-  const askPresence = usePresence(Boolean(askPopup), 120);
 
   const openNewTab = useCallback(() => {
     newTab(inheritedCwdForNewTab());
@@ -1245,15 +1237,6 @@ export default function App() {
 
           {hasComposer && miniPresence.mounted ? (
             <AiMiniWindow state={miniPresence.state} />
-          ) : null}
-          {askPresence.mounted ? (
-            <SelectionAskAi
-              state={askPresence.state}
-              x={askPopup?.x ?? 0}
-              y={askPopup?.y ?? 0}
-              onAsk={onAskFromSelection}
-              onDismiss={() => setAskPopup(null)}
-            />
           ) : null}
 
           {switcherState && (
