@@ -619,13 +619,6 @@ export default function App() {
     newSftpTab(inheritedCwdForNewTab());
   }, [newSftpTab, inheritedCwdForNewTab]);
 
-  const openSftpFromTerminalCwd = useCallback(
-    (cwd?: string) => {
-      newSftpTab(cwd ?? inheritedCwdForNewTab());
-    },
-    [newSftpTab, inheritedCwdForNewTab],
-  );
-
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
       const t = tabsRef.current.find((x) => x.id === activeId);
@@ -1189,7 +1182,6 @@ export default function App() {
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
                       onFocusLeaf={handleFocusLeaf}
-                      onOpenSftpFromCwd={openSftpFromTerminalCwd}
                       registerEditorHandle={registerEditorHandle}
                       onEditorDirtyChange={handleEditorDirty}
                       onEditorCloseTab={disposeTab}

@@ -1,11 +1,4 @@
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { useMessages } from "@/modules/i18n";
-import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -29,7 +22,6 @@ type Props = {
   activeLeafId: number;
   blocks: boolean;
   onFocusLeaf: (leafId: number) => void;
-  onOpenSftpFromCwd?: (cwd?: string) => void;
   getBundle: (leafId: number) => LeafBundle;
 };
 
@@ -41,13 +33,11 @@ export function PaneTreeView(props: Props) {
       activeLeafId,
       blocks,
       onFocusLeaf,
-      onOpenSftpFromCwd,
       getBundle,
     } = props;
-    const messages = useMessages().workspace.sftp;
     const focused = node.id === activeLeafId;
     const b = getBundle(node.id);
-    const pane = (
+    return (
       <div
         onMouseDownCapture={() => {
           if (!focused) onFocusLeaf(node.id);
@@ -73,17 +63,6 @@ export function PaneTreeView(props: Props) {
         />
         <DropOverlay leafId={node.id} />
       </div>
-    );
-    if (!onOpenSftpFromCwd) return pane;
-    return (
-      <ContextMenu>
-        <ContextMenuTrigger asChild>{pane}</ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem onSelect={() => onOpenSftpFromCwd(node.cwd)}>
-            {messages.openFromTerminal}
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
     );
   }
 
