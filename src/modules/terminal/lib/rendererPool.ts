@@ -713,7 +713,24 @@ function bindSlotImeAnchorSync(slot: Slot): void {
   const syncOnImeKey = (event: KeyboardEvent) => {
     if (event.isComposing || event.keyCode === 229) syncAfterXterm();
   };
-  const syncSoon = () => scheduleSlotImeAnchorSync(slot);
+  // Guard: suppress onCursorMove/onWriteParsed-driven syncs while IME composition
+  // is active. Streaming output continuously shifts buffer.cursorX/Y to the tail
+  // of the incoming data, which would relocate the hidden textarea — and with it
+  // the OS candidate window — away from the user's actual input position.
+  // compositionstart/update paths are unaffected and keep the anchor accurate.
+  let composing = false;
+  const onCompositionBegin = () => {
+    composing = true;
+  };
+  const onCompositionFinish = () => {
+    composing = false;
+    scheduleSlotImeAnchorSync(slot); // re-anchor once after composition settles
+  };
+  const syncSoon = () => {
+    if (!composing) scheduleSlotImeAnchorSync(slot);
+  };
+  textarea.addEventListener("compositionstart", onCompositionBegin);
+  textarea.addEventListener("compositionend", onCompositionFinish);
   textarea.addEventListener("compositionstart", syncNow, true);
   textarea.addEventListener("compositionstart", syncAfterXterm);
   textarea.addEventListener("compositionupdate", syncNow, true);
@@ -724,6 +741,8 @@ function bindSlotImeAnchorSync(slot: Slot): void {
   const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
 
   slot.imeDisposers.push(
+    () => textarea.removeEventListener("compositionstart", onCompositionBegin),
+    () => textarea.removeEventListener("compositionend", onCompositionFinish),
     () => textarea.removeEventListener("compositionstart", syncNow, true),
     () => textarea.removeEventListener("compositionstart", syncAfterXterm),
     () => textarea.removeEventListener("compositionupdate", syncNow, true),
