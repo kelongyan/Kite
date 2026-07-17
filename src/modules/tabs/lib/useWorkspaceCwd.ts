@@ -28,12 +28,10 @@ export function useWorkspaceCwd(
   }, [activeTab, tabs, home]);
 
   const inheritedCwdForNewTab = useCallback((): string | undefined => {
-    if (activeTab?.kind === "terminal" && activeTab.cwd) return activeTab.cwd;
-    // Editor tabs inherit the last terminal's cwd (or workspace home), not
-    // the file's folder — opening a new terminal from a file shouldn't
-    // hijack the user's working directory context.
-    return lastTerminalCwd.current ?? home ?? undefined;
-  }, [activeTab, home]);
+    // Always open new tabs in the home directory, regardless of which
+    // directory the current tab is in.
+    return home ?? undefined;
+  }, [home]);
 
   return { explorerRoot, inheritedCwdForNewTab };
 }
