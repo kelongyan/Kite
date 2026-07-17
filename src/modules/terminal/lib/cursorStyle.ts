@@ -55,7 +55,7 @@ export type TerminalCursorOverlayVisibilityInput = {
 export const DEFAULT_TERMINAL_CURSOR_SHAPE: TerminalCursorShape = "bar";
 export const DEFAULT_TERMINAL_CURSOR_ANIMATION: TerminalCursorAnimation =
   "expand";
-export const DEFAULT_TERMINAL_CURSOR_WIDTH: TerminalCursorWidth = 1;
+export const DEFAULT_TERMINAL_CURSOR_WIDTH: TerminalCursorWidth = 2;
 
 export function coerceTerminalCursorShape(value: unknown): TerminalCursorShape {
   return typeof value === "string" &&
