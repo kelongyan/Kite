@@ -225,6 +225,10 @@ html[data-chrome="borderless"] #settings-root {
 .xterm.focus {
   outline: none !important;
 }
+.xterm .composition-view {
+  background: var(--terminal-background) !important;
+  color: var(--terminal-foreground) !important;
+}
 
 .cm-editor,
 .cm-scroller {
