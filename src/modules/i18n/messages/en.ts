@@ -195,10 +195,7 @@ export type Messages = {
       deletedDirtyFile: (title: string) => string;
       deletedDirtyGeneric: string;
       deletedDirtyMultiple: (count: number) => string;
-      quitTitle: string;
-      appProcessDescription: string;
       closeAnyway: string;
-      quitAnyway: string;
     };
     terminalBlocks: {
       browseCommandHistory: string;
@@ -1283,11 +1280,7 @@ export const en: Messages = {
         "This file has unsaved changes. The file has been deleted. Close anyway?",
       deletedDirtyMultiple: (count) =>
         `${count} files have unsaved changes. They have been deleted. Close all anyway?`,
-      quitTitle: "Quit Kite?",
-      appProcessDescription:
-        "A process is still running in a terminal. Quitting will terminate it.",
       closeAnyway: "Close Anyway",
-      quitAnyway: "Quit Anyway",
     },
     terminalBlocks: {
       browseCommandHistory: "Browse your command history",

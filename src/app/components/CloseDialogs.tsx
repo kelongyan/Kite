@@ -22,9 +22,6 @@ type Props = {
   pendingDeleteTabs: number[] | null;
   onCancelDeleteClose: () => void;
   onConfirmDeleteClose: () => void;
-  pendingAppClose: boolean;
-  onCancelAppClose: () => void;
-  onConfirmAppClose: () => void;
 };
 
 /** Confirmation dialogs for closing dirty editors and terminals with live processes. */
@@ -39,9 +36,6 @@ export function CloseDialogs({
   pendingDeleteTabs,
   onCancelDeleteClose,
   onConfirmDeleteClose,
-  pendingAppClose,
-  onCancelAppClose,
-  onConfirmAppClose,
 }: Props) {
   const messages = useMessages();
   const dialogMessages = messages.mainShell.closeDialogs;
@@ -127,28 +121,6 @@ export function CloseDialogs({
             </AlertDialogCancel>
             <AlertDialogAction onClick={onConfirmDeleteClose}>
               {dialogMessages.closeAnyway}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingAppClose}
-        onOpenChange={(open) => !open && onCancelAppClose()}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{dialogMessages.quitTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {dialogMessages.appProcessDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={onCancelAppClose}>
-              {cancelLabel}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={onConfirmAppClose}>
-              {dialogMessages.quitAnyway}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

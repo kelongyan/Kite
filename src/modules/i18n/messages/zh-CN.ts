@@ -255,10 +255,7 @@ export const zhCN: Messages = {
         "此文件有未保存的更改，且文件已被删除。仍要关闭？",
       deletedDirtyMultiple: (count) =>
         `${count} 个文件有未保存的更改，且这些文件已被删除。仍要全部关闭？`,
-      quitTitle: "退出 Kite？",
-      appProcessDescription: "终端中仍有进程在运行。退出会终止它。",
       closeAnyway: "仍要关闭",
-      quitAnyway: "仍要退出",
     },
     terminalBlocks: {
       browseCommandHistory: "浏览命令历史",
