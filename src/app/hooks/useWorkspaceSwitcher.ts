@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
+import { getLaunchDir } from "@/lib/launchDir";
 import { native } from "@/modules/ai/lib/native";
 import { useMessages } from "@/modules/i18n";
 import type { Tab } from "@/modules/tabs";
@@ -27,7 +28,7 @@ type Params = {
 /**
  * Owns the resolved home / launch cwd. switchWorkspace runs an interactive
  * local⇄WSL switch (tears down sessions, re-authorizes home, resets tabs);
- * adoptWorkspaceEnv applies a space's env + home on restore, without teardown.
+ * adoptWorkspaceEnv applies a space's env + home without tearing down tabs.
  */
 export function useWorkspaceSwitcher({
   tabsRef,
@@ -38,8 +39,11 @@ export function useWorkspaceSwitcher({
 }: Params) {
   const messages = useMessages().mainShell.workspaceSwitcher;
   const [home, setHome] = useState<string | null>(null);
-  const [launchCwd, setLaunchCwd] = useState<string | null>(null);
-  const [launchCwdResolved, setLaunchCwdResolved] = useState(false);
+  const [homeResolved, setHomeResolved] = useState(false);
+  const [launchCwd, setLaunchCwd] = useState<string | null>(
+    () => getLaunchDir() ?? null,
+  );
+  const launchCwdResolved = true;
 
   useEffect(() => {
     homeDir()
@@ -52,15 +56,8 @@ export function useWorkspaceSwitcher({
           // Bootstrap already authorizes home from Rust; ignore.
         }
       })
-      .catch(() => setHome(null));
-  }, []);
-
-  useEffect(() => {
-    native
-      .workspaceCurrentDir()
-      .then(setLaunchCwd)
-      .catch(() => setLaunchCwd(null))
-      .finally(() => setLaunchCwdResolved(true));
+      .catch(() => setHome(null))
+      .finally(() => setHomeResolved(true));
   }, []);
 
   const authorizeHome = useCallback(async (nextHome: string) => {
@@ -130,6 +127,7 @@ export function useWorkspaceSwitcher({
 
   return {
     home,
+    homeResolved,
     launchCwd,
     launchCwdResolved,
     switchWorkspace,

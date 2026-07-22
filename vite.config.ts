@@ -7,7 +7,7 @@ import Inspect from "vite-plugin-inspect";
 
 const host = process.env.TAURI_DEV_HOST;
 
-// Bundle/treemap analysis is opt-in: `ANALYZE=true pnpm build` emits stats.html.
+// Bundle/treemap analysis is opt-in: `pnpm analyze:bundle` emits stats.html.
 const analyze = process.env.ANALYZE === "true";
 
 // Module-graph inspector is opt-in via `pnpm dev:inspect`; keeps plain
@@ -24,10 +24,10 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => ({
     tailwindcss(),
     // Module-graph inspector at /__inspect (who-imports-what, per-plugin
     // transforms). Opt-in via `pnpm dev:inspect`, never in a production build.
-    ...(mode === "development" && inspectGraph
+    ...(mode === "inspect" || (mode === "development" && inspectGraph)
       ? [Inspect() as PluginOption]
       : []),
-    ...(analyze
+    ...(mode === "analyze" || analyze
       ? [
           (await import("rollup-plugin-visualizer")).visualizer({
             filename: "stats.html",

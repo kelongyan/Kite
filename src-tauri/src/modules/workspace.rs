@@ -115,8 +115,9 @@ pub fn authorize_user_spawn_cwd(
     Ok(Some(canonical))
 }
 
-// A saved cwd can be stale or from another environment (e.g. a Windows path in
-// a now-WSL space); the terminal must still open, so fall back to home.
+// A requested cwd can be stale, missing, or from another environment (e.g. a
+// Windows path in a now-WSL space); the terminal must still open, so fall back
+// to home.
 pub fn user_spawn_cwd_or_home(
     registry: &WorkspaceRegistry,
     cwd: Option<&str>,
@@ -160,22 +161,23 @@ pub async fn workspace_current_dir(
     Ok(crate::modules::fs::to_canon(&canonical))
 }
 
-// Snapshotted once at app startup so the live `current_dir()` drifting later
-// (file dialogs, plugin chdir) can't shift the value seen by IPC or spawn.
+// Snapshotted once at app startup from an explicit launch directory only
+// (Windows "Open in Kite", or a CLI dir arg). A plain app launch intentionally
+// falls back to the user home, not the process current_dir.
 static LAUNCH_CWD: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 pub fn init_launch_cwd(cli_dir: Option<&str>) {
-    LAUNCH_CWD.get_or_init(|| resolve_launch_cwd(cli_dir, std::env::current_dir().ok()));
+    LAUNCH_CWD.get_or_init(|| resolve_launch_cwd(cli_dir));
 }
 
-fn resolve_launch_cwd(cli_dir: Option<&str>, env_cwd: Option<PathBuf>) -> Option<PathBuf> {
+fn resolve_launch_cwd(cli_dir: Option<&str>) -> Option<PathBuf> {
     if let Some(dir) = cli_dir {
         let p = PathBuf::from(dir);
-        if p.is_dir() {
+        if is_usable_launch_dir(&p) {
             return Some(p);
         }
     }
-    env_cwd.filter(|p| is_usable_launch_dir(p))
+    None
 }
 
 pub fn launch_cwd_snapshot() -> Option<PathBuf> {
@@ -184,12 +186,6 @@ pub fn launch_cwd_snapshot() -> Option<PathBuf> {
 
 fn resolve_launch_dir() -> PathBuf {
     if let Some(cwd) = launch_cwd_snapshot() {
-        return cwd;
-    }
-    if let Some(cwd) = std::env::current_dir()
-        .ok()
-        .filter(|p| is_usable_launch_dir(p))
-    {
         return cwd;
     }
     dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
@@ -894,25 +890,22 @@ mod auth_tests {
     }
 
     #[test]
-    fn resolve_launch_cwd_prefers_cli_dir_over_env() {
+    fn resolve_launch_cwd_uses_cli_dir() {
         let cli = tempdir("cli");
-        let env = tempdir("env");
         let s = cli.to_string_lossy().into_owned();
-        let resolved = resolve_launch_cwd(Some(&s), Some(env.clone()));
+        let resolved = resolve_launch_cwd(Some(&s));
         assert_eq!(resolved.as_deref(), Some(cli.as_path()));
     }
 
     #[test]
-    fn resolve_launch_cwd_falls_back_to_env_when_cli_missing() {
-        let env = tempdir("envonly");
-        assert_eq!(resolve_launch_cwd(None, Some(env.clone())), Some(env));
+    fn resolve_launch_cwd_is_empty_when_cli_missing() {
+        assert_eq!(resolve_launch_cwd(None), None);
     }
 
     #[test]
     fn resolve_launch_cwd_ignores_nonexistent_cli_dir() {
-        let env = tempdir("envfb");
-        let resolved = resolve_launch_cwd(Some("/no/such/terax/dir"), Some(env.clone()));
-        assert_eq!(resolved, Some(env));
+        let resolved = resolve_launch_cwd(Some("/no/such/terax/dir"));
+        assert_eq!(resolved, None);
     }
 }
 

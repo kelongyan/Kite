@@ -79,7 +79,6 @@ import {
 import {
   SpaceSwitcher,
   useSpaces,
-  useSpacePersistence,
   useSpacesBoot,
 } from "@/modules/spaces";
 import { DEFAULT_SPACE_ID } from "@/modules/tabs/lib/useTabs";
@@ -98,6 +97,7 @@ import { useWorkspaceSwitcher } from "./hooks/useWorkspaceSwitcher";
 
 export default function App() {
   const messages = useMessages();
+  const initialLaunchDir = getLaunchDir();
   const {
     tabs,
     activeId,
@@ -137,7 +137,7 @@ export default function App() {
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
-  } = useTabs(getLaunchDir() ? { cwd: getLaunchDir() } : undefined);
+  } = useTabs(initialLaunchDir ? { cwd: initialLaunchDir } : undefined);
 
   // Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
   // (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
@@ -183,6 +183,7 @@ export default function App() {
   const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
   const {
     home,
+    homeResolved,
     launchCwd,
     launchCwdResolved,
     switchWorkspace,
@@ -209,21 +210,13 @@ export default function App() {
   );
 
   useSpacesBoot({
-    ready: launchCwdResolved,
+    ready: launchCwdResolved && (launchCwd !== null || homeResolved),
     launchCwd,
     home,
     allocId,
     replaceTabs,
     markBooted,
     setActiveSpaceForNewTabs,
-    adoptWorkspaceEnv,
-  });
-
-  useSpacePersistence({
-    tabs,
-    activeId,
-    activeSpaceId: activeSpaceId ?? DEFAULT_SPACE_ID,
-    enabled: spacesHydrated,
   });
 
   const prevSpaceRef = useRef(activeSpaceId);

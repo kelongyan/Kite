@@ -130,9 +130,6 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: "Kite ${{ env.RELEASE_TAG }}"
@@ -147,9 +144,6 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -171,9 +165,6 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: "Kite ${{ env.RELEASE_TAG }}"
@@ -189,16 +180,13 @@ jobs:
       # so the stale copy wins and EGL fails with EGL_BAD_PARAMETER. libgdk-3
       # hard-links these three, so removing them only redirects resolution to
       # the host copy, which every GTK-capable system has. They are on the
-      # AppImage excludelist for this exact reason. The re-signed AppImage and
-      # its .sig are re-uploaded here; the updater manifest is patched in the
-      # patch-appimage-updater job after all matrix legs finish, so a parallel
-      # macOS/Windows upload cannot clobber the combined latest.json.
-      - name: Fix AppImage wayland libs and re-sign
+      # AppImage excludelist for this exact reason. Updater artifacts are
+      # disabled in tauri.conf.json, so this step only replaces the uploaded
+      # AppImage and removes any stale AppImage signature asset.
+      - name: Fix AppImage wayland libs
         if: matrix.platform == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -243,57 +231,6 @@ jobs:
 
           cp "$WORK/$BASENAME" "$APPIMAGE"
 
-          rm -f "$APPIMAGE.sig"
-          if pnpm tauri signer sign "$APPIMAGE"; then
-            gh release upload "$RELEASE_TAG" "$APPIMAGE" "$APPIMAGE.sig" \
-              --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            echo "::warning::Could not re-sign patched AppImage; uploading the patched AppImage without updater signature."
-            gh release delete-asset "$RELEASE_TAG" "$BASENAME.sig" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
-            gh release upload "$RELEASE_TAG" "$APPIMAGE" \
-              --clobber --repo "$GITHUB_REPOSITORY"
-          fi
-
-  # Patch the AppImage signature into the combined updater manifest. Runs once,
-  # after every matrix leg has finished merging its platform into latest.json,
-  # so it operates on the full manifest and cannot be clobbered by a parallel
-  # macOS/Windows upload. Both linux keys point at the AppImage and both carry
-  # a signature, so both are patched.
-  patch-appimage-updater:
-    needs: publish-tauri
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Patch latest.json with re-signed AppImage signature
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          TAG="${RELEASE_TAG}"
-
-          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "latest.json" --clobber; then
-            echo "latest.json was not generated; skipping updater manifest patch."
-            exit 0
-          fi
-          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "*_amd64.AppImage.sig" --clobber; then
-            echo "AppImage signature was not generated; skipping updater manifest patch."
-            exit 0
-          fi
-
-          SIG_FILE=$(ls ./*_amd64.AppImage.sig | head -n1)
-          NEW_SIG=$(cat "$SIG_FILE")
-
-          jq -e 'has("platforms") and (.platforms | has("linux-x86_64"))' latest.json >/dev/null \
-            || { echo "latest.json missing platforms.linux-x86_64"; exit 1; }
-
-          jq --arg sig "$NEW_SIG" '
-            .platforms["linux-x86_64"].signature = $sig
-            | if .platforms["linux-x86_64-appimage"]
-              then .platforms["linux-x86_64-appimage"].signature = $sig else . end
-          ' latest.json > latest.json.tmp
-          mv latest.json.tmp latest.json
-
-          gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"
+          gh release delete-asset "$RELEASE_TAG" "$BASENAME.sig" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release upload "$RELEASE_TAG" "$APPIMAGE" \
+            --clobber --repo "$GITHUB_REPOSITORY"

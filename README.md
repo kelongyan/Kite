@@ -106,7 +106,7 @@ API Key 会通过系统密钥链保存，避免直接写入项目文件或前端
 
 **环境要求**
 
-- Node.js 22 或更高版本
+- Node.js 22 或更高版本（CI/Release 当前使用 Node.js 24）
 - pnpm 11.x
 - Rust stable
 - Tauri 2 平台依赖，参考 [Tauri prerequisites](https://tauri.app/start/prerequisites/)

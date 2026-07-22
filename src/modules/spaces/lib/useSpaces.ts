@@ -4,13 +4,7 @@ import {
   parseWorkspaceScopeKey,
   type WorkspaceEnv,
 } from "@/modules/workspace";
-import {
-  deleteSpaceData,
-  newSpaceId,
-  saveActiveId,
-  saveSpacesList,
-  type SpaceMeta,
-} from "./store";
+import { newSpaceId, type SpaceMeta } from "./store";
 
 type CreateInput = {
   id?: string;
@@ -23,14 +17,7 @@ type State = {
   spaces: SpaceMeta[];
   activeId: string | null;
   hydrated: boolean;
-  // Per-space active tab index loaded from disk, so persistence preserves it
-  // for spaces the user never visits this session.
-  initialActiveIndex: Record<string, number>;
-  hydrate: (
-    spaces: SpaceMeta[],
-    activeId: string | null,
-    initialActiveIndex?: Record<string, number>,
-  ) => void;
+  hydrate: (spaces: SpaceMeta[], activeId: string | null) => void;
   create: (input: CreateInput) => SpaceMeta;
   rename: (id: string, name: string) => void;
   setEnv: (id: string, env: WorkspaceEnv) => void;
@@ -44,10 +31,9 @@ export const useSpaces = create<State>((set, get) => ({
   spaces: [],
   activeId: null,
   hydrated: false,
-  initialActiveIndex: {},
 
-  hydrate: (spaces, activeId, initialActiveIndex = {}) => {
-    set({ spaces, activeId, initialActiveIndex, hydrated: true });
+  hydrate: (spaces, activeId) => {
+    set({ spaces, activeId, hydrated: true });
   },
 
   create: (input) => {
@@ -66,7 +52,6 @@ export const useSpaces = create<State>((set, get) => ({
     };
     const spaces = [...get().spaces, meta];
     set({ spaces });
-    void saveSpacesList(spaces);
     return meta;
   },
 
@@ -75,7 +60,6 @@ export const useSpaces = create<State>((set, get) => ({
       s.id === id ? { ...s, name, updatedAt: Date.now() } : s,
     );
     set({ spaces });
-    void saveSpacesList(spaces);
   },
 
   setEnv: (id, env) => {
@@ -83,7 +67,6 @@ export const useSpaces = create<State>((set, get) => ({
       s.id === id ? { ...s, env, updatedAt: Date.now() } : s,
     );
     set({ spaces });
-    void saveSpacesList(spaces);
   },
 
   setColor: (id, color) => {
@@ -91,7 +74,6 @@ export const useSpaces = create<State>((set, get) => ({
       s.id === id ? { ...s, color, updatedAt: Date.now() } : s,
     );
     set({ spaces });
-    void saveSpacesList(spaces);
   },
 
   reorder: (orderedIds) => {
@@ -106,7 +88,6 @@ export const useSpaces = create<State>((set, get) => ({
     }
     if (next.length !== get().spaces.length) return;
     set({ spaces: next });
-    void saveSpacesList(next);
   },
 
   remove: (id) => {
@@ -115,15 +96,11 @@ export const useSpaces = create<State>((set, get) => ({
     let activeId = prev.activeId;
     if (activeId === id) activeId = spaces[0]?.id ?? null;
     set({ spaces, activeId });
-    void saveSpacesList(spaces);
-    void deleteSpaceData(id);
-    if (activeId !== prev.activeId) void saveActiveId(activeId);
     return activeId;
   },
 
   setActive: (id) => {
     if (get().activeId === id) return;
     set({ activeId: id });
-    void saveActiveId(id);
   },
 }));
