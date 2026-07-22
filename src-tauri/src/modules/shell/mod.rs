@@ -461,20 +461,23 @@ mod windows_tests {
         std::fs::write(
             &script,
             format!(
-                "Set-Content -LiteralPath '{}' -Value ready\nStart-Sleep -Seconds 3\nSet-Content -LiteralPath '{}' -Value survived\n",
-                ps_quote(&ready),
+                "Start-Sleep -Seconds 5\nSet-Content -LiteralPath '{}' -Value survived\n",
                 ps_quote(&survived),
             ),
         )
         .unwrap();
 
-        let command = format!("& powershell.exe -NoProfile -File '{}'", ps_quote(&script));
-        let out = run_blocking_inner(command, None, WorkspaceEnv::Local, Duration::from_secs(1))
+        let command = format!(
+            "$child = Start-Process powershell.exe -ArgumentList '-NoProfile','-File','{}' -PassThru; Set-Content -LiteralPath '{}' -Value ready; Start-Sleep -Seconds 30",
+            ps_quote(&script),
+            ps_quote(&ready),
+        );
+        let out = run_blocking_inner(command, None, WorkspaceEnv::Local, Duration::from_secs(3))
             .expect("run");
 
         assert!(out.timed_out);
-        assert!(ready.exists(), "descendant must start before timeout");
-        std::thread::sleep(Duration::from_secs(3));
+        assert!(ready.exists(), "descendant must be spawned before timeout");
+        std::thread::sleep(Duration::from_secs(4));
         assert!(!survived.exists(), "timed-out descendant survived");
     }
 }

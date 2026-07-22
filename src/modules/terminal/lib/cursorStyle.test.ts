@@ -5,6 +5,7 @@ import {
   coerceTerminalCursorAnimation,
   coerceTerminalCursorShape,
   coerceTerminalCursorWidth,
+  DEFAULT_TERMINAL_CURSOR_WIDTH,
   getTerminalCursorRenderStrategy,
   resolveTerminalNativeCursorShape,
   resolveTerminalNativeCursorWidth,
@@ -48,12 +49,18 @@ describe("terminal cursor style preferences", () => {
     expect(coerceTerminalCursorWidth(4)).toBe(4);
   });
 
-  it("falls back to width 1 for unsupported cursor widths", () => {
-    expect(coerceTerminalCursorWidth(0)).toBe(1);
-    expect(coerceTerminalCursorWidth(5)).toBe(1);
-    expect(coerceTerminalCursorWidth(2.5)).toBe(1);
-    expect(coerceTerminalCursorWidth(Number.NaN)).toBe(1);
-    expect(coerceTerminalCursorWidth(undefined)).toBe(1);
+  it("falls back to the default for unsupported cursor widths", () => {
+    expect(coerceTerminalCursorWidth(0)).toBe(DEFAULT_TERMINAL_CURSOR_WIDTH);
+    expect(coerceTerminalCursorWidth(5)).toBe(DEFAULT_TERMINAL_CURSOR_WIDTH);
+    expect(coerceTerminalCursorWidth(2.5)).toBe(
+      DEFAULT_TERMINAL_CURSOR_WIDTH,
+    );
+    expect(coerceTerminalCursorWidth(Number.NaN)).toBe(
+      DEFAULT_TERMINAL_CURSOR_WIDTH,
+    );
+    expect(coerceTerminalCursorWidth(undefined)).toBe(
+      DEFAULT_TERMINAL_CURSOR_WIDTH,
+    );
   });
 
   it("uses native xterm rendering for steady and blink animations", () => {
