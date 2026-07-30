@@ -4,9 +4,7 @@ import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
 import {
   Cancel01Icon,
-  DashboardSquare01Icon,
   FileEditIcon,
-  FileSearchIcon,
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
@@ -39,7 +37,6 @@ export type CommandPaletteActionContext = {
   explorerRoot: string | null;
   home: string | null;
   openNewTab: () => void;
-  openNewBlock: () => void;
   openNewEditor: () => void;
   openSftp: () => void;
   openGitGraph: () => void;
@@ -128,12 +125,6 @@ export function createCommandItems(
       run: ctx.openNewTab,
     },
     {
-      id: "tab.newBlock",
-      ...item("newBlockTerminal", "Tabs"),
-      icon: DashboardSquare01Icon,
-      run: ctx.openNewBlock,
-    },
-    {
       id: "tab.newEditor",
       ...item("newEditorTab", "Tabs"),
       icon: FileEditIcon,
@@ -185,20 +176,6 @@ export function createCommandItems(
       icon: SourceCodeIcon,
       shortcutId: "pane.source",
       run: ctx.toggleSourceControl,
-    },
-    {
-      id: "search.content",
-      ...item("findContentInFiles", "Search"),
-      icon: FileSearchIcon,
-      trailing: "#",
-      run: noop,
-    },
-    {
-      id: "history.open",
-      ...item("searchCommandHistory", "Search"),
-      icon: TerminalIcon,
-      trailing: ">",
-      run: noop,
     },
     {
       id: "search.focus",

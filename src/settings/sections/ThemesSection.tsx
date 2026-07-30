@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -16,18 +15,10 @@ import {
   EDITOR_THEME_LABELS,
   EDITOR_THEME_MODE,
   EDITOR_THEMES,
-  setBackgroundBlur,
-  setBackgroundImageId,
-  setBackgroundKind,
-  setBackgroundOpacity,
   setEditorTheme,
   type EditorThemePref,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
-import {
-  deleteBgImage,
-  importBgImageFromFile,
-} from "@/modules/theme/bgImageStore";
 import {
   deleteCustomTheme,
   saveCustomTheme,
@@ -57,9 +48,7 @@ export function ThemesSection() {
   );
 
   const [importError, setImportError] = useState<string | null>(null);
-  const [bgError, setBgError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const bgInputRef = useRef<HTMLInputElement | null>(null);
 
   const onCreateTheme = () => {
     void emitThemeEdit({ action: "create" });
@@ -72,10 +61,6 @@ export function ThemesSection() {
   };
 
   const editorThemePref = usePreferencesStore((s) => s.editorTheme);
-  const backgroundKind = usePreferencesStore((s) => s.backgroundKind);
-  const backgroundImageId = usePreferencesStore((s) => s.backgroundImageId);
-  const backgroundOpacity = usePreferencesStore((s) => s.backgroundOpacity);
-  const backgroundBlur = usePreferencesStore((s) => s.backgroundBlur);
 
   const handleThemeFiles = async (files: FileList | null) => {
     setImportError(null);
@@ -108,39 +93,6 @@ export function ThemesSection() {
     if (themeId === id) setThemeId(DEFAULT_THEME_ID);
     await deleteCustomTheme(id);
     void deleteThemeFile(id);
-  };
-
-  const onPickBgFile = () => bgInputRef.current?.click();
-
-  const handleBgFiles = async (files: FileList | null) => {
-    setBgError(null);
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.type.startsWith("image/")) {
-      setBgError(`${file.name}: ${themeMessages.background.notImage}`);
-      return;
-    }
-    try {
-      const prev = backgroundImageId;
-      const { id } = await importBgImageFromFile(file);
-      await setBackgroundImageId(id);
-      await setBackgroundKind("image");
-      if (prev && prev !== id) await deleteBgImage(prev).catch(() => undefined);
-    } catch (e) {
-      setBgError(
-        e instanceof Error
-          ? e.message
-          : themeMessages.background.failedToImportImage,
-      );
-    }
-  };
-
-  const onRemoveBackground = async () => {
-    setBgError(null);
-    const prev = backgroundImageId;
-    await setBackgroundKind("none");
-    await setBackgroundImageId(null);
-    if (prev) await deleteBgImage(prev).catch(() => undefined);
   };
 
   return (
@@ -285,7 +237,6 @@ export function ThemesSection() {
           })}
         </div>
       </section>
-
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-col">
@@ -326,100 +277,6 @@ export function ThemesSection() {
           </Select>
         </div>
       </div>
-
-      <section
-        aria-labelledby="background-image-label"
-        className="flex flex-col gap-2"
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "copy";
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          void handleBgFiles(e.dataTransfer.files);
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div id="background-image-label">
-            <Label>{themeMessages.background.title}</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            {backgroundKind === "image" && backgroundImageId ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive"
-                onClick={() => void onRemoveBackground()}
-              >
-                {themeMessages.background.remove}
-              </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={onPickBgFile}
-            >
-              {backgroundKind === "image"
-                ? themeMessages.background.replaceImage
-                : themeMessages.background.chooseImage}
-            </Button>
-            <input
-              ref={bgInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                void handleBgFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-          </div>
-        </div>
-        {bgError ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11.5px] text-destructive">
-            {bgError}
-          </div>
-        ) : null}
-        {backgroundKind === "image" && backgroundImageId ? (
-          <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11.5px] text-muted-foreground">
-                {themeMessages.background.opacity}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {Math.round(backgroundOpacity * 100)}%
-              </span>
-            </div>
-            <Slider
-              value={[backgroundOpacity]}
-              min={0}
-              max={1}
-              step={0.01}
-              onValueChange={(v) => void setBackgroundOpacity(v[0] ?? 0)}
-            />
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-[11.5px] text-muted-foreground">
-                {themeMessages.background.blur}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {backgroundBlur}px
-              </span>
-            </div>
-            <Slider
-              value={[backgroundBlur]}
-              min={0}
-              max={64}
-              step={1}
-              onValueChange={(v) => void setBackgroundBlur(v[0] ?? 0)}
-            />
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">
-            {themeMessages.background.emptyHint}
-          </p>
-        )}
-      </section>
     </div>
   );
 }

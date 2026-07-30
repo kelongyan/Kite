@@ -8,7 +8,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { fileIconUrl } from "@/modules/explorer/lib/iconResolver";
+import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   getBindingTokens,
@@ -22,30 +22,18 @@ import {
   ArrowTurnBackwardIcon,
   CommandIcon,
   Tick02Icon,
-  TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { COMMAND_GROUPS } from "./commands";
-import { useCommandHistory } from "./hooks/useCommandHistory";
-import {
-  CONTENT_SEARCH_MIN_QUERY,
-  useContentSearch,
-} from "./hooks/useContentSearch";
-import { useMessages, type Messages } from "@/modules/i18n";
-import { fuzzyBest } from "./lib/fuzzy";
-import { parseQuery } from "./lib/mode";
 import { mruRank, mruSnapshot, recordUse } from "./lib/mru";
+import { fuzzyBest } from "./lib/fuzzy";
 import type { PaletteItem } from "./types";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialMode?: "commands" | "content";
   commandItems: PaletteItem[];
-  workspaceRoot: string | null;
-  onOpenContentHit: (path: string, line: number) => void;
-  insertCommand: ((cmd: string) => void) | null;
 };
 
 const SHORTCUTS_BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
@@ -54,11 +42,7 @@ const THEME_PREVIEW_DELAY_MS = 140;
 export function CommandPalette({
   open,
   onOpenChange,
-  initialMode,
   commandItems,
-  workspaceRoot,
-  onOpenContentHit,
-  insertCommand,
 }: Props) {
   const messages = useMessages().mainShell.commandPalette;
   const [query, setQuery] = useState("");
@@ -67,26 +51,15 @@ export function CommandPalette({
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
   const { themeId, customThemes, setThemeId, previewThemeId } = useTheme();
 
-  const parsed = parseQuery(query);
   const inThemes = page === "themes";
   const themeFilter = inThemes ? query.trim() : "";
-
-  const content = useContentSearch(
-    workspaceRoot,
-    parsed.term,
-    open && !inThemes && parsed.mode === "content",
-  );
-  const history = useCommandHistory(
-    parsed.term,
-    open && !inThemes && parsed.mode === "history",
-  );
 
   const mru = useMemo(() => (open ? mruSnapshot() : {}), [open]);
 
   const rankedCommands = useMemo(() => {
-    if (inThemes || parsed.mode !== "commands") return [];
-    return rankCommands(commandItems, parsed.term, mru);
-  }, [commandItems, parsed.term, parsed.mode, inThemes, mru]);
+    if (inThemes) return [];
+    return rankCommands(commandItems, query.trim(), mru);
+  }, [commandItems, query, inThemes, mru]);
 
   const themes = useMemo(() => {
     if (!inThemes) return [];
@@ -117,13 +90,13 @@ export function CommandPalette({
 
   useEffect(() => {
     if (!open) return;
-    setQuery(initialMode === "content" ? "#" : "");
+    setQuery("");
     setPage("root");
     const handle = window.setTimeout(() => {
       document.getElementById("kite-command-palette-input")?.focus();
     }, 0);
     return () => window.clearTimeout(handle);
-  }, [open, initialMode]);
+  }, [open]);
 
   useEffect(() => {
     if (!inThemes || !value.startsWith("theme:")) return;
@@ -161,27 +134,10 @@ export function CommandPalette({
     (item: PaletteItem) => {
       if (item.disabledReason) return;
       if (item.id === "theme.pick") return enterThemes();
-      if (item.id === "search.content") return setQuery("#");
-      if (item.id === "history.open") return setQuery(">");
       recordUse(item.id);
       runAfterClose(item.run);
     },
     [enterThemes, runAfterClose],
-  );
-
-  const openContent = useCallback(
-    (path: string, line: number) => {
-      runAfterClose(() => onOpenContentHit(path, line));
-    },
-    [onOpenContentHit, runAfterClose],
-  );
-
-  const runHistory = useCallback(
-    (cmd: string) => {
-      if (!insertCommand) return;
-      runAfterClose(() => insertCommand(cmd));
-    },
-    [insertCommand, runAfterClose],
   );
 
   const commitTheme = useCallback(
@@ -206,11 +162,7 @@ export function CommandPalette({
 
   const placeholder = inThemes
     ? messages.placeholders.themes
-    : parsed.mode === "content"
-      ? messages.placeholders.content
-      : parsed.mode === "history"
-        ? messages.placeholders.history
-        : messages.placeholders.commands;
+    : messages.placeholders.commands;
 
   return (
     <CommandDialog
@@ -272,125 +224,28 @@ export function CommandPalette({
                   <StatusItem label={messages.status.noThemes} />
                 ) : null}
               </CommandGroup>
-            ) : parsed.mode === "commands" ? (
-              rankedCommands.length === 0 ? (
-                <EmptyHint />
-              ) : (
-                COMMAND_GROUPS.map((group) => {
-                  const rows = rankedCommands.filter(
-                    (a) => a.groupKey === group,
-                  );
-                  if (rows.length === 0) return null;
-                  return (
-                    <CommandGroup key={group} heading={messages.groups[group]}>
-                      {rows.map((item) => (
-                        <ActionItem
-                          key={item.id}
-                          item={item}
-                          shortcutLabel={formatShortcut(
-                            item.shortcutId,
-                            userShortcuts,
-                          )}
-                          onRun={() => runCommand(item)}
-                        />
-                      ))}
-                    </CommandGroup>
-                  );
-                })
-              )
-            ) : parsed.mode === "content" ? (
-              <CommandGroup heading={messages.headings.contents}>
-                {!workspaceRoot ? (
-                  <StatusItem label={messages.status.noWorkspaceRoot} />
-                ) : parsed.term.length < CONTENT_SEARCH_MIN_QUERY ? (
-                  <StatusItem label={messages.status.typeAtLeast2Characters} />
-                ) : (
-                  <AsyncBody
-                    loading={content.loading}
-                    error={content.error}
-                    empty={content.results.length === 0}
-                    emptyLabel={messages.status.noMatches}
-                    onRetry={content.retry}
-                    messages={messages.status}
-                  >
-                    {content.results.map((hit) => (
-                      <CommandItem
-                        key={`${hit.path}:${hit.line}`}
-                        value={`content:${hit.path}:${hit.line}`}
-                        onSelect={() => openContent(hit.path, hit.line)}
-                        className="text-[12.5px]"
-                      >
-                        <img
-                          src={fileIconUrl(basename(hit.rel))}
-                          alt=""
-                          className="size-4 shrink-0"
-                        />
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">
-                          {hit.text.trim()}
-                        </span>
-                        <span className="ml-auto max-w-64 shrink-0 truncate text-[11px] font-normal text-muted-foreground">
-                          {hit.rel}:{hit.line}
-                        </span>
-                      </CommandItem>
-                    ))}
-                  </AsyncBody>
-                )}
-              </CommandGroup>
-            ) : parsed.mode === "history" ? (
-              <CommandGroup heading={messages.headings.commandHistory}>
-                {!insertCommand ? (
-                  <StatusItem
-                    label={messages.status.openTerminalToRunHistory}
-                  />
-                ) : (
-                  <AsyncBody
-                    loading={history.loading}
-                    error={history.error}
-                    empty={history.results.length === 0}
-                    emptyLabel={messages.status.noHistory}
-                    onRetry={history.retry}
-                    messages={messages.status}
-                  >
-                    {history.results.map((cmd) => (
-                      <CommandItem
-                        key={`hist:${cmd}`}
-                        value={`hist:${cmd}`}
-                        onSelect={() => runHistory(cmd)}
-                        className="text-[12.5px]"
-                      >
-                        <HugeiconsIcon
-                          icon={TerminalIcon}
-                          size={14}
-                          strokeWidth={1.75}
-                          className="text-muted-foreground"
-                        />
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">
-                          {cmd}
-                        </span>
-                      </CommandItem>
-                    ))}
-                  </AsyncBody>
-                )}
-              </CommandGroup>
+            ) : rankedCommands.length === 0 ? (
+              <EmptyHint />
             ) : (
-              <CommandGroup heading={messages.headings.searchModes}>
-                {[
-                  { sigil: ">", label: messages.modeHints.history },
-                  { sigil: "#", label: messages.modeHints.content },
-                ].map((hint) => (
-                  <CommandItem
-                    key={hint.sigil}
-                    value={`hint:${hint.sigil}`}
-                    onSelect={() => setQuery(hint.sigil)}
-                    className="text-[12.5px]"
-                  >
-                    <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-                      {hint.sigil}
-                    </kbd>
-                    <span>{hint.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              COMMAND_GROUPS.map((group) => {
+                const rows = rankedCommands.filter((a) => a.groupKey === group);
+                if (rows.length === 0) return null;
+                return (
+                  <CommandGroup key={group} heading={messages.groups[group]}>
+                    {rows.map((item) => (
+                      <ActionItem
+                        key={item.id}
+                        item={item}
+                        shortcutLabel={formatShortcut(
+                          item.shortcutId,
+                          userShortcuts,
+                        )}
+                        onRun={() => runCommand(item)}
+                      />
+                    ))}
+                  </CommandGroup>
+                );
+              })
             )}
           </CommandList>
         </ScrollArea>
@@ -459,38 +314,6 @@ function ActionItem({
   );
 }
 
-function AsyncBody({
-  loading,
-  error,
-  empty,
-  emptyLabel,
-  onRetry,
-  messages,
-  children,
-}: {
-  loading: boolean;
-  error: string | null;
-  empty: boolean;
-  emptyLabel: string;
-  onRetry: () => void;
-  messages: Messages["mainShell"]["commandPalette"]["status"];
-  children: React.ReactNode;
-}) {
-  if (error) {
-    return (
-      <>
-        <StatusItem label={messages.searchFailed} tone="error" />
-        <CommandItem value="retry" onSelect={onRetry} className="text-[12.5px]">
-          <span>{messages.retry}</span>
-        </CommandItem>
-      </>
-    );
-  }
-  if (empty && loading) return <StatusItem label={messages.searching} />;
-  if (empty) return <StatusItem label={emptyLabel} />;
-  return <>{children}</>;
-}
-
 function StatusItem({
   label,
   tone = "muted",
@@ -529,11 +352,6 @@ function EmptyHint() {
       <span>{messages.noCommandsFound}</span>
     </div>
   );
-}
-
-function basename(rel: string): string {
-  const parts = rel.split(/[\\/]/);
-  return parts[parts.length - 1] || rel;
 }
 
 function formatShortcut(

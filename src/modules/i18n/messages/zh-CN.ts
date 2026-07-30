@@ -29,7 +29,6 @@ export const zhCN = {
       newTab: "新建标签",
       newTabMenu: {
         terminal: "终端",
-        blocks: "Blocks",
         editor: "编辑器",
         sftp: "SFTP",
         gitGraph: "Git 图谱",
@@ -43,12 +42,10 @@ export const zhCN = {
     },
     commandPalette: {
       title: "命令面板",
-      description: "运行命令、切换主题或搜索工作区。",
+      description: "运行命令或切换主题。",
       placeholders: {
         themes: "搜索主题...",
-        content: "在文件中查找文本...",
-        history: "搜索命令历史...",
-        commands: "输入命令，> 查历史，# 查文件内容",
+        commands: "输入命令或关键词",
       },
       groups: {
         General: "通用",
@@ -74,10 +71,6 @@ export const zhCN = {
         newTerminal: {
           title: "新建终端",
           keywords: ["shell", "终端", "新建标签"],
-        },
-        newBlockTerminal: {
-          title: "新建 Blocks 终端",
-          keywords: ["blocks", "warp", "命令块", "终端"],
         },
         newEditorTab: {
           title: "新建编辑器标签",
@@ -107,14 +100,6 @@ export const zhCN = {
           title: "切换源代码管理",
           keywords: ["git", "源代码管理", "更改", "暂存", "diff"],
         },
-        findContentInFiles: {
-          title: "在文件中查找内容",
-          keywords: ["grep", "ripgrep", "文本", "内容", "文件搜索"],
-        },
-        searchCommandHistory: {
-          title: "搜索命令历史",
-          keywords: ["历史", "shell", "重跑", "之前的命令"],
-        },
         findInCurrentTab: {
           title: "在当前标签中查找",
           keywords: ["查找", "终端", "编辑器", "当前"],
@@ -137,25 +122,13 @@ export const zhCN = {
       },
       headings: {
         themes: "主题",
-        contents: "内容",
-        commandHistory: "命令历史",
-        searchModes: "搜索模式",
       },
       status: {
         noThemes: "没有主题",
         noWorkspaceRoot: "没有工作区根目录",
         typeAtLeast2Characters: "至少输入 2 个字符",
         noMatches: "没有匹配项",
-        openTerminalToRunHistory: "打开终端后可运行历史命令",
-        noHistory: "没有历史记录",
-        searchFailed: "搜索失败",
-        retry: "重试",
-        searching: "搜索中...",
-        noCommandsFound: "没有找到命令。输入 ? 查看搜索模式。",
-      },
-      modeHints: {
-        history: "搜索命令历史",
-        content: "在文件中查找文本",
+        noCommandsFound: "没有找到命令。输入关键词继续筛选。",
       },
       back: "返回",
     },
@@ -491,7 +464,7 @@ export const zhCN = {
         system: "跟随系统",
         light: "浅色",
         dark: "深色",
-        themesHint: "主题、背景和自定义项请前往",
+        themesHint: "主题和编辑器配色请前往",
         themesTab: "主题",
         themesHintSuffix: "标签页。",
       },
@@ -567,7 +540,7 @@ export const zhCN = {
     },
     themes: {
       title: "主题",
-      description: "主题、背景图片和自定义项。",
+      description: "主题和编辑器配色。",
       theme: {
         title: "主题",
         create: "创建",
@@ -618,10 +591,8 @@ export const zhCN = {
       },
       actions: {
         "commandPalette.open": "打开命令面板",
-        "commandPalette.content": "在文件中查找",
         "settings.open": "打开设置",
         "tab.new": "新建标签",
-        "tab.newBlock": "新建 Blocks 终端",
         "tab.newEditor": "新建编辑器标签",
         "tab.close": "关闭标签或窗格",
         "pane.splitRight": "向右拆分窗格",
@@ -630,8 +601,6 @@ export const zhCN = {
         "pane.focusPrev": "聚焦上一个窗格",
         "pane.source": "切换源代码面板",
         "terminal.clear": "清空终端",
-        "blocks.prev": "上一个命令块",
-        "blocks.next": "下一个命令块",
         "tab.next": "下一个标签",
         "tab.prev": "上一个标签",
         "tab.selectByIndex": "跳转到标签 1-9",

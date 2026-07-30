@@ -27,7 +27,6 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
-  onNewBlock: () => void;
   onNewEditor: () => void;
   onNewSftp: () => void;
   onNewGitGraph: () => void;
@@ -53,7 +52,6 @@ export function Header({
   activeId,
   onSelect,
   onNew,
-  onNewBlock,
   onNewEditor,
   onNewSftp,
   onNewGitGraph,
@@ -143,7 +141,6 @@ export function Header({
           activeId={activeId}
           onSelect={onSelect}
           onNew={onNew}
-          onNewBlock={onNewBlock}
           onNewEditor={onNewEditor}
           onNewSftp={onNewSftp}
           onNewGitGraph={onNewGitGraph}

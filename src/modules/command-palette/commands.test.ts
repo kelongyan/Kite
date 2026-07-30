@@ -17,7 +17,6 @@ function context(
     explorerRoot: "F:/repo",
     home: "C:/Users/Administrator",
     openNewTab: noop,
-    openNewBlock: noop,
     openNewEditor: noop,
     openSftp: noop,
     openGitGraph: noop,

@@ -56,17 +56,14 @@ import {
   findLeafCwd,
   hasLeaf,
   leafIds,
-  navigateFocusedBlocks,
   type TerminalPaneHandle,
   useTerminalFileDrop,
-  writeToSession,
 } from "@/modules/terminal";
 import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
-import { WorkspaceInputBar } from "./components/WorkspaceInputBar";
 import { WorkspaceSurface } from "./components/WorkspaceSurface";
 import { useTabCloseGuards } from "./hooks/useTabCloseGuards";
 import { useWorkspaceSwitcher } from "./hooks/useWorkspaceSwitcher";
@@ -81,7 +78,6 @@ export default function App() {
     reorderTabByGap,
     markBooted,
     newTab,
-    newBlockTab,
     openFileTab,
     pinTab,
     newMarkdownTab,
@@ -185,19 +181,11 @@ export default function App() {
 
   const [newEditorOpen, setNewEditorOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [paletteInitialMode, setPaletteInitialMode] = useState<
-    "commands" | "content"
-  >("commands");
-  const openCommandPalette = useCallback(
-    (mode: "commands" | "content" = "commands") => {
-      setPaletteInitialMode(mode);
-      setCommandPaletteOpen(true);
-    },
-    [],
-  );
+  const openCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(true);
+  }, []);
   const activeTab = tabs.find((t) => t.id === activeId);
   const isTerminalTab = activeTab?.kind === "terminal";
-  const isBlockTab = activeTerminalTab?.blocks === true;
   const isEditorTab = activeTab?.kind === "editor";
   const isGitHistoryTab = activeTab?.kind === "git-history";
 
@@ -304,10 +292,6 @@ export default function App() {
     newTab(inheritedCwdForNewTab());
   }, [newTab, inheritedCwdForNewTab]);
 
-  const openNewBlockTab = useCallback(() => {
-    newBlockTab(inheritedCwdForNewTab());
-  }, [newBlockTab, inheritedCwdForNewTab]);
-
   const sendCd = useCallback(
     (path: string) => {
       if (activeLeafId === null) return;
@@ -324,7 +308,7 @@ export default function App() {
       const tabId = newTab(path);
       setTimeout(() => {
         const tab = tabsRef.current.find((x) => x.id === tabId);
-        if (!tab || tab.kind !== "terminal") return;
+        if (tab?.kind !== "terminal") return;
         const t = terminalRefs.current.get(tab.activeLeafId);
         if (!t) return;
         t.write(`cd ${quoteShellArg(path)}\r`);
@@ -416,7 +400,7 @@ export default function App() {
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
       const t = tabsRef.current.find((x) => x.id === activeId);
-      if (!t || t.kind !== "terminal") return;
+      if (t?.kind !== "terminal") return;
       splitActivePane(activeId, dir);
     },
     [activeId, splitActivePane],
@@ -435,10 +419,8 @@ export default function App() {
 
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
-      "commandPalette.open": () => openCommandPalette("commands"),
-      "commandPalette.content": () => openCommandPalette("content"),
+      "commandPalette.open": openCommandPalette,
       "tab.new": openNewTab,
-      "tab.newBlock": openNewBlockTab,
       "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
       "tab.next": () => stepSwitcher(1),
@@ -455,8 +437,6 @@ export default function App() {
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
-      "blocks.prev": () => navigateFocusedBlocks(-1),
-      "blocks.next": () => navigateFocusedBlocks(1),
       "search.focus": () => searchInlineRef.current?.focus(),
       "settings.open": () => void openSettingsWindow(),
       "sidebar.toggle": toggleSidebar,
@@ -474,7 +454,6 @@ export default function App() {
       stepSwitcher,
       handleCloseTabOrPane,
       openNewTab,
-      openNewBlockTab,
       selectByIndex,
       splitActivePaneInActiveTab,
       focusNextPaneInTab,
@@ -498,12 +477,6 @@ export default function App() {
         const target =
           (e.target as HTMLElement | null) ?? document.activeElement;
         return !(target as HTMLElement | null)?.closest?.(".xterm");
-      }
-      if (
-        id === "blocks.prev" ||
-        id === "blocks.next"
-      ) {
-        return !(activeTab?.kind === "terminal" && activeTab.blocks === true);
       }
       if (id === "sidebar.toggle") {
         // Ctrl+B is also Claude Code's "run in background" key. While a terminal
@@ -537,11 +510,6 @@ export default function App() {
     (id: number, h: EditorPaneHandle | null) => {
       if (h) {
         editorRefs.current.set(id, h);
-        const line = pendingGotoLine.current.get(id);
-        if (line != null) {
-          pendingGotoLine.current.delete(id);
-          h.gotoLine(line);
-        }
       } else {
         editorRefs.current.delete(id);
       }
@@ -575,7 +543,7 @@ export default function App() {
       const tab = all.find(
         (t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
       );
-      if (!tab || tab.kind !== "terminal") return;
+      if (tab?.kind !== "terminal") return;
       // Last pane of the last tab: quit instead of respawning a shell.
       if (leafIds(tab.paneTree).length === 1 && all.length === 1) {
         void getCurrentWindow().close();
@@ -637,7 +605,6 @@ export default function App() {
               explorerRoot,
               home,
               openNewTab,
-              openNewBlock: openNewBlockTab,
               openNewEditor: () => setNewEditorOpen(true),
               openSftp: openNewSftpTab,
               openGitGraph: openGitGraphFromContext,
@@ -662,36 +629,14 @@ export default function App() {
       explorerRoot,
       home,
       openNewTab,
-      openNewBlockTab,
       openNewSftpTab,
       handleCloseTabOrPane,
       splitActivePaneInActiveTab,
       toggleSidebar,
+      toggleSourceControl,
+      openGitGraphFromContext,
       messages,
     ],
-  );
-
-  const pendingGotoLine = useRef<Map<number, number>>(new Map());
-  const openContentHit = useCallback(
-    (path: string, line: number) => {
-      const id = openFileTab(path, true);
-      if (id == null) return;
-      const h = editorRefs.current.get(id);
-      if (h) h.gotoLine(line);
-      else pendingGotoLine.current.set(id, line);
-    },
-    [openFileTab],
-  );
-
-  const insertHistoryCommand = useMemo(
-    () =>
-      isTerminalTab && activeLeafId !== null
-        ? (cmd: string) => {
-            writeToSession(activeLeafId, cmd);
-            terminalRefs.current.get(activeLeafId)?.focus();
-          }
-        : null,
-    [isTerminalTab, activeLeafId],
   );
 
   const shell = (
@@ -704,7 +649,6 @@ export default function App() {
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
-              onNewBlock={openNewBlockTab}
               onNewEditor={() => setNewEditorOpen(true)}
               onNewSftp={openNewSftpTab}
               onNewGitGraph={openGitGraphFromContext}
@@ -713,7 +657,7 @@ export default function App() {
               onRename={handleRenameTab}
               onReorder={reorderTabByGap}
               onToggleSidebar={toggleSidebar}
-              onOpenCommandPalette={() => openCommandPalette("commands")}
+              onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}
               searchTarget={searchTarget}
               searchRef={searchInlineRef}
@@ -783,11 +727,11 @@ export default function App() {
               <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="relative min-h-0 flex-1">
-                    <WorkspaceSurface
-                      tabs={tabs}
-                      activeId={activeId}
-                      activeTab={activeTab}
-                      registerTerminalHandle={registerTerminalHandle}
+                  <WorkspaceSurface
+                    tabs={tabs}
+                    activeId={activeId}
+                    activeTab={activeTab}
+                    registerTerminalHandle={registerTerminalHandle}
                       onSearchReady={handleSearchReady}
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
@@ -800,11 +744,6 @@ export default function App() {
                       onSetMarkdownView={setMarkdownView}
                     />
                   </div>
-
-                  <WorkspaceInputBar
-                    isBlockTab={isBlockTab}
-                    activeLeafId={activeLeafId}
-                  />
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -829,11 +768,7 @@ export default function App() {
           <CommandPalette
             open={commandPaletteOpen}
             onOpenChange={setCommandPaletteOpen}
-            initialMode={paletteInitialMode}
             commandItems={commandPaletteItems}
-            workspaceRoot={explorerRoot}
-            onOpenContentHit={openContentHit}
-            insertCommand={insertHistoryCommand}
           />
 
           <NewEditorDialog

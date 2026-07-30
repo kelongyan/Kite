@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fmtShortcut, MOD_KEY, SHIFT_KEY } from "@/lib/platform";
+import { fmtShortcut, MOD_KEY } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import {
   ALL_LANGUAGES,
@@ -51,7 +51,6 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
-  onNewBlock: () => void;
   onNewEditor: () => void;
   onNewSftp: () => void;
   onNewGitGraph: () => void;
@@ -71,7 +70,6 @@ export function TabBar({
   activeId,
   onSelect,
   onNew,
-  onNewBlock,
   onNewEditor,
   onNewSftp,
   onNewGitGraph,
@@ -554,17 +552,6 @@ export function TabBar({
               <span className="flex-1">{messages.newTabMenu.terminal}</span>
               <span className="text-xs text-muted-foreground">
                 {fmtShortcut(MOD_KEY, "T")}
-              </span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNewBlock()}>
-              <HugeiconsIcon
-                icon={ComputerTerminal02Icon}
-                size={14}
-                strokeWidth={1.75}
-              />
-              <span className="flex-1">{messages.newTabMenu.blocks}</span>
-              <span className="text-xs text-muted-foreground">
-                {fmtShortcut(MOD_KEY, SHIFT_KEY, "T")}
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onNewEditor()}>

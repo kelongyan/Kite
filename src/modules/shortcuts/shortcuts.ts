@@ -6,9 +6,7 @@ import { IS_MAC, MOD_PROP } from "@/lib/platform";
 
 export type ShortcutId =
   | "commandPalette.open"
-  | "commandPalette.content"
   | "tab.new"
-  | "tab.newBlock"
   | "tab.newEditor"
   | "tab.close"
   | "tab.next"
@@ -20,8 +18,6 @@ export type ShortcutId =
   | "pane.focusPrev"
   | "pane.source"
   | "terminal.clear"
-  | "blocks.prev"
-  | "blocks.next"
   | "search.focus"
   | "explorer.search"
   | "explorer.focus"
@@ -67,12 +63,6 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "p" }],
   },
   {
-    id: "commandPalette.content",
-    label: "Find in files",
-    group: "General",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "p" }],
-  },
-  {
     id: "settings.open",
     label: "Open settings",
     group: "General",
@@ -83,12 +73,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "New tab",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "t" }],
-  },
-  {
-    id: "tab.newBlock",
-    label: "New Blocks terminal",
-    group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "t" }],
   },
   {
     id: "tab.newEditor",
@@ -140,20 +124,6 @@ export const SHORTCUTS: Shortcut[] = [
     // macOS — on other platforms Ctrl+K is readline's kill-line, so we leave it
     // unbound and let users assign their own in settings.
     defaultBindings: IS_MAC ? [{ meta: true, key: "k" }] : [],
-  },
-  {
-    id: "blocks.prev",
-    label: "Previous command block",
-    group: "Terminal",
-    defaultBindings: [{ [MOD_PROP]: true, key: "ArrowUp" }],
-    allowRepeat: true,
-  },
-  {
-    id: "blocks.next",
-    label: "Next command block",
-    group: "Terminal",
-    defaultBindings: [{ [MOD_PROP]: true, key: "ArrowDown" }],
-    allowRepeat: true,
   },
   {
     id: "tab.next",

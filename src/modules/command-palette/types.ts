@@ -19,5 +19,3 @@ export type PaletteItem = {
   disabledReason?: string;
   run: () => void;
 };
-
-export type PaletteMode = "commands" | "history" | "content" | "help";

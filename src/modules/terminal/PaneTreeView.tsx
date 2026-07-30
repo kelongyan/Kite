@@ -20,7 +20,6 @@ type Props = {
   node: PaneNode;
   tabVisible: boolean;
   activeLeafId: number;
-  blocks: boolean;
   onFocusLeaf: (leafId: number) => void;
   getBundle: (leafId: number) => LeafBundle;
 };
@@ -31,7 +30,6 @@ export function PaneTreeView(props: Props) {
     const {
       tabVisible,
       activeLeafId,
-      blocks,
       onFocusLeaf,
       getBundle,
     } = props;
@@ -55,7 +53,6 @@ export function PaneTreeView(props: Props) {
           visible={tabVisible}
           focused={focused}
           initialCwd={node.cwd}
-          blocks={blocks}
           ref={b.setRef}
           onSearchReady={b.onSearchReady}
           onCwd={b.onCwd}
