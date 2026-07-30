@@ -90,7 +90,7 @@ function queuePendingInput(s: Session, data: string): void {
   s.pendingInput += data;
 }
 
-export function writeToSession(leafId: number, data: string): boolean {
+function writeToSession(leafId: number, data: string): boolean {
   const s = sessions.get(leafId);
   if (!s || s.shellExited) return false;
   if (s.pty) {
@@ -99,25 +99,6 @@ export function writeToSession(leafId: number, data: string): boolean {
   }
   queuePendingInput(s, data);
   return true;
-}
-
-export function submitToLeaf(leafId: number, text: string): void {
-  const s = sessions.get(leafId);
-  if (!s || s.shellExited) return;
-  // Bracketed paste keeps a multiline command atomic; trailing CR runs it.
-  const data = text.includes("\n")
-    ? `\x1b[200~${text}\x1b[201~\r`
-    : `${text}\r`;
-  if (s.pty) void s.pty.write(data);
-  else queuePendingInput(s, data);
-}
-
-export function interruptLeaf(leafId: number): void {
-  sessions.get(leafId)?.pty?.write("\x03");
-}
-
-export function leafCwd(leafId: number): string | null {
-  return sessions.get(leafId)?.lastCwd ?? null;
 }
 
 /**

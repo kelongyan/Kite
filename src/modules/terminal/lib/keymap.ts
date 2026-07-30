@@ -3,7 +3,7 @@ export type TerminalKeyEvent = Pick<
   "altKey" | "ctrlKey" | "metaKey" | "key" | "code"
 >;
 
-export type PlatformOpts = { isMac: boolean };
+type PlatformOpts = { isMac: boolean };
 
 export function terminalWordNavigationSequence(event: TerminalKeyEvent): string | null {
   if (!event.altKey || event.ctrlKey || event.metaKey) return null;
