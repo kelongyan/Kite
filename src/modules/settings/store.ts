@@ -1,19 +1,3 @@
-import {
-  DEFAULT_AUTOCOMPLETE_MODEL,
-  DEFAULT_MODEL_ID,
-  DEFAULT_STT_PROVIDER,
-  isKnownModelId,
-  LMSTUDIO_DEFAULT_BASE_URL,
-  MLX_DEFAULT_BASE_URL,
-  OLLAMA_DEFAULT_BASE_URL,
-  migrateLegacyCompatEndpoint,
-  OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
-  WHISPERCPP_DEFAULT_BASE_URL,
-  type AutocompleteProviderId,
-  type CustomEndpoint,
-  type ModelId,
-  type SttProvider,
-} from "@/modules/ai/config";
 import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
 import { coerceAppLanguage, type AppLanguage } from "@/modules/i18n/locale";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
@@ -126,31 +110,10 @@ export type Preferences = {
   backgroundImageId: string | null;
   backgroundOpacity: number;
   backgroundBlur: number;
-  defaultModelId: ModelId;
   editorTheme: EditorThemePref;
-  customInstructions: string;
   appLanguage: AppLanguage;
   autostart: boolean;
   restoreWindowState: boolean;
-  autocompleteEnabled: boolean;
-  autocompleteProvider: AutocompleteProviderId;
-  autocompleteModelId: string;
-  lmstudioBaseURL: string;
-  lmstudioModelId: string;
-  mlxBaseURL: string;
-  mlxModelId: string;
-  ollamaBaseURL: string;
-  ollamaModelId: string;
-  openaiCompatibleBaseURL: string;
-  openaiCompatibleModelId: string;
-  openaiCompatibleContextLimit: number;
-  customEndpoints: CustomEndpoint[];
-  openrouterModelId: string;
-  sttProvider: SttProvider;
-  groqSttModel: string;
-  whispercppBaseURL: string;
-  favoriteModelIds: string[];
-  recentModelIds: string[];
   vimMode: boolean;
   editorWordWrap: boolean;
   showHidden: boolean;
@@ -167,7 +130,6 @@ export type Preferences = {
   terminalScrollback: number;
   lastWslDistro: string | null;
   zoomLevel: number;
-  agentNotifications: boolean;
   defaultWorkspaceEnv: string;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
   editorAutoSave: boolean;
@@ -181,31 +143,10 @@ const KEY_BG_KIND = "backgroundKind";
 const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
-const KEY_DEFAULT_MODEL = "defaultModelId";
 const KEY_EDITOR_THEME = "editorTheme";
-const KEY_CUSTOM_INSTRUCTIONS = "customInstructions";
 const KEY_APP_LANGUAGE = "appLanguage";
 const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
-const KEY_AUTOCOMPLETE_ENABLED = "autocompleteEnabled";
-const KEY_AUTOCOMPLETE_PROVIDER = "autocompleteProvider";
-const KEY_AUTOCOMPLETE_MODEL = "autocompleteModelId";
-const KEY_LMSTUDIO_BASE_URL = "lmstudioBaseURL";
-const KEY_LMSTUDIO_MODEL_ID = "lmstudioModelId";
-const KEY_MLX_BASE_URL = "mlxBaseURL";
-const KEY_MLX_MODEL_ID = "mlxModelId";
-const KEY_OLLAMA_BASE_URL = "ollamaBaseURL";
-const KEY_OLLAMA_MODEL_ID = "ollamaModelId";
-const KEY_OPENAI_COMPAT_BASE_URL = "openaiCompatibleBaseURL";
-const KEY_OPENAI_COMPAT_MODEL_ID = "openaiCompatibleModelId";
-const KEY_OPENAI_COMPAT_CONTEXT_LIMIT = "openaiCompatibleContextLimit";
-const KEY_CUSTOM_ENDPOINTS = "customEndpoints";
-const KEY_OPENROUTER_MODEL_ID = "openrouterModelId";
-const KEY_STT_PROVIDER = "sttProvider";
-const KEY_GROQ_STT_MODEL = "groqSttModel";
-const KEY_WHISPERCPP_BASE_URL = "whispercppBaseURL";
-const KEY_FAVORITE_MODELS = "favoriteModelIds";
-const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
@@ -220,7 +161,6 @@ const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
-const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
 const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
@@ -249,31 +189,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundImageId: null,
   backgroundOpacity: 0.5,
   backgroundBlur: 0,
-  defaultModelId: DEFAULT_MODEL_ID,
   editorTheme: EDITOR_THEME_AUTO,
-  customInstructions: "",
-  appLanguage: "en",
+  appLanguage: "zh-CN",
   autostart: false,
   restoreWindowState: true,
-  autocompleteEnabled: false,
-  autocompleteProvider: "cerebras",
-  autocompleteModelId: DEFAULT_AUTOCOMPLETE_MODEL.cerebras ?? "",
-  lmstudioBaseURL: LMSTUDIO_DEFAULT_BASE_URL,
-  lmstudioModelId: "",
-  mlxBaseURL: MLX_DEFAULT_BASE_URL,
-  mlxModelId: "",
-  ollamaBaseURL: OLLAMA_DEFAULT_BASE_URL,
-  ollamaModelId: "",
-  openaiCompatibleBaseURL: OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
-  openaiCompatibleModelId: "",
-  openaiCompatibleContextLimit: 128_000,
-  customEndpoints: [],
-  openrouterModelId: "",
-  sttProvider: DEFAULT_STT_PROVIDER,
-  groqSttModel: "whisper-large-v3-turbo",
-  whispercppBaseURL: WHISPERCPP_DEFAULT_BASE_URL,
-  favoriteModelIds: [],
-  recentModelIds: [],
   vimMode: false,
   editorWordWrap: false,
   showHidden: false,
@@ -290,7 +209,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
   lastWslDistro: null,
   zoomLevel: 1.0,
-  agentNotifications: true,
   defaultWorkspaceEnv: "local",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
@@ -368,20 +286,11 @@ export async function loadPreferences(): Promise<Preferences> {
     backgroundBlur: clampBlur(
       get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur,
     ),
-    defaultModelId: ((): ModelId => {
-      const stored = get<string>(KEY_DEFAULT_MODEL);
-      return stored && isKnownModelId(stored)
-        ? stored
-        : DEFAULT_PREFERENCES.defaultModelId;
-    })(),
     editorTheme: ((): EditorThemePref => {
       const stored = get<string>(KEY_EDITOR_THEME);
       if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored)) return stored;
       return DEFAULT_PREFERENCES.editorTheme;
     })(),
-    customInstructions:
-      get<string>(KEY_CUSTOM_INSTRUCTIONS) ??
-      DEFAULT_PREFERENCES.customInstructions,
     appLanguage: coerceAppLanguage(
       get<string>(KEY_APP_LANGUAGE) ?? DEFAULT_PREFERENCES.appLanguage,
     ),
@@ -389,62 +298,6 @@ export async function loadPreferences(): Promise<Preferences> {
     restoreWindowState:
       get<boolean>(KEY_RESTORE_WINDOW) ??
       DEFAULT_PREFERENCES.restoreWindowState,
-    autocompleteEnabled:
-      get<boolean>(KEY_AUTOCOMPLETE_ENABLED) ??
-      DEFAULT_PREFERENCES.autocompleteEnabled,
-    autocompleteProvider:
-      get<AutocompleteProviderId>(KEY_AUTOCOMPLETE_PROVIDER) ??
-      DEFAULT_PREFERENCES.autocompleteProvider,
-    autocompleteModelId:
-      get<string>(KEY_AUTOCOMPLETE_MODEL) ??
-      DEFAULT_PREFERENCES.autocompleteModelId,
-    lmstudioBaseURL:
-      get<string>(KEY_LMSTUDIO_BASE_URL) ?? DEFAULT_PREFERENCES.lmstudioBaseURL,
-    lmstudioModelId:
-      get<string>(KEY_LMSTUDIO_MODEL_ID) ?? DEFAULT_PREFERENCES.lmstudioModelId,
-    mlxBaseURL:
-      get<string>(KEY_MLX_BASE_URL) ?? DEFAULT_PREFERENCES.mlxBaseURL,
-    mlxModelId:
-      get<string>(KEY_MLX_MODEL_ID) ?? DEFAULT_PREFERENCES.mlxModelId,
-    ollamaBaseURL:
-      get<string>(KEY_OLLAMA_BASE_URL) ?? DEFAULT_PREFERENCES.ollamaBaseURL,
-    ollamaModelId:
-      get<string>(KEY_OLLAMA_MODEL_ID) ?? DEFAULT_PREFERENCES.ollamaModelId,
-    openaiCompatibleBaseURL:
-      get<string>(KEY_OPENAI_COMPAT_BASE_URL) ??
-      DEFAULT_PREFERENCES.openaiCompatibleBaseURL,
-    openaiCompatibleModelId:
-      get<string>(KEY_OPENAI_COMPAT_MODEL_ID) ??
-      DEFAULT_PREFERENCES.openaiCompatibleModelId,
-    openaiCompatibleContextLimit:
-      get<number>(KEY_OPENAI_COMPAT_CONTEXT_LIMIT) ??
-      DEFAULT_PREFERENCES.openaiCompatibleContextLimit,
-    customEndpoints: (() => {
-      const stored = get<CustomEndpoint[]>(KEY_CUSTOM_ENDPOINTS);
-      if (stored && stored.length > 0) return stored;
-      return migrateLegacyCompatEndpoint(
-        get<string>(KEY_OPENAI_COMPAT_BASE_URL) ?? "",
-        get<string>(KEY_OPENAI_COMPAT_MODEL_ID) ?? "",
-        get<number>(KEY_OPENAI_COMPAT_CONTEXT_LIMIT) ?? 128_000,
-        crypto.randomUUID().slice(0, 8),
-      );
-    })(),
-    openrouterModelId:
-      get<string>(KEY_OPENROUTER_MODEL_ID) ??
-      DEFAULT_PREFERENCES.openrouterModelId,
-    sttProvider:
-      get<SttProvider>(KEY_STT_PROVIDER) ?? DEFAULT_PREFERENCES.sttProvider,
-    groqSttModel:
-      get<string>(KEY_GROQ_STT_MODEL) ?? DEFAULT_PREFERENCES.groqSttModel,
-    whispercppBaseURL:
-      get<string>(KEY_WHISPERCPP_BASE_URL) ?? DEFAULT_PREFERENCES.whispercppBaseURL,
-    favoriteModelIds: (
-      get<string[]>(KEY_FAVORITE_MODELS) ??
-      DEFAULT_PREFERENCES.favoriteModelIds
-    ).filter(isKnownModelId),
-    recentModelIds: (
-      get<string[]>(KEY_RECENT_MODELS) ?? DEFAULT_PREFERENCES.recentModelIds
-    ).filter(isKnownModelId),
     vimMode: get<boolean>(KEY_VIM_MODE) ?? DEFAULT_PREFERENCES.vimMode,
     editorWordWrap:
       get<boolean>(KEY_EDITOR_WORD_WRAP) ?? DEFAULT_PREFERENCES.editorWordWrap,
@@ -484,9 +337,6 @@ export async function loadPreferences(): Promise<Preferences> {
       get<string | null>(KEY_LAST_WSL_DISTRO) ??
       DEFAULT_PREFERENCES.lastWslDistro,
     zoomLevel: get<number>(KEY_ZOOM_LEVEL) ?? DEFAULT_PREFERENCES.zoomLevel,
-    agentNotifications:
-      get<boolean>(KEY_AGENT_NOTIFICATIONS) ??
-      DEFAULT_PREFERENCES.agentNotifications,
     defaultWorkspaceEnv:
       get<string>(KEY_DEFAULT_WORKSPACE_ENV) ??
       DEFAULT_PREFERENCES.defaultWorkspaceEnv,
@@ -541,115 +391,6 @@ export async function setBackgroundBlur(value: number): Promise<void> {
   await writePref(KEY_BG_BLUR, clampBlur(value));
 }
 
-
-export async function setDefaultModel(value: ModelId): Promise<void> {
-  await writePref(KEY_DEFAULT_MODEL, value);
-}
-
-export async function setEditorTheme(value: EditorThemePref): Promise<void> {
-  await writePref(KEY_EDITOR_THEME, value);
-}
-
-export async function setCustomInstructions(value: string): Promise<void> {
-  await writePref(KEY_CUSTOM_INSTRUCTIONS, value);
-}
-
-export async function setAppLanguage(value: AppLanguage): Promise<void> {
-  await writePref(KEY_APP_LANGUAGE, coerceAppLanguage(value));
-}
-
-export async function setAutostart(value: boolean): Promise<void> {
-  await writePref(KEY_AUTOSTART, value);
-}
-
-export async function setRestoreWindowState(value: boolean): Promise<void> {
-  await writePref(KEY_RESTORE_WINDOW, value);
-}
-
-export async function setAutocompleteEnabled(value: boolean): Promise<void> {
-  await writePref(KEY_AUTOCOMPLETE_ENABLED, value);
-}
-
-export async function setAutocompleteProvider(
-  value: AutocompleteProviderId,
-): Promise<void> {
-  await writePref(KEY_AUTOCOMPLETE_PROVIDER, value);
-}
-
-export async function setAutocompleteModelId(value: string): Promise<void> {
-  await writePref(KEY_AUTOCOMPLETE_MODEL, value);
-}
-
-export async function setLmstudioBaseURL(value: string): Promise<void> {
-  await writePref(KEY_LMSTUDIO_BASE_URL, value);
-}
-
-export async function setLmstudioModelId(value: string): Promise<void> {
-  await writePref(KEY_LMSTUDIO_MODEL_ID, value);
-}
-
-export async function setMlxBaseURL(value: string): Promise<void> {
-  await writePref(KEY_MLX_BASE_URL, value);
-}
-
-export async function setMlxModelId(value: string): Promise<void> {
-  await writePref(KEY_MLX_MODEL_ID, value);
-}
-
-export async function setOllamaBaseURL(value: string): Promise<void> {
-  await writePref(KEY_OLLAMA_BASE_URL, value);
-}
-
-export async function setOllamaModelId(value: string): Promise<void> {
-  await writePref(KEY_OLLAMA_MODEL_ID, value);
-}
-
-export async function setOpenaiCompatibleBaseURL(value: string): Promise<void> {
-  await writePref(KEY_OPENAI_COMPAT_BASE_URL, value);
-}
-
-export async function setOpenaiCompatibleModelId(value: string): Promise<void> {
-  await writePref(KEY_OPENAI_COMPAT_MODEL_ID, value);
-}
-
-export async function setOpenaiCompatibleContextLimit(
-  value: number,
-): Promise<void> {
-  const clamped = Number.isFinite(value)
-    ? Math.max(1_000, Math.round(value))
-    : DEFAULT_PREFERENCES.openaiCompatibleContextLimit;
-  await writePref(KEY_OPENAI_COMPAT_CONTEXT_LIMIT, clamped);
-}
-
-export async function setCustomEndpoints(
-  value: CustomEndpoint[],
-): Promise<void> {
-  await writePref(KEY_CUSTOM_ENDPOINTS, value);
-}
-
-export async function setOpenrouterModelId(value: string): Promise<void> {
-  await writePref(KEY_OPENROUTER_MODEL_ID, value);
-}
-
-export async function setSttProvider(value: SttProvider): Promise<void> {
-  await writePref(KEY_STT_PROVIDER, value);
-}
-
-export async function setGroqSttModel(value: string): Promise<void> {
-  await writePref(KEY_GROQ_STT_MODEL, value.trim());
-}
-
-export async function setWhispercppBaseURL(value: string): Promise<void> {
-  await writePref(KEY_WHISPERCPP_BASE_URL, value.trim());
-}
-
-export async function setFavoriteModelIds(value: string[]): Promise<void> {
-  await writePref(KEY_FAVORITE_MODELS, value);
-}
-
-export async function setRecentModelIds(value: string[]): Promise<void> {
-  await writePref(KEY_RECENT_MODELS, value);
-}
 
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
@@ -734,12 +475,24 @@ export async function setEditorAutoSave(value: boolean): Promise<void> {
   await writePref(KEY_EDITOR_AUTO_SAVE, value);
 }
 
-export async function setEditorAutoSaveDelay(value: number): Promise<void> {
-  await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
+export async function setEditorTheme(value: EditorThemePref): Promise<void> {
+  await writePref(KEY_EDITOR_THEME, value);
 }
 
-export async function setAgentNotifications(value: boolean): Promise<void> {
-  await writePref(KEY_AGENT_NOTIFICATIONS, value);
+export async function setAppLanguage(value: AppLanguage): Promise<void> {
+  await writePref(KEY_APP_LANGUAGE, coerceAppLanguage(value));
+}
+
+export async function setAutostart(value: boolean): Promise<void> {
+  await writePref(KEY_AUTOSTART, value);
+}
+
+export async function setRestoreWindowState(value: boolean): Promise<void> {
+  await writePref(KEY_RESTORE_WINDOW, value);
+}
+
+export async function setEditorAutoSaveDelay(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
 }
 
 export async function setDefaultWorkspaceEnv(value: string): Promise<void> {
@@ -769,31 +522,10 @@ export async function onPreferencesChange(
     [KEY_BG_IMAGE_ID]: "backgroundImageId",
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
-    [KEY_DEFAULT_MODEL]: "defaultModelId",
     [KEY_EDITOR_THEME]: "editorTheme",
-    [KEY_CUSTOM_INSTRUCTIONS]: "customInstructions",
     [KEY_APP_LANGUAGE]: "appLanguage",
     [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
-    [KEY_AUTOCOMPLETE_ENABLED]: "autocompleteEnabled",
-    [KEY_AUTOCOMPLETE_PROVIDER]: "autocompleteProvider",
-    [KEY_AUTOCOMPLETE_MODEL]: "autocompleteModelId",
-    [KEY_LMSTUDIO_BASE_URL]: "lmstudioBaseURL",
-    [KEY_LMSTUDIO_MODEL_ID]: "lmstudioModelId",
-    [KEY_MLX_BASE_URL]: "mlxBaseURL",
-    [KEY_MLX_MODEL_ID]: "mlxModelId",
-    [KEY_OLLAMA_BASE_URL]: "ollamaBaseURL",
-    [KEY_OLLAMA_MODEL_ID]: "ollamaModelId",
-    [KEY_OPENAI_COMPAT_BASE_URL]: "openaiCompatibleBaseURL",
-    [KEY_OPENAI_COMPAT_MODEL_ID]: "openaiCompatibleModelId",
-    [KEY_OPENAI_COMPAT_CONTEXT_LIMIT]: "openaiCompatibleContextLimit",
-    [KEY_CUSTOM_ENDPOINTS]: "customEndpoints",
-    [KEY_OPENROUTER_MODEL_ID]: "openrouterModelId",
-    [KEY_STT_PROVIDER]: "sttProvider",
-    [KEY_GROQ_STT_MODEL]: "groqSttModel",
-    [KEY_WHISPERCPP_BASE_URL]: "whispercppBaseURL",
-    [KEY_FAVORITE_MODELS]: "favoriteModelIds",
-    [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",
@@ -807,7 +539,6 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
-    [KEY_AGENT_NOTIFICATIONS]: "agentNotifications",
     [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",
     [KEY_SHORTCUTS]: "shortcuts",
     [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",

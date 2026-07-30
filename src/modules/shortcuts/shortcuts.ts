@@ -9,23 +9,17 @@ export type ShortcutId =
   | "commandPalette.content"
   | "tab.new"
   | "tab.newBlock"
-  | "tab.newPrivate"
-  | "tab.newPreview"
   | "tab.newEditor"
   | "tab.close"
   | "tab.next"
   | "tab.prev"
   | "tab.selectByIndex"
-  | "space.next"
-  | "space.prev"
-  | "space.overview"
   | "pane.splitRight"
   | "pane.splitDown"
   | "pane.focusNext"
   | "pane.focusPrev"
   | "pane.source"
   | "terminal.clear"
-  | "terminal.toggleInput"
   | "blocks.prev"
   | "blocks.next"
   | "search.focus"
@@ -35,9 +29,6 @@ export type ShortcutId =
   | "view.zoomOut"
   | "view.zoomReset"
   | "view.zenMode"
-  | "ai.toggle"
-  | "ai.askSelection"
-  | "agent.focusAttention"
   | "settings.open"
   | "sidebar.toggle"
   | "editor.undo"
@@ -46,11 +37,9 @@ export type ShortcutId =
 export type ShortcutGroup =
   | "General"
   | "Tabs"
-  | "Spaces"
   | "Panes"
   | "Terminal"
   | "Search"
-  | "AI"
   | "View"
   | "Editor";
 
@@ -100,19 +89,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "New Blocks terminal",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "t" }],
-  },
-  {
-    id: "tab.newPrivate",
-    label: "New private terminal",
-    group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "r" }],
-  },
-  {
-    id: "tab.newPreview",
-    label: "New web preview",
-    group: "Tabs",
-    // Cmd/Ctrl+P now opens the command palette, so web preview moves here.
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "o" }],
   },
   {
     id: "tab.newEditor",
@@ -166,12 +142,6 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: IS_MAC ? [{ meta: true, key: "k" }] : [],
   },
   {
-    id: "terminal.toggleInput",
-    label: "Toggle Shell / AI input",
-    group: "Terminal",
-    defaultBindings: [{ [MOD_PROP]: true, key: "u" }],
-  },
-  {
     id: "blocks.prev",
     label: "Previous command block",
     group: "Terminal",
@@ -206,24 +176,6 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "1" }],
   },
   {
-    id: "space.next",
-    label: "Next space",
-    group: "Spaces",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "]" }],
-  },
-  {
-    id: "space.prev",
-    label: "Previous space",
-    group: "Spaces",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "[" }],
-  },
-  {
-    id: "space.overview",
-    label: "Open spaces",
-    group: "Spaces",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "s" }],
-  },
-  {
     id: "explorer.search",
     label: "Search files",
     group: "Search",
@@ -234,24 +186,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Find in terminal",
     group: "Search",
     defaultBindings: [{ [MOD_PROP]: true, key: "f" }],
-  },
-  {
-    id: "ai.toggle",
-    label: "Toggle AI agent",
-    group: "AI",
-    defaultBindings: [{ [MOD_PROP]: true, key: "i" }],
-  },
-  {
-    id: "ai.askSelection",
-    label: "Ask AI about selection",
-    group: "AI",
-    defaultBindings: [{ [MOD_PROP]: true, key: "j" }],
-  },
-  {
-    id: "agent.focusAttention",
-    label: "Jump to agent needing attention",
-    group: "AI",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "a" }],
   },
   {
     id: "sidebar.toggle",
@@ -329,7 +263,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "Terminal",
   "View",
   "Search",
-  "AI",
   "Editor",
 ];
 

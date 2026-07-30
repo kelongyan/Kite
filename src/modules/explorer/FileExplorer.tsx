@@ -45,7 +45,7 @@ import type { GitStatusCode } from "./lib/gitStatusUtils";
 import { useGlobalShortcuts } from "@/modules/shortcuts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { useMessages } from "@/modules/i18n";
-import type { GitStatusSnapshot } from "@/modules/ai/lib/native";
+import type { GitStatusSnapshot } from "@/lib/native";
 
 export type FileExplorerHandle = {
   focus: () => void;

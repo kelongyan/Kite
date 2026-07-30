@@ -12,7 +12,7 @@ import {
   native,
   type GitCommitFileChange,
   type GitLogEntry,
-} from "@/modules/ai/lib/native";
+} from "@/lib/native";
 import { fileIconUrl } from "@/modules/explorer/lib/iconResolver";
 import {
   Copy01Icon,
@@ -322,7 +322,7 @@ export function GitHistoryPane({
     setError(null);
     setEndReached(false);
     try {
-      const entries = await native.gitLog(repoRoot, { limit: PAGE_SIZE });
+      const entries = await native.gitLog(repoRoot, PAGE_SIZE);
       if (requestId !== requestIdRef.current) return;
       setCommits(entries);
       setLoadStatus("idle");
@@ -342,10 +342,7 @@ export function GitHistoryPane({
     inflightMoreRef.current = true;
     setLoadStatus("more");
     try {
-      const entries = await native.gitLog(repoRoot, {
-        limit: PAGE_SIZE,
-        beforeSha: last.sha,
-      });
+      const entries = await native.gitLog(repoRoot, PAGE_SIZE, last.sha);
       setCommits((prev) => {
         const seen = new Set(prev.map((c) => c.sha));
         const merged = [...prev];

@@ -1,4 +1,3 @@
-import { MarkdownCode } from "@/components/ai-elements/markdown-code";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { currentWorkspaceEnv } from "@/modules/workspace";
@@ -24,8 +23,6 @@ type Props = {
   visible: boolean;
   onSetView: (mode: "rendered" | "raw") => void;
 };
-
-const components = { code: MarkdownCode };
 
 export function MarkdownPreviewPane({ path, visible, onSetView }: Props) {
   const messages = useMessages().workspace.markdown;
@@ -89,7 +86,6 @@ export function MarkdownPreviewPane({ path, visible, onSetView }: Props) {
           {status.kind === "ready" && (
             <Streamdown
               className="select-text [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-              components={components}
             >
               {status.content}
             </Streamdown>

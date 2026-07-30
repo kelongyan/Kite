@@ -6,24 +6,10 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getLaunchDir } from "@/lib/launchDir";
-import { usePresence } from "@/lib/usePresence";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  AgentNotificationsBridge,
-  nextAttentionTarget,
-} from "@/modules/agents";
-import {
-  AgentRunBridge,
-  AiMiniWindow,
-  LocalAgentNotificationsBridge,
-  useAiBootstrap,
-  useAiLiveBridge,
-  useChatStore,
-} from "@/modules/ai";
-import { AiComposerProvider } from "@/modules/ai/lib/composer";
-import { native } from "@/modules/ai/lib/native";
+import { native } from "@/lib/native";
 import { CommandPalette, createCommandItems } from "@/modules/command-palette";
 import { useMessages } from "@/modules/i18n";
 import {
@@ -38,7 +24,6 @@ import {
   type SearchInlineHandle,
   type SearchTarget,
 } from "@/modules/header";
-import type { PreviewPaneHandle } from "@/modules/preview";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { isMarkdownPath } from "@/lib/utils";
@@ -76,21 +61,12 @@ import {
   useTerminalFileDrop,
   writeToSession,
 } from "@/modules/terminal";
-import {
-  SpaceSwitcher,
-  useSpaces,
-  useSpacesBoot,
-} from "@/modules/spaces";
-import { DEFAULT_SPACE_ID } from "@/modules/tabs/lib/useTabs";
 import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
-import {
-  TOGGLE_BLOCK_INPUT_EVENT,
-  WorkspaceInputBar,
-} from "./components/WorkspaceInputBar";
+import { WorkspaceInputBar } from "./components/WorkspaceInputBar";
 import { WorkspaceSurface } from "./components/WorkspaceSurface";
 import { useTabCloseGuards } from "./hooks/useTabCloseGuards";
 import { useWorkspaceSwitcher } from "./hooks/useWorkspaceSwitcher";
@@ -102,28 +78,16 @@ export default function App() {
     tabs,
     activeId,
     setActiveId,
-    allocId,
-    replaceTabs,
-    moveTabToSpace,
-    reorderTab,
     reorderTabByGap,
-    newTabInSpace,
-    removeTabsForSpace,
     markBooted,
-    setActiveSpaceForNewTabs,
     newTab,
     newBlockTab,
-    newAgentTab,
-    newPrivateTab,
     openFileTab,
     pinTab,
-    newPreviewTab,
     newMarkdownTab,
     newSftpTab,
     setMarkdownView,
     setOverrideLanguage,
-    openAiDiffTab,
-    closeAiDiffTab,
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
@@ -156,7 +120,6 @@ export default function App() {
   const searchInlineRef = useRef<SearchInlineHandle | null>(null);
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
-  const previewRefs = useRef<Map<number, PreviewPaneHandle>>(new Map());
   const [activeEditorHandle, setActiveEditorHandle] =
     useState<EditorPaneHandle | null>(null);
   const [gitHistoryHandle, setGitHistoryHandle] =
@@ -174,7 +137,6 @@ export default function App() {
     searchAddons.current.clear();
     terminalRefs.current.clear();
     editorRefs.current.clear();
-    previewRefs.current.clear();
     setActiveSearchAddon(null);
     setActiveEditorHandle(null);
   }, []);
@@ -187,7 +149,6 @@ export default function App() {
     launchCwd,
     launchCwdResolved,
     switchWorkspace,
-    adoptWorkspaceEnv,
   } = useWorkspaceSwitcher({
     tabsRef,
     workspaceEnv,
@@ -196,61 +157,18 @@ export default function App() {
     clearWorkspaceState,
   });
 
-  const activeSpaceId = useSpaces((s) => s.activeId);
-  const spacesHydrated = useSpaces((s) => s.hydrated);
-
   const handleWorkspaceChange = useCallback(
     async (env: WorkspaceEnv) => {
-      const switched = await switchWorkspace(env);
-      if (switched && activeSpaceId) {
-        useSpaces.getState().setEnv(activeSpaceId, env);
-      }
+      await switchWorkspace(env);
     },
-    [switchWorkspace, activeSpaceId],
+    [switchWorkspace],
   );
 
-  useSpacesBoot({
-    ready: launchCwdResolved && (launchCwd !== null || homeResolved),
-    launchCwd,
-    home,
-    allocId,
-    replaceTabs,
-    markBooted,
-    setActiveSpaceForNewTabs,
-  });
-
-  const prevSpaceRef = useRef(activeSpaceId);
   useEffect(() => {
-    if (!spacesHydrated || !activeSpaceId) return;
-    setActiveSpaceForNewTabs(activeSpaceId);
-    const prev = prevSpaceRef.current;
-    prevSpaceRef.current = activeSpaceId;
-    if (prev === null || prev === activeSpaceId) return;
-    const meta = useSpaces
-      .getState()
-      .spaces.find((s) => s.id === activeSpaceId);
-    if (meta) void adoptWorkspaceEnv(meta.env);
-    const inSpace = tabsRef.current.filter((t) => t.spaceId === activeSpaceId);
-    if (inSpace.length === 0) return;
-    // Keep the active tab if it already belongs to the newly active space (a
-    // cross-space jump set it explicitly); else fall to the space's last tab.
-    if (inSpace.some((t) => t.id === activeId)) return;
-    setActiveId(inSpace[inSpace.length - 1].id);
-  }, [
-    activeSpaceId,
-    activeId,
-    spacesHydrated,
-    setActiveSpaceForNewTabs,
-    setActiveId,
-    adoptWorkspaceEnv,
-  ]);
-
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-
-  const spaceTabs = useMemo(
-    () => tabs.filter((t) => t.spaceId === (activeSpaceId ?? DEFAULT_SPACE_ID)),
-    [tabs, activeSpaceId],
-  );
+    if (launchCwdResolved && (launchCwd !== null || homeResolved)) {
+      markBooted();
+    }
+  }, [launchCwdResolved, launchCwd, homeResolved, markBooted]);
 
   const {
     sidebarRef,
@@ -277,17 +195,6 @@ export default function App() {
     },
     [],
   );
-  const miniOpen = useChatStore((s) => s.mini.open);
-  const miniPresence = usePresence(miniOpen, 200);
-  const openMini = useChatStore((s) => s.openMini);
-  const focusInput = useChatStore((s) => s.focusInput);
-  const openPanel = useChatStore((s) => s.openPanel);
-  const panelOpen = useChatStore((s) => s.panelOpen);
-  const setLive = useChatStore((s) => s.setLive);
-  const respondToApproval = useChatStore((s) => s.respondToApproval);
-
-  const { hasComposer, keysLoaded } = useAiBootstrap();
-
   const activeTab = tabs.find((t) => t.id === activeId);
   const isTerminalTab = activeTab?.kind === "terminal";
   const isBlockTab = activeTerminalTab?.blocks === true;
@@ -328,7 +235,6 @@ export default function App() {
       // the effect below as the pane tree changes; only the tab-id-keyed
       // handles need explicit cleanup here.
       editorRefs.current.delete(id);
-      previewRefs.current.delete(id);
       closeTab(id);
     },
     [closeTab],
@@ -380,15 +286,12 @@ export default function App() {
   }, [tabs]);
 
   const getSwitcherOrder = useCallback(() => {
-    const space = activeSpaceId ?? DEFAULT_SPACE_ID;
-    const inSpace = tabsRef.current
-      .filter((t) => t.spaceId === space)
-      .map((t) => t.id);
-    const present = new Set(inSpace);
+    const all = tabsRef.current.map((t) => t.id);
+    const present = new Set(all);
     const ordered = mruRef.current.filter((id) => present.has(id));
-    for (const id of inSpace) if (!ordered.includes(id)) ordered.push(id);
+    for (const id of all) if (!ordered.includes(id)) ordered.push(id);
     return [activeId, ...ordered.filter((id) => id !== activeId)];
-  }, [activeId, activeSpaceId]);
+  }, [activeId]);
 
   const { state: switcherState, step: stepSwitcher } = useTabSwitcher({
     getOrder: getSwitcherOrder,
@@ -397,87 +300,9 @@ export default function App() {
     },
   });
 
-  const cycleSpace = useCallback((delta: 1 | -1) => {
-    const { spaces, activeId: sid, setActive } = useSpaces.getState();
-    if (spaces.length < 2) return;
-    const idx = spaces.findIndex((s) => s.id === sid);
-    const next = (idx + delta + spaces.length) % spaces.length;
-    setActive(spaces[next].id);
-  }, []);
-
-  const captureActiveSelection = useCallback((): string | null => {
-    const t = tabs.find((x) => x.id === activeId);
-    if (!t) return null;
-    if (t.kind === "terminal") {
-      const lid = t.activeLeafId;
-      return terminalRefs.current.get(lid)?.getSelection() ?? null;
-    }
-    if (t.kind === "editor") {
-      return editorRefs.current.get(activeId)?.getSelection() ?? null;
-    }
-    return null;
-  }, [tabs, activeId]);
-
-  const togglePanelAndFocus = useCallback(() => {
-    if (!hasComposer) {
-      void openSettingsWindow("models");
-      return;
-    }
-    if (panelOpen) {
-      useChatStore.getState().closePanel();
-    } else {
-      openPanel();
-      focusInput(null);
-    }
-  }, [hasComposer, panelOpen, openPanel, focusInput]);
-
-  const attachSelection = useChatStore((s) => s.attachSelection);
-
-  const handleAttachFileToAgent = useCallback(
-    (path: string) => {
-      if (!hasComposer) {
-        void openSettingsWindow("models");
-        return;
-      }
-      // Dispatch a window event the composer listens for. Same pattern as
-      // selections — keeps file-explorer decoupled from the AI module.
-      window.dispatchEvent(
-        new CustomEvent<string>("terax:ai-attach-file", { detail: path }),
-      );
-      openPanel();
-      focusInput(null);
-    },
-    [hasComposer, openPanel, focusInput],
-  );
-
-  const askFromSelection = useCallback(() => {
-    if (!hasComposer) {
-      void openSettingsWindow("models");
-      return;
-    }
-    const selection = captureActiveSelection();
-    if (!selection || !selection.trim()) {
-      focusInput(null);
-      return;
-    }
-    const source: "terminal" | "editor" =
-      activeTab?.kind === "editor" ? "editor" : "terminal";
-    attachSelection(selection, source);
-  }, [
-    hasComposer,
-    captureActiveSelection,
-    focusInput,
-    attachSelection,
-    activeTab,
-  ]);
-
   const openNewTab = useCallback(() => {
     newTab(inheritedCwdForNewTab());
   }, [newTab, inheritedCwdForNewTab]);
-
-  const openNewPrivateTab = useCallback(() => {
-    newPrivateTab(inheritedCwdForNewTab());
-  }, [newPrivateTab, inheritedCwdForNewTab]);
 
   const openNewBlockTab = useCallback(() => {
     newBlockTab(inheritedCwdForNewTab());
@@ -584,18 +409,6 @@ export default function App() {
     (s) => s.explorerGitDecorations,
   );
 
-  const openPreviewTab = useCallback(
-    (url: string) => {
-      const id = newPreviewTab(url);
-      // Focus the address bar if the URL is empty so the user can type.
-      if (!url) {
-        setTimeout(() => previewRefs.current.get(id)?.focusAddressBar(), 0);
-      }
-      return id;
-    },
-    [newPreviewTab],
-  );
-
   const openNewSftpTab = useCallback(() => {
     newSftpTab(inheritedCwdForNewTab());
   }, [newSftpTab, inheritedCwdForNewTab]);
@@ -620,28 +433,12 @@ export default function App() {
 
   const [zenMode, setZenMode] = useState(false);
 
-  // Focus an agent's tab, switching to its space first so the header and tab
-  // strip don't end up showing a different space than the focused pane.
-  const activateAgentTarget = useCallback(
-    (tabId: number, leafId: number) => {
-      const space = tabsRef.current.find((t) => t.id === tabId)?.spaceId;
-      if (space && space !== useSpaces.getState().activeId) {
-        useSpaces.getState().setActive(space);
-      }
-      setActiveId(tabId);
-      focusPane(tabId, leafId);
-    },
-    [setActiveId, focusPane],
-  );
-
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
       "commandPalette.open": () => openCommandPalette("commands"),
       "commandPalette.content": () => openCommandPalette("content"),
       "tab.new": openNewTab,
       "tab.newBlock": openNewBlockTab,
-      "tab.newPrivate": openNewPrivateTab,
-      "tab.newPreview": () => openPreviewTab(""),
       "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
       "tab.next": () => stepSwitcher(1),
@@ -649,11 +446,7 @@ export default function App() {
       "tab.selectByIndex": (e) =>
         selectByIndex(
           parseInt(e.key, 10) - 1,
-          activeSpaceId ?? DEFAULT_SPACE_ID,
         ),
-      "space.next": () => cycleSpace(1),
-      "space.prev": () => cycleSpace(-1),
-      "space.overview": () => setSwitcherOpen(true),
       "pane.splitRight": () => splitActivePaneInActiveTab("row"),
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
@@ -662,17 +455,9 @@ export default function App() {
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
-      "terminal.toggleInput": () =>
-        window.dispatchEvent(new CustomEvent(TOGGLE_BLOCK_INPUT_EVENT)),
       "blocks.prev": () => navigateFocusedBlocks(-1),
       "blocks.next": () => navigateFocusedBlocks(1),
       "search.focus": () => searchInlineRef.current?.focus(),
-      "ai.toggle": togglePanelAndFocus,
-      "ai.askSelection": askFromSelection,
-      "agent.focusAttention": () => {
-        const t = nextAttentionTarget();
-        if (t) activateAgentTarget(t.tabId, t.leafId);
-      },
       "settings.open": () => void openSettingsWindow(),
       "sidebar.toggle": toggleSidebar,
       "explorer.focus": toggleExplorerFocus,
@@ -687,25 +472,18 @@ export default function App() {
       activeId,
       openCommandPalette,
       stepSwitcher,
-      cycleSpace,
       handleCloseTabOrPane,
       openNewTab,
       openNewBlockTab,
-      openNewPrivateTab,
-      openPreviewTab,
-      activeSpaceId,
       selectByIndex,
       splitActivePaneInActiveTab,
       focusNextPaneInTab,
       toggleSourceControl,
-      togglePanelAndFocus,
-      askFromSelection,
       toggleSidebar,
       toggleExplorerFocus,
       zoomIn,
       zoomOut,
       zoomReset,
-      activateAgentTarget,
     ],
   );
 
@@ -713,16 +491,6 @@ export default function App() {
     (id: ShortcutId, e: KeyboardEvent) => {
       if (id === "editor.undo" || id === "editor.redo") {
         return activeTab?.kind !== "editor";
-      }
-      if (id === "ai.askSelection") {
-        const target =
-          (e.target as HTMLElement | null) ?? document.activeElement;
-        const inTerminal = !!(target as HTMLElement | null)?.closest?.(
-          ".xterm",
-        );
-        if (!inTerminal) return false;
-        const sel = captureActiveSelection();
-        return !sel || !sel.trim();
       }
       if (id === "terminal.clear") {
         // Only intercept ⌘K while a terminal is focused; elsewhere let the key
@@ -732,7 +500,6 @@ export default function App() {
         return !(target as HTMLElement | null)?.closest?.(".xterm");
       }
       if (
-        id === "terminal.toggleInput" ||
         id === "blocks.prev" ||
         id === "blocks.next"
       ) {
@@ -783,19 +550,6 @@ export default function App() {
     [activeId],
   );
 
-  const registerPreviewHandle = useCallback(
-    (id: number, h: PreviewPaneHandle | null) => {
-      if (h) previewRefs.current.set(id, h);
-      else previewRefs.current.delete(id);
-    },
-    [],
-  );
-
-  const handlePreviewUrl = useCallback(
-    (id: number, url: string) => updateTab(id, { url }),
-    [updateTab],
-  );
-
   const authorizedCwds = useRef(new Set<string>());
   const handleTerminalCwd = useCallback(
     (leafId: number, cwd: string) => {
@@ -814,13 +568,6 @@ export default function App() {
     (tabId: number, leafId: number) => focusPane(tabId, leafId),
     [focusPane],
   );
-
-  const onActivateAgent = activateAgentTarget;
-
-  const onActivateLocalAgent = useCallback(() => {
-    openPanel();
-    focusInput(null);
-  }, [openPanel, focusInput]);
 
   const handleLeafExit = useCallback(
     (leafId: number, _code: number) => {
@@ -879,89 +626,6 @@ export default function App() {
     gitHistoryHandle,
   ]);
 
-  const activeCwd = activeTerminalLeafCwd;
-
-  const handleNewSpace = useCallback(() => {
-    const { spaces, create, setActive } = useSpaces.getState();
-    const meta = create({
-      name: `Space ${spaces.length + 1}`,
-      root: activeCwd ?? home ?? null,
-      env: workspaceEnv,
-    });
-    setActiveSpaceForNewTabs(meta.id);
-    newTab(activeCwd ?? undefined);
-    setActive(meta.id);
-    return meta.id;
-  }, [activeCwd, home, workspaceEnv, newTab, setActiveSpaceForNewTabs]);
-
-  const handleDeleteSpace = useCallback(
-    (id: string) => {
-      const nextSpaceId = useSpaces.getState().remove(id);
-      if (!nextSpaceId) return;
-      const root = useSpaces
-        .getState()
-        .spaces.find((s) => s.id === nextSpaceId)?.root;
-      removeTabsForSpace(id, nextSpaceId, root ?? undefined);
-    },
-    [removeTabsForSpace],
-  );
-
-  const handleMoveTab = useCallback(
-    (tabId: number, targetSpaceId: string) => {
-      if (moveTabToSpace(tabId, targetSpaceId)) {
-        useSpaces.getState().setActive(targetSpaceId);
-      }
-    },
-    [moveTabToSpace],
-  );
-
-  const handleReorderTab = useCallback(
-    (tabId: number, targetTabId: number, edge: "top" | "bottom") => {
-      if (reorderTab(tabId, targetTabId, edge)) {
-        const target = tabsRef.current.find((x) => x.id === targetTabId);
-        if (target) useSpaces.getState().setActive(target.spaceId);
-      }
-    },
-    [reorderTab],
-  );
-
-  const handleNewTabInSpace = useCallback(
-    (spaceId: string) => {
-      const root = useSpaces
-        .getState()
-        .spaces.find((s) => s.id === spaceId)?.root;
-      newTabInSpace(spaceId, root ?? undefined);
-    },
-    [newTabInSpace],
-  );
-
-  const jumpToTab = useCallback(
-    (tabId: number) => {
-      const t = tabsRef.current.find((x) => x.id === tabId);
-      if (!t) return;
-      setActiveId(tabId);
-      useSpaces.getState().setActive(t.spaceId);
-      setSwitcherOpen(false);
-    },
-    [setActiveId],
-  );
-
-  const spaceSwitcher = (
-    <SpaceSwitcher
-      open={switcherOpen}
-      onOpenChange={setSwitcherOpen}
-      tabs={tabs}
-      onNewSpace={() => void handleNewSpace()}
-      onDeleteSpace={handleDeleteSpace}
-      onNewTabInSpace={handleNewTabInSpace}
-      onJumpTab={jumpToTab}
-      onCloseTab={handleClose}
-      onMoveTabToSpace={handleMoveTab}
-      onReorderTab={handleReorderTab}
-      onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
-    />
-  );
-
   const commandPaletteItems = useMemo(
     () =>
       commandPaletteOpen
@@ -974,9 +638,7 @@ export default function App() {
               home,
               openNewTab,
               openNewBlock: openNewBlockTab,
-              openNewPrivate: openNewPrivateTab,
               openNewEditor: () => setNewEditorOpen(true),
-              openNewPreview: () => openPreviewTab(""),
               openSftp: openNewSftpTab,
               openGitGraph: openGitGraphFromContext,
               toggleSourceControl,
@@ -986,15 +648,8 @@ export default function App() {
               focusSearch: () => searchInlineRef.current?.focus(),
               focusExplorerSearch: () => explorerRef.current?.focusSearch(),
               toggleSidebar,
-              toggleAi: togglePanelAndFocus,
-              askAiSelection: askFromSelection,
               openSettings: () => void openSettingsWindow(),
               openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
-              spaces: useSpaces.getState().spaces,
-              activeSpaceId,
-              openSpacesOverview: () => setSwitcherOpen(true),
-              newSpace: () => void handleNewSpace(),
-              switchSpace: (id) => useSpaces.getState().setActive(id),
             },
             messages.mainShell.commandPalette,
           )
@@ -1008,18 +663,10 @@ export default function App() {
       home,
       openNewTab,
       openNewBlockTab,
-      openNewPrivateTab,
       openNewSftpTab,
-      openPreviewTab,
-      openGitGraphFromContext,
-      toggleSourceControl,
       handleCloseTabOrPane,
       splitActivePaneInActiveTab,
       toggleSidebar,
-      togglePanelAndFocus,
-      askFromSelection,
-      activeSpaceId,
-      handleNewSpace,
       messages,
     ],
   );
@@ -1047,31 +694,17 @@ export default function App() {
     [isTerminalTab, activeLeafId],
   );
 
-  useAiLiveBridge({
-    setLive,
-    activeId,
-    tabs,
-    explorerRoot,
-    launchCwd,
-    home,
-    openPreviewTab,
-    newAgentTab,
-    terminalRefs,
-  });
-
   const shell = (
     <ThemeProvider>
       <TooltipProvider>
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
           {!zenMode && (
             <Header
-              tabs={spaceTabs}
+              tabs={tabs}
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
               onNewBlock={openNewBlockTab}
-              onNewPrivate={openNewPrivateTab}
-              onNewPreview={() => openPreviewTab("")}
               onNewEditor={() => setNewEditorOpen(true)}
               onNewSftp={openNewSftpTab}
               onNewGitGraph={openGitGraphFromContext}
@@ -1081,10 +714,7 @@ export default function App() {
               onReorder={reorderTabByGap}
               onToggleSidebar={toggleSidebar}
               onOpenCommandPalette={() => openCommandPalette("commands")}
-              onActivateAgent={onActivateAgent}
-              onActivateLocalAgent={onActivateLocalAgent}
               onOpenSettings={() => void openSettingsWindow()}
-              spaceSwitcher={spaceSwitcher}
               searchTarget={searchTarget}
               searchRef={searchInlineRef}
               onOverrideLanguage={setOverrideLanguage}
@@ -1130,7 +760,6 @@ export default function App() {
                         onPathRenamed={handlePathRenamed}
                         onPathDeleted={handlePathDeleted}
                         onRevealInTerminal={cdInNewTab}
-                        onAttachToAgent={handleAttachFileToAgent}
                       />
                     ) : (
                       <SourceControlPanel
@@ -1165,11 +794,7 @@ export default function App() {
                       onFocusLeaf={handleFocusLeaf}
                       registerEditorHandle={registerEditorHandle}
                       onEditorDirtyChange={handleEditorDirty}
-                      onEditorCloseTab={disposeTab}
-                      registerPreviewHandle={registerPreviewHandle}
-                      onPreviewUrlChange={handlePreviewUrl}
-                      onAiDiffAccept={(id) => respondToApproval(id, true)}
-                      onAiDiffReject={(id) => respondToApproval(id, false)}
+                      onEditorCloseTab={handleClose}
                       onOpenCommitFile={openCommitFileDiffTab}
                       onGitHistorySearchHandle={setGitHistoryHandle}
                       onSetMarkdownView={setMarkdownView}
@@ -1178,14 +803,7 @@ export default function App() {
 
                   <WorkspaceInputBar
                     isBlockTab={isBlockTab}
-                    isTerminalTab={isTerminalTab}
                     activeLeafId={activeLeafId}
-                    cwd={activeCwd}
-                    home={home}
-                    hasComposer={hasComposer}
-                    panelOpen={panelOpen}
-                    keysLoaded={keysLoaded}
-                    onConnect={() => void openSettingsWindow("models")}
                   />
                 </div>
               </ResizablePanel>
@@ -1194,42 +812,18 @@ export default function App() {
 
           {!zenMode && (
             <StatusBar
-              cwd={activeCwd}
+              cwd={activeTerminalLeafCwd}
               filePath={activeFilePath}
               home={home}
               onCd={sendCd}
               onWorkspaceChange={handleWorkspaceChange}
-              onOpenMini={openMini}
-              hasComposer={hasComposer}
-              privateActive={
-                activeTab?.kind === "terminal" && activeTab.private === true
-              }
             />
           )}
 
-          <AgentNotificationsBridge
-            tabs={tabs}
-            activeId={activeId}
-            onActivate={onActivateAgent}
-          />
           <Toaster position="bottom-right" />
 
-          {hasComposer ? (
-            <>
-              <AgentRunBridge
-                openAiDiffTab={openAiDiffTab}
-                closeAiDiffTab={closeAiDiffTab}
-              />
-              <LocalAgentNotificationsBridge />
-            </>
-          ) : null}
-
-          {hasComposer && miniPresence.mounted ? (
-            <AiMiniWindow state={miniPresence.state} />
-          ) : null}
-
           {switcherState && (
-            <TabSwitcherHud tabs={spaceTabs} state={switcherState} />
+            <TabSwitcherHud tabs={tabs} state={switcherState} />
           )}
 
           <CommandPalette
@@ -1266,5 +860,5 @@ export default function App() {
     </ThemeProvider>
   );
 
-  return <AiComposerProvider>{shell}</AiComposerProvider>;
+  return shell;
 }

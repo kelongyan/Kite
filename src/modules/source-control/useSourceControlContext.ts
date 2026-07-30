@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { native } from "@/modules/ai/lib/native";
+import { native } from "@/lib/native";
 import type { SidebarViewId } from "@/modules/sidebar";
 import type { Tab } from "@/modules/tabs";
 import { useSourceControl } from "./useSourceControl";

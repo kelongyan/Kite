@@ -2,7 +2,7 @@ import {
   native,
   type GitRepoInfo,
   type GitStatusSnapshot,
-} from "@/modules/ai/lib/native";
+} from "@/lib/native";
 import { messagesFor, type Messages, useMessages } from "@/modules/i18n";
 import { useWorkspaceEnvStore, workspaceScopeKey } from "@/modules/workspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

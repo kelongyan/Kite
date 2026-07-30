@@ -1,4 +1,4 @@
-import { native, type GitStatusSnapshot } from "@/modules/ai/lib/native";
+import { native, type GitStatusSnapshot } from "@/lib/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   bubbleUpDirectoryStatuses,

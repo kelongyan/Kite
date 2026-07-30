@@ -1,5 +1,5 @@
 import type { SearchTarget } from "@/modules/header";
-import { en, type Messages } from "@/modules/i18n/messages/en";
+import { zhCN, type Messages } from "@/modules/i18n/messages/zh-CN";
 import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
 import {
@@ -7,8 +7,6 @@ import {
   DashboardSquare01Icon,
   FileEditIcon,
   FileSearchIcon,
-  Globe02Icon,
-  IncognitoIcon,
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
@@ -18,7 +16,6 @@ import {
   Settings01Icon,
   SidebarLeftIcon,
   SourceCodeIcon,
-  SparklesIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import type { PaletteItem } from "./types";
@@ -28,13 +25,11 @@ type CommandMessageKey = keyof CommandPaletteMessages["commands"];
 
 export const COMMAND_GROUPS = [
   "General",
-  "Spaces",
   "Tabs",
   "Panes",
   "Git",
   "Search",
   "View",
-  "AI",
 ] as const;
 
 export type CommandPaletteActionContext = {
@@ -45,9 +40,7 @@ export type CommandPaletteActionContext = {
   home: string | null;
   openNewTab: () => void;
   openNewBlock: () => void;
-  openNewPrivate: () => void;
   openNewEditor: () => void;
-  openNewPreview: () => void;
   openSftp: () => void;
   openGitGraph: () => void;
   toggleSourceControl: () => void;
@@ -57,15 +50,8 @@ export type CommandPaletteActionContext = {
   focusSearch: () => void;
   focusExplorerSearch: () => void;
   toggleSidebar: () => void;
-  toggleAi: () => void;
-  askAiSelection: () => void;
   openSettings: () => void;
   openKeyboardShortcuts: () => void;
-  spaces: { id: string; name: string }[];
-  activeSpaceId: string | null;
-  openSpacesOverview: () => void;
-  newSpace: () => void;
-  switchSpace: (id: string) => void;
 };
 
 const noop = () => {};
@@ -76,7 +62,7 @@ function unique(values: string[]): string[] {
 
 export function createCommandItems(
   ctx: CommandPaletteActionContext,
-  messages: CommandPaletteMessages = en.mainShell.commandPalette,
+  messages: CommandPaletteMessages = zhCN.mainShell.commandPalette,
 ): PaletteItem[] {
   const activeTab = ctx.tabs.find((tab) => tab.id === ctx.activeId);
   const activeTerminalTab = activeTab?.kind === "terminal" ? activeTab : null;
@@ -95,12 +81,9 @@ export function createCommandItems(
 
   const command = (key: CommandMessageKey) => {
     const localized = messages.commands[key];
-    const english = en.mainShell.commandPalette.commands[key];
     return {
       title: localized.title,
       keywords: unique([
-        english.title,
-        ...english.keywords,
         localized.title,
         ...localized.keywords,
       ]),
@@ -136,36 +119,7 @@ export function createCommandItems(
       icon: KeyboardIcon,
       run: ctx.openKeyboardShortcuts,
     },
-    {
-      id: "spaces.overview",
-      ...item("spacesOverview", "Spaces"),
-      icon: DashboardSquare01Icon,
-      run: ctx.openSpacesOverview,
-    },
-    {
-      id: "spaces.new",
-      ...item("newSpace", "Spaces"),
-      icon: DashboardSquare01Icon,
-      run: ctx.newSpace,
-    },
-    ...ctx.spaces.map((sp) => ({
-      id: `spaces.switch.${sp.id}`,
-      title: messages.dynamic.switchToSpace(sp.name),
-      groupKey: "Spaces" as const,
-      group: messages.groups.Spaces,
-      keywords: unique([
-        en.mainShell.commandPalette.dynamic.switchToSpace(sp.name),
-        messages.dynamic.switchToSpace(sp.name),
-        "space",
-        "switch",
-        "session",
-        sp.name,
-      ]),
-      icon: DashboardSquare01Icon,
-      disabledReason:
-        sp.id === ctx.activeSpaceId ? messages.disabled.currentSpace : undefined,
-      run: () => ctx.switchSpace(sp.id),
-    })),
+
     {
       id: "tab.new",
       ...item("newTerminal", "Tabs"),
@@ -180,13 +134,6 @@ export function createCommandItems(
       run: ctx.openNewBlock,
     },
     {
-      id: "tab.newPrivate",
-      ...item("newPrivateTerminal", "Tabs"),
-      icon: IncognitoIcon,
-      shortcutId: "tab.newPrivate",
-      run: ctx.openNewPrivate,
-    },
-    {
       id: "tab.newEditor",
       ...item("newEditorTab", "Tabs"),
       icon: FileEditIcon,
@@ -195,13 +142,6 @@ export function createCommandItems(
         ? messages.disabled.noWorkspaceRoot
         : undefined,
       run: ctx.openNewEditor,
-    },
-    {
-      id: "tab.newPreview",
-      ...item("newWebPreview", "Tabs"),
-      icon: Globe02Icon,
-      shortcutId: "tab.newPreview",
-      run: ctx.openNewPreview,
     },
     {
       id: "sftp.open",
@@ -286,20 +226,6 @@ export function createCommandItems(
       icon: SidebarLeftIcon,
       shortcutId: "sidebar.toggle",
       run: ctx.toggleSidebar,
-    },
-    {
-      id: "ai.toggle",
-      ...item("toggleAiAgent", "AI"),
-      icon: SparklesIcon,
-      shortcutId: "ai.toggle",
-      run: ctx.toggleAi,
-    },
-    {
-      id: "ai.askSelection",
-      ...item("askAiAboutSelection", "AI"),
-      icon: SparklesIcon,
-      shortcutId: "ai.askSelection",
-      run: ctx.askAiSelection,
     },
   ];
 }

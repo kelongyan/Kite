@@ -6,7 +6,7 @@ This file is updated as direction evolves. For day-to-day work, see [GitHub Issu
 
 ## What Kite is
 
-Kite is a fast, lightweight, AI-native terminal (ADE - agentic development environment). It pairs a native PTY backend with a modern UI: multi-tab terminals, an integrated code editor, a file explorer, source control, and a first-class AI agent system that works with your own API keys or fully local models. Under 10 MB on disk. No telemetry. Keys stored in the OS keychain.
+Kite is a fast, lightweight, desktop terminal environment. It pairs a native PTY backend with a modern UI: multi-tab terminals, an integrated code editor, a file explorer, source control, and web preview. Under 10 MB on disk. No telemetry.
 
 The product is opinionated: terminal-first, AI as a primitive (not a sidebar), lightweight always, cross-platform without compromise.
 
@@ -15,14 +15,17 @@ The product is opinionated: terminal-first, AI as a primitive (not a sidebar), l
 - Not a full IDE replacement. Heavy IDE features that overlap with VS Code / Cursor / Zed are out of scope.
 - Not a browser. Web preview exists for local dev servers and lightweight doc viewing only.
 - Not a general workspace. Tools and formats that pull the product away from the terminal-first surface are out of scope.
-- Not a one-size-fits-all CLI replacement. The goal is "best AI-native terminal", not "shell with extras".
+
+- Not a full IDE replacement. Heavy IDE features that overlap with VS Code / Cursor / Zed are out of scope.
+- Not a browser. Web preview exists for local dev servers and lightweight doc viewing only.
+- Not a general workspace. Tools and formats that pull the product away from the terminal-first surface are out of scope.
+- Not a one-size-fits-all CLI replacement. The goal is "best terminal", not "shell with extras".
 
 ## Themes
 
 The themes below frame every scope decision.
 
-1. **AI as a native primitive.** Agents, tools, autocomplete, voice - first-class, not a panel bolted onto a regular terminal.
-2. **Lightweight always.** 7-8 MB binary. Every dependency justified. Per-tab memory budget enforced.
+1. **Lightweight always.** 7-8 MB binary. Every dependency justified. Per-tab memory budget enforced.
 3. **Terminal-first.** xterm.js correctness, PTY fidelity, TUI app compatibility are non-negotiable.
 4. **Cross-platform parity.** macOS, Linux, Windows, WSL. No platform-specific exclusives.
 5. **Security by default.** Path guards, SSRF protection, OSC trust, IPC sandboxing. Defaults safe out of the box.
@@ -36,14 +39,11 @@ The themes below frame every scope decision.
 - [x] Split panes
 - [x] Shell integration (cwd, prompt markers)
 - [x] Inline search, link detection, true-color
-- [x] Private terminal tabs with AI-context redaction
 - [x] WSL bridge as workspace environment
 
 ### Editor
 
 - [x] Multi-language support (TypeScript / JavaScript, Rust, Python, HTML / CSS, JSON, Markdown, Go, C / C++ / Java / C#, PHP)
-- [x] Inline AI autocomplete
-- [x] AI edit diffs
 - [x] Vim mode
 - [x] Prebuilt themes
 
@@ -58,17 +58,6 @@ The themes below frame every scope decision.
 - [x] Git history with commit graph
 - [x] Per-file diffs
 
-### AI
-
-- [x] Multiple cloud and local providers (BYOK)
-- [x] Multi-agent and sub-agents
-- [x] Voice input
-- [x] Slash commands and skills
-- [x] Project memory and per-project configuration
-- [x] Tools with approval flow (file read / write / edit, bash, search, plan)
-- [x] Workspace file picker
-- [x] Auto-compact for long context
-
 ### Web Preview
 
 - [x] Auto-detected local dev server preview
@@ -81,34 +70,6 @@ The themes below frame every scope decision.
 - [x] AUR (Arch)
 - [x] Windows Explorer context-menu integration
 - [x] Manual GitHub releases
-- [x] OS keychain for API keys
-- [x] No telemetry
-
-### Security
-
-- [x] Hardened AI tool surface (file system, network, IPC)
-- [x] SSRF and DNS rebinding defenses on outbound HTTP
-- [x] Trust gating in terminal escape-sequence handling
-- [x] Sandboxed preview surface
-
-## Planned
-
-### Coming next
-
-- [ ] SSH support (PTY auth and known_hosts first; SFTP and port forwarding later)
-- [ ] Inline terminal auto-suggestions (history-based first; AI-powered opt-in later)
-- [ ] Themes and customizations (terminal themes, UI accents, keybindings, layout)
-- [ ] AI autocomplete improvements in editor (project-aware context, lower latency)
-- [ ] Drag and drop in terminal (files as quoted paths, AI panel as context)
-- [ ] AI agent meta-orchestration (Kite agent spawning and managing external coding agents like Claude Code / OpenCode)
-- [ ] More slash commands and skills
-- [ ] Approval flow improvements (YOLO / auto-approve, project-scoped policies, per-tool trust)
-- [ ] Persistent terminal sessions and layout restore
-- [ ] Preview surface expansion (better image / Markdown handling)
-- [ ] Test coverage expansion (PTY edge cases, security functions, AI tool guards)
-
-### Longer horizon
-
 - [ ] Release automation (CHANGELOG, version bump, tag flow)
 - [ ] Bundle optimization (lazy-load language packs, individual UI primitive imports, tree-shake)
 - [ ] Selective TS → Rust migration where the profiler shows measurable wins

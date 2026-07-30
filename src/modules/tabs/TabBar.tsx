@@ -29,8 +29,6 @@ import {
   ComputerTerminal02Icon,
   GitBranchIcon,
   GitCompareIcon,
-  Globe02Icon,
-  IncognitoIcon,
   PencilEdit02Icon,
   PlusSignIcon,
   ServerStack01Icon,
@@ -54,8 +52,6 @@ type Props = {
   onSelect: (id: number) => void;
   onNew: () => void;
   onNewBlock: () => void;
-  onNewPrivate: () => void;
-  onNewPreview: () => void;
   onNewEditor: () => void;
   onNewSftp: () => void;
   onNewGitGraph: () => void;
@@ -76,8 +72,6 @@ export function TabBar({
   onSelect,
   onNew,
   onNewBlock,
-  onNewPrivate,
-  onNewPreview,
   onNewEditor,
   onNewSftp,
   onNewGitGraph,
@@ -573,17 +567,6 @@ export function TabBar({
                 {fmtShortcut(MOD_KEY, SHIFT_KEY, "T")}
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNewPrivate()}>
-              <HugeiconsIcon
-                icon={IncognitoIcon}
-                size={14}
-                strokeWidth={1.75}
-              />
-              <span className="flex-1">{messages.newTabMenu.privacy}</span>
-              <span className="text-xs text-muted-foreground">
-                {fmtShortcut(MOD_KEY, "R")}
-              </span>
-            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onNewEditor()}>
               <HugeiconsIcon
                 icon={PencilEdit02Icon}
@@ -593,13 +576,6 @@ export function TabBar({
               <span className="flex-1">{messages.newTabMenu.editor}</span>
               <span className="text-xs text-muted-foreground">
                 {fmtShortcut(MOD_KEY, "E")}
-              </span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNewPreview()}>
-              <HugeiconsIcon icon={Globe02Icon} size={14} strokeWidth={1.75} />
-              <span className="flex-1">{messages.newTabMenu.preview}</span>
-              <span className="text-xs text-muted-foreground">
-                {fmtShortcut(MOD_KEY, "P")}
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onNewSftp()}>
@@ -653,36 +629,6 @@ export function TabIcon({ tab }: { tab: Tab }) {
         }}
       />
     ) : null;
-  }
-  if (tab.kind === "preview") {
-    return (
-      <HugeiconsIcon
-        icon={Globe02Icon}
-        size={14}
-        strokeWidth={2}
-        className="shrink-0"
-      />
-    );
-  }
-  if (tab.kind === "ai-diff") {
-    return (
-      <HugeiconsIcon
-        icon={GitCompareIcon}
-        size={14}
-        strokeWidth={2}
-        className="shrink-0"
-      />
-    );
-  }
-  if (tab.kind === "terminal" && tab.private) {
-    return (
-      <HugeiconsIcon
-        icon={IncognitoIcon}
-        size={14}
-        strokeWidth={2}
-        className="shrink-0"
-      />
-    );
   }
   if (tab.kind === "git-diff" || tab.kind === "git-commit-file") {
     return (

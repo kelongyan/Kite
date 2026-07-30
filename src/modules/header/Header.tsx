@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
-import { NotificationBell } from "@/modules/agents";
 import { useMessages } from "@/modules/i18n";
 import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
@@ -12,7 +11,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  type ReactNode,
   type RefObject,
   useEffect,
   useRef,
@@ -30,8 +28,6 @@ type Props = {
   onSelect: (id: number) => void;
   onNew: () => void;
   onNewBlock: () => void;
-  onNewPrivate: () => void;
-  onNewPreview: () => void;
   onNewEditor: () => void;
   onNewSftp: () => void;
   onNewGitGraph: () => void;
@@ -45,10 +41,7 @@ type Props = {
   onOverrideLanguage?: (id: number, lang: string | null) => void;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
-  onActivateAgent: (tabId: number, leafId: number) => void;
-  onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
-  spaceSwitcher: ReactNode;
   searchTarget: SearchTarget;
   searchRef: RefObject<SearchInlineHandle | null>;
 };
@@ -61,8 +54,6 @@ export function Header({
   onSelect,
   onNew,
   onNewBlock,
-  onNewPrivate,
-  onNewPreview,
   onNewEditor,
   onNewSftp,
   onNewGitGraph,
@@ -73,10 +64,7 @@ export function Header({
   onOverrideLanguage,
   onToggleSidebar,
   onOpenCommandPalette,
-  onActivateAgent,
-  onActivateLocalAgent,
   onOpenSettings,
-  spaceSwitcher,
   searchTarget,
   searchRef,
 }: Props) {
@@ -138,10 +126,7 @@ export function Header({
         </Button>
 
         {!IS_MAC && (
-          <NotificationBell
-            onActivate={onActivateAgent}
-            onActivateLocal={onActivateLocalAgent}
-          />
+          <span className="mx-1 h-full w-px shrink-0 bg-border/70" />
         )}
       </div>
 
@@ -153,15 +138,12 @@ export function Header({
         className="flex min-w-0 flex-1 items-center gap-2"
         data-tauri-drag-region
       >
-        {spaceSwitcher}
         <TabBar
           tabs={tabs}
           activeId={activeId}
           onSelect={onSelect}
           onNew={onNew}
           onNewBlock={onNewBlock}
-          onNewPrivate={onNewPrivate}
-          onNewPreview={onNewPreview}
           onNewEditor={onNewEditor}
           onNewSftp={onNewSftp}
           onNewGitGraph={onNewGitGraph}
@@ -177,15 +159,7 @@ export function Header({
 
       <SearchInline ref={searchRef} target={searchTarget} compact={compact} />
 
-      {IS_MAC && (
-        <>
-          <NotificationBell
-            onActivate={onActivateAgent}
-            onActivateLocal={onActivateLocalAgent}
-          />
-          {settingsButton}
-        </>
-      )}
+      {IS_MAC && settingsButton}
 
       {!IS_MAC && settingsButton}
 

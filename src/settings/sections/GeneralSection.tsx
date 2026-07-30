@@ -15,17 +15,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import {
-  APP_LANGUAGES,
-  LANGUAGE_LABELS,
-  useMessages,
-  type AppLanguage,
-} from "@/modules/i18n";
+import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
-  setAgentNotifications,
-  setAppLanguage,
   setAutostart,
   setDefaultWorkspaceEnv,
   setEditorAutoSave,
@@ -91,7 +84,6 @@ export function GeneralSection() {
   const g = messages.settings.general;
   const { mode, setMode } = useTheme();
 
-  const appLanguage = usePreferencesStore((s) => s.appLanguage);
   const autostart = usePreferencesStore((s) => s.autostart);
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
   const vimMode = usePreferencesStore((s) => s.vimMode);
@@ -117,7 +109,6 @@ export function GeneralSection() {
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
-  const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
   useEffect(() => {
     let alive = true;
     void isEnabled()
@@ -184,28 +175,6 @@ export function GeneralSection() {
           {g.appearance.themesHintSuffix}
         </p>
       </div>
-
-      <SettingRow title={g.language.title} description={g.language.description}>
-        <Select
-          value={appLanguage}
-          onValueChange={(v) => void setAppLanguage(v as AppLanguage)}
-        >
-          <SelectTrigger value={appLanguage} className="h-8 w-36 text-[12px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {APP_LANGUAGES.map((language) => (
-              <SelectItem
-                key={language}
-                value={language}
-                className="text-[12px]"
-              >
-                {LANGUAGE_LABELS[language]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
 
       <div className="flex flex-col gap-2">
         <Label>{g.zoom.title}</Label>
@@ -494,19 +463,6 @@ export function GeneralSection() {
               ))}
             </SelectContent>
           </Select>
-        </SettingRow>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label>{g.agents.title}</Label>
-        <SettingRow
-          title={g.agents.notifications}
-          description={g.agents.notificationsDescription}
-        >
-          <Switch
-            checked={agentNotifications}
-            onCheckedChange={(v) => void setAgentNotifications(v)}
-          />
         </SettingRow>
       </div>
 

@@ -53,11 +53,6 @@ export function BlockWatermark({ leafId, subscribe }: Props) {
       <div className="grid grid-cols-[auto_auto] items-center gap-x-12 gap-y-3 text-[13px]">
         <Hint label={messages.browseCommandHistory} keys="↑" />
         <Hint label={messages.autocompletePathsAndCommands} keys="Tab" />
-        <Hint
-          label={messages.switchBetweenShellAndAi}
-          shortcut="terminal.toggleInput"
-        />
-        <Hint label={messages.openAiAssistant} shortcut="ai.toggle" />
       </div>
     </div>
   );

@@ -18,9 +18,7 @@ function context(
     home: "C:/Users/Administrator",
     openNewTab: noop,
     openNewBlock: noop,
-    openNewPrivate: noop,
     openNewEditor: noop,
-    openNewPreview: noop,
     openSftp: noop,
     openGitGraph: noop,
     toggleSourceControl: noop,
@@ -30,21 +28,14 @@ function context(
     focusSearch: noop,
     focusExplorerSearch: noop,
     toggleSidebar: noop,
-    toggleAi: noop,
-    askAiSelection: noop,
     openSettings: noop,
     openKeyboardShortcuts: noop,
-    spaces: [],
-    activeSpaceId: null,
-    openSpacesOverview: noop,
-    newSpace: noop,
-    switchSpace: noop,
     ...overrides,
   };
 }
 
 describe("createCommandItems", () => {
-  it("uses localized command titles and disabled reasons while retaining English keywords", () => {
+  it("uses localized command titles and disabled reasons", () => {
     const messages = messagesFor("zh-CN").mainShell.commandPalette;
     const items = createCommandItems(context(), messages);
 
@@ -54,7 +45,7 @@ describe("createCommandItems", () => {
     );
 
     expect(settings?.title).toBe("打开设置");
-    expect(settings?.keywords).toContain("preferences");
+    expect(settings?.keywords).toContain("偏好");
     expect(splitRight?.disabledReason).toBe("没有终端标签");
   });
 

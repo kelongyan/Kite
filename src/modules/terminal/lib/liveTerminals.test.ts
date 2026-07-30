@@ -6,7 +6,6 @@ function term(id: number, over: Partial<Tab> = {}): Tab {
   return {
     id,
     kind: "terminal",
-    spaceId: "s1",
     title: "shell",
     paneTree: { kind: "leaf", id: id * 10 },
     activeLeafId: id * 10,
@@ -26,14 +25,13 @@ describe("selectLiveTerminals", () => {
     expect(live.map((t) => t.id)).toEqual([2]);
   });
 
-  it("keeps warm terminals across spaces and ignores non-terminal kinds", () => {
+  it("keeps warm terminals and ignores non-terminal kinds", () => {
     const tabs: Tab[] = [
-      term(1, { spaceId: "a" }),
-      term(2, { spaceId: "b" }),
+      term(1),
+      term(2),
       {
         id: 3,
         kind: "editor",
-        spaceId: "a",
         title: "x",
         path: "/x.ts",
         dirty: false,

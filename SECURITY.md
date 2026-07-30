@@ -1,6 +1,6 @@
 # Security
 
-Kite runs shells, reads/writes files, and talks to AI providers — so security bugs matter. If you find one, please tell us before posting it publicly.
+Kite runs shells and reads/writes files — so security bugs matter. If you find one, please tell us before posting it publicly.
 
 ## Reporting
 
@@ -16,30 +16,25 @@ Please **don't** open a public GitHub issue for security reports.
 
 ## Supported versions
 
-Until `1.0.0`, only the latest minor gets security fixes. Right now that's `0.5.x`. 
+Until `1.0.0`, only the latest minor gets security fixes. 
 
 ## What's in scope
 
 - The Rust backend in `src-tauri/` (PTY, FS, IPC, plugins)
-- The frontend in `src/` — anywhere untrusted input lands (terminal output, file content, AI tool results, credentials)
+- The frontend in `src/` — anywhere untrusted input lands (terminal output, file content)
 - Release artifacts on GitHub
 
 ## What's not
 
-- Bugs in upstream deps (Tauri, xterm.js, CodeMirror, AI SDKs…) — report those upstream. We'll ship the fix once it's released.
+- Bugs in upstream deps (Tauri, xterm.js, CodeMirror…) — report those upstream. We'll ship the fix once it's released.
 - Anything that needs an already-compromised machine or a local attacker with shell access
-- Older versions (`< 0.5`)
 
 ## What we do to keep things safe
 
-- **API keys** live in the OS keychain via `keyring` — not on disk, not in `localStorage`, not in logs.
-- **No telemetry.** Kite only talks to the network when you ask it to (AI requests, web preview).
-- **AI tool approval.** File writes and shell commands from the agent need your OK before they run.
+- **No telemetry.** Kite only talks to the network when you ask it to (web preview).
 - **No Node in the renderer.** The frontend only reaches the host through the allow-listed Tauri commands.
 - **Signed releases.** Release artifacts should be verified before installation.
 
 ## What we can't promise
 
-- Kite runs whatever you (or the agent) tell it to run, with your permissions. That's kind of the point of a terminal.
-- AI providers see whatever you send them. Read their retention policies.
-- Local LLM endpoints (LM Studio, OpenAI-compatible) are trusted at the network level — only point Kite at servers you control.
+- Kite runs whatever command you tell it to run, with your permissions. That's kind of the point of a terminal.

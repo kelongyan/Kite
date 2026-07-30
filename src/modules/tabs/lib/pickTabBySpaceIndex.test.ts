@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { pickTabBySpaceIndex, type Tab } from "./useTabs";
 
-function term(id: number, spaceId: string): Tab {
+function term(id: number): Tab {
   return {
     id,
     kind: "terminal",
-    spaceId,
     title: "shell",
     paneTree: { kind: "leaf", id: id * 10 },
     activeLeafId: id * 10,
@@ -13,25 +12,15 @@ function term(id: number, spaceId: string): Tab {
 }
 
 describe("pickTabBySpaceIndex", () => {
-  const tabs = [term(1, "a"), term(2, "b"), term(3, "b")];
+  const tabs = [term(1), term(2), term(3)];
 
-  it("Cmd+1 in space B returns B's first tab, not A's", () => {
-    expect(pickTabBySpaceIndex(tabs, 0, "b")?.id).toBe(2);
+  it("returns tab by index", () => {
+    expect(pickTabBySpaceIndex(tabs, 0)?.id).toBe(1);
+    expect(pickTabBySpaceIndex(tabs, 1)?.id).toBe(2);
+    expect(pickTabBySpaceIndex(tabs, 2)?.id).toBe(3);
   });
 
-  it("Cmd+2 in space B returns B's second tab", () => {
-    expect(pickTabBySpaceIndex(tabs, 1, "b")?.id).toBe(3);
-  });
-
-  it("Cmd+3 in space B returns undefined (does nothing)", () => {
-    expect(pickTabBySpaceIndex(tabs, 2, "b")).toBeUndefined();
-  });
-
-  it("Cmd+1 in space A returns A's only tab", () => {
-    expect(pickTabBySpaceIndex(tabs, 0, "a")?.id).toBe(1);
-  });
-
-  it("returns undefined for an empty space", () => {
-    expect(pickTabBySpaceIndex(tabs, 0, "c")).toBeUndefined();
+  it("returns undefined out of bounds", () => {
+    expect(pickTabBySpaceIndex(tabs, 5)).toBeUndefined();
   });
 });

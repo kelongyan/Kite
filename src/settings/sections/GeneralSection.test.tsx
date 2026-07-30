@@ -13,7 +13,7 @@ describe("GeneralSection", () => {
   it("keeps terminal settings but removes cursor controls", () => {
     const html = renderToStaticMarkup(<GeneralSection />);
 
-    expect(html).toContain("Use WebGL renderer");
+    expect(html).toContain("使用 WebGL 渲染器");
     expect(html).not.toContain(">Cursor<");
     expect(html).not.toContain("Cursor preview");
     expect(html).not.toContain("Shape");

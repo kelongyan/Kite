@@ -1,7 +1,7 @@
 import { type RefObject, useCallback, useEffect, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
 import { getLaunchDir } from "@/lib/launchDir";
-import { native } from "@/modules/ai/lib/native";
+import { native } from "@/lib/native";
 import { useMessages } from "@/modules/i18n";
 import type { Tab } from "@/modules/tabs";
 import {
