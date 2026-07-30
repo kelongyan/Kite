@@ -35,6 +35,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": ["resources/WebView2Loader.dll"],
     "createUpdaterArtifacts": false,
     "copyright": "Copyright 2026 kelongyan",
     "license": "Apache-2.0",
@@ -70,7 +71,7 @@
     },
     "windows": {
       "webviewInstallMode": {
-        "type": "downloadBootstrapper"
+        "type": "embedBootstrapper"
       },
       "nsis": {
         "installMode": "currentUser",
