@@ -161,6 +161,7 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(modules::secrets::SecretsState::default())
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
         .manage(sftp::session::SftpState::default())
