@@ -48,7 +48,6 @@ export type SlotAdapter = {
   resolveLeaf(leafId: number): LeafBridge | null;
   evictLeaf(leafId: number): void;
   isLeafFocused(leafId: number): boolean;
-  isLeafBlocks(leafId: number): boolean;
   isLeafBusy(leafId: number): boolean;
   isLeafVisible(leafId: number): boolean;
   storeSnapshot(leafId: number, out: SerializeOutput): void;
@@ -455,13 +454,11 @@ function evictionScore(s: Slot): number {
   const leafId = s.currentLeafId;
   const visible = leafId !== null && (adapter?.isLeafVisible(leafId) ?? false);
   const busy = leafId !== null && (adapter?.isLeafBusy(leafId) ?? false);
-  const blocks = leafId !== null && (adapter?.isLeafBlocks(leafId) ?? false);
   const focused = leafId !== null && (adapter?.isLeafFocused(leafId) ?? false);
   return (
     (visible ? 1000 : 0) +
     (isAltScreen(s) ? 100 : 0) +
     (busy ? 80 : 0) +
-    (blocks ? 50 : 0) +
     (focused ? 10 : 0) +
     s.lastUsedAt / 1e12
   );

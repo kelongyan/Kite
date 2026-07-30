@@ -22,7 +22,6 @@ export async function openPty(
   rows: number,
   handlers: PtyHandlers,
   cwd?: string,
-  blocks?: boolean,
   shell?: string,
   themeMode?: TerminalThemeMode,
 ): Promise<PtySession> {
@@ -50,7 +49,6 @@ export async function openPty(
     rows,
     cwd: cwd ?? null,
     workspace: currentWorkspaceEnv(),
-    blocks: blocks ?? false,
     shell: shell ?? null,
     themeMode: themeMode ?? null,
     onData,

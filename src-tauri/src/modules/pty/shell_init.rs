@@ -58,7 +58,6 @@ fn fish_init_script() -> &'static str {
 pub fn build_command(
     cwd: Option<String>,
     workspace: WorkspaceEnv,
-    blocks: bool,
     shell: Option<String>,
     theme_mode: Option<String>,
 ) -> Result<CommandBuilder, String> {
@@ -67,11 +66,11 @@ pub fn build_command(
     #[cfg(unix)]
     {
         let _ = workspace;
-        unix::build(cwd, blocks, shell, theme_mode)
+        unix::build(cwd, shell, theme_mode)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd, workspace, blocks, shell, theme_mode)
+        windows::build(cwd, workspace, shell, theme_mode)
     }
 }
 
@@ -120,7 +119,7 @@ pub struct ShellInfo {
     pub name: String,
     pub path: String,
     /// True when Kite injects OSC 7/133 integration for this shell (cwd
-    /// tracking and command blocks). Others spawn bare.
+    /// tracking and command markers). Others spawn bare.
     pub integrated: bool,
 }
 
@@ -158,7 +157,6 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
 fn apply_common(
     cmd: &mut CommandBuilder,
     cwd: Option<String>,
-    blocks: bool,
     theme_mode: TerminalThemeMode,
 ) {
     cmd.env("TERM", "xterm-256color");
@@ -168,9 +166,6 @@ fn apply_common(
     cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     cmd.env("KITE_TERMINAL", "1");
     cmd.env(CLAUDE_NATIVE_CURSOR_ENV, claude_native_cursor_value());
-    if blocks {
-        cmd.env("KITE_BLOCKS", "1");
-    }
     for (key, value) in workspace::appimage_env_overrides() {
         match value {
             Some(v) => {
@@ -302,13 +297,12 @@ mod unix {
 
     pub fn build(
         cwd: Option<String>,
-        blocks: bool,
         shell_override: Option<String>,
         theme_mode: super::TerminalThemeMode,
     ) -> Result<CommandBuilder, String> {
         let (shell, shell_path) = Shell::resolve(shell_override);
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks, theme_mode);
+        super::apply_common(&mut cmd, cwd, theme_mode);
         apply_shell_init(&mut cmd, &shell, &shell_path);
         Ok(cmd)
     }
@@ -541,12 +535,10 @@ mod windows {
     pub fn build(
         cwd: Option<String>,
         workspace: WorkspaceEnv,
-        blocks: bool,
         shell: Option<String>,
         theme_mode: super::TerminalThemeMode,
     ) -> Result<CommandBuilder, String> {
         if let WorkspaceEnv::Wsl { distro } = workspace {
-            let _ = (blocks, shell);
             return build_wsl(cwd, distro, theme_mode);
         }
         let shell_path = shell
@@ -564,7 +556,7 @@ mod windows {
         let is_bash = shell_name == "bash.exe";
 
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks, theme_mode);
+        super::apply_common(&mut cmd, cwd, theme_mode);
 
         if is_powershell {
             match prepare_ps_profile() {
@@ -1158,7 +1150,7 @@ mod tests {
     #[test]
     fn common_env_marks_light_terminal_background() {
         let mut cmd = CommandBuilder::new("test-shell");
-        apply_common(&mut cmd, None, false, TerminalThemeMode::Light);
+        apply_common(&mut cmd, None, TerminalThemeMode::Light);
 
         assert_eq!(
             cmd.get_env("COLORFGBG").and_then(|v| v.to_str()),
@@ -1183,7 +1175,7 @@ mod tests {
     #[test]
     fn common_env_marks_dark_terminal_background() {
         let mut cmd = CommandBuilder::new("test-shell");
-        apply_common(&mut cmd, None, false, TerminalThemeMode::Dark);
+        apply_common(&mut cmd, None, TerminalThemeMode::Dark);
 
         assert_eq!(
             cmd.get_env("COLORFGBG").and_then(|v| v.to_str()),

@@ -55,28 +55,11 @@ end
 # and drop our markers.
 function __kite_install_prompt
     __kite_capture_user_prompt
-    if set -q KITE_BLOCKS
-        function fish_right_prompt
-        end
-        function fish_greeting
-        end
-    end
     function fish_prompt
         set -l __kite_status $status
         printf '\e]133;D;%d\e\\' $__kite_status
         printf '\e]7;file://%s%s\e\\' "$__KITE_HOST" (__kite_urlencode_path "$PWD")
         printf '\e]133;A\e\\'
-        # Block mode: host renders its own input bar, so suppress the shell prompt
-        # (B marker only) and reserve header/gap rows, mirroring zsh.
-        if set -q KITE_BLOCKS
-            if set -q __kite_block_seen
-                printf '\n\n'
-            else
-                printf '\n'
-            end
-            printf '\e]133;B\e\\'
-            return
-        end
         __kite_restore_status $__kite_status
         if functions -q __kite_user_prompt
             __kite_user_prompt
@@ -89,7 +72,6 @@ end
 __kite_install_prompt
 
 function __kite_preexec --on-event fish_preexec
-    set -g __kite_block_seen 1
     set -l cmd (string replace -ra '[\x00-\x1f\x7f]' ' ' -- "$argv")
     printf '\e]133;C;%s\e\\' (string sub -l 256 -- "$cmd")
 end

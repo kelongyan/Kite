@@ -4,7 +4,6 @@ export {
   clearFocusedTerminal,
   disposeSession,
   leafHasForegroundProcess,
-  navigateFocusedBlocks,
   writeToSession,
 } from "./lib/useTerminalSession";
 export { useTerminalFileDrop } from "./lib/useTerminalFileDrop";

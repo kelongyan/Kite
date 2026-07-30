@@ -103,7 +103,6 @@ pub fn spawn(
     rows: u16,
     cwd: Option<String>,
     workspace: WorkspaceEnv,
-    blocks: bool,
     shell: Option<String>,
     theme_mode: Option<String>,
     on_data: Channel<Response>,
@@ -121,7 +120,7 @@ pub fn spawn(
     };
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
-    let cmd = shell_init::build_command(cwd, workspace, blocks, shell, theme_mode)?;
+    let cmd = shell_init::build_command(cwd, workspace, shell, theme_mode)?;
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
