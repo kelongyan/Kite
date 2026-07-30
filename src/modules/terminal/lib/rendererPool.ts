@@ -234,15 +234,6 @@ function getRecycler(): HTMLDivElement {
   return el;
 }
 
-const MCR_BG_ACTIVE = 4.5;
-const MCR_BG_INACTIVE = 1;
-
-function bgActive(
-  prefs: ReturnType<typeof usePreferencesStore.getState>,
-): boolean {
-  return prefs.backgroundKind === "image" && !!prefs.backgroundImageId;
-}
-
 function termOptions() {
   const prefs = usePreferencesStore.getState();
   return {
@@ -267,7 +258,7 @@ function termOptions() {
         : ("outline" as const),
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
-    minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
+    minimumContrastRatio: 1,
   };
 }
 
@@ -282,14 +273,6 @@ function terminalThemeForCursorAnimation(
     cursor: suppressedCursorColor,
     cursorAccent: suppressedCursorColor,
   };
-}
-
-export function applyBackgroundActive(active: boolean): void {
-  const value = active ? MCR_BG_ACTIVE : MCR_BG_INACTIVE;
-  for (const slot of slots) {
-    if (slot.term.options.minimumContrastRatio === value) continue;
-    slot.term.options.minimumContrastRatio = value;
-  }
 }
 
 function createSlot(): Slot {

@@ -14,8 +14,6 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
 
-export type BackgroundKind = "none" | "image";
-
 export const EDITOR_THEMES = [
   "kanagawa",
   "kanagawa-lotus",
@@ -48,7 +46,9 @@ export const EDITOR_THEME_AUTO = "auto" as const;
 export type EditorThemePref = typeof EDITOR_THEME_AUTO | EditorThemeId;
 
 export function isEditorThemeId(v: unknown): v is EditorThemeId {
-  return typeof v === "string" && (EDITOR_THEMES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" && (EDITOR_THEMES as readonly string[]).includes(v)
+  );
 }
 
 export const EDITOR_THEME_MODE: Record<EditorThemeId, "light" | "dark"> = {
@@ -104,10 +104,6 @@ export const EDITOR_THEME_LABELS: Record<EditorThemeId, string> = {
 export type Preferences = {
   theme: ThemePref;
   themeId: string;
-  backgroundKind: BackgroundKind;
-  backgroundImageId: string | null;
-  backgroundOpacity: number;
-  backgroundBlur: number;
   editorTheme: EditorThemePref;
   restoreWindowState: boolean;
   vimMode: boolean;
@@ -136,10 +132,6 @@ const STORE_PATH = "kite-settings.json";
 const LEGACY_STORE_PATH = "terax-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
-const KEY_BG_KIND = "backgroundKind";
-const KEY_BG_IMAGE_ID = "backgroundImageId";
-const KEY_BG_OPACITY = "backgroundOpacity";
-const KEY_BG_BLUR = "backgroundBlur";
 const KEY_EDITOR_THEME = "editorTheme";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_VIM_MODE = "vimMode";
@@ -161,6 +153,12 @@ const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
 const KEY_VERSION = "_version";
+const REMOVED_BACKGROUND_KEYS = [
+  "backgroundKind",
+  "backgroundImageId",
+  "backgroundOpacity",
+  "backgroundBlur",
+] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -180,10 +178,6 @@ export const TERMINAL_SCROLLBACK_PRESETS = [
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   themeId: DEFAULT_THEME_ID,
-  backgroundKind: "none",
-  backgroundImageId: null,
-  backgroundOpacity: 0.5,
-  backgroundBlur: 0,
   editorTheme: EDITOR_THEME_AUTO,
   restoreWindowState: true,
   vimMode: false,
@@ -225,18 +219,19 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 2;
-const SETTINGS_MIGRATIONS: Record<
-  number,
-  (map: Map<string, unknown>) => void
-> = {
-  2: (map) => {
-    const themeId = map.get(KEY_THEME_ID);
-    if (typeof themeId === "string") {
-      map.set(KEY_THEME_ID, normalizeThemeId(themeId));
-    }
-  },
-};
+const SETTINGS_VERSION = 3;
+const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
+  {
+    2: (map) => {
+      const themeId = map.get(KEY_THEME_ID);
+      if (typeof themeId === "string") {
+        map.set(KEY_THEME_ID, normalizeThemeId(themeId));
+      }
+    },
+    3: (map) => {
+      for (const key of REMOVED_BACKGROUND_KEYS) map.delete(key);
+    },
+  };
 
 // LazyStore.onChange only fires within the writing process. The settings
 // page lives in a separate webview, so writes there never reach the main
@@ -270,8 +265,14 @@ export async function loadPreferences(): Promise<Preferences> {
     SETTINGS_MIGRATIONS[v]?.(map);
     migrated = true;
   }
+  for (const key of REMOVED_BACKGROUND_KEYS) {
+    if (map.delete(key)) migrated = true;
+  }
   if (migrated) {
     map.set(KEY_VERSION, SETTINGS_VERSION);
+    for (const key of REMOVED_BACKGROUND_KEYS) {
+      await store.delete(key);
+    }
     for (const [k, v] of map) {
       await store.set(k, v);
     }
@@ -284,20 +285,10 @@ export async function loadPreferences(): Promise<Preferences> {
     themeId: normalizeThemeId(
       get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
     ),
-    backgroundKind:
-      get<BackgroundKind>(KEY_BG_KIND) ?? DEFAULT_PREFERENCES.backgroundKind,
-    backgroundImageId:
-      get<string | null>(KEY_BG_IMAGE_ID) ??
-      DEFAULT_PREFERENCES.backgroundImageId,
-    backgroundOpacity: clampBgOpacity(
-      get<number>(KEY_BG_OPACITY) ?? DEFAULT_PREFERENCES.backgroundOpacity,
-    ),
-    backgroundBlur: clampBlur(
-      get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur,
-    ),
     editorTheme: ((): EditorThemePref => {
       const stored = get<string>(KEY_EDITOR_THEME);
-      if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored)) return stored;
+      if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored))
+        return stored;
       return DEFAULT_PREFERENCES.editorTheme;
     })(),
     restoreWindowState:
@@ -349,8 +340,7 @@ export async function loadPreferences(): Promise<Preferences> {
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
     editorAutoSave:
-      get<boolean>(KEY_EDITOR_AUTO_SAVE) ??
-      DEFAULT_PREFERENCES.editorAutoSave,
+      get<boolean>(KEY_EDITOR_AUTO_SAVE) ?? DEFAULT_PREFERENCES.editorAutoSave,
     editorAutoSaveDelay: clampAutoSaveDelay(
       get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
         DEFAULT_PREFERENCES.editorAutoSaveDelay,
@@ -365,37 +355,6 @@ export async function setTheme(value: ThemePref): Promise<void> {
 export async function setThemeId(value: string): Promise<void> {
   await writePref(KEY_THEME_ID, normalizeThemeId(value));
 }
-
-/** Slider stores 0..1. Actual rendered opacity is halved in SurfaceLayer
- *  so the image never exceeds 50% — keeps UI/terminal readable at any setting. */
-export const BG_OPACITY_RENDER_FACTOR = 0.5;
-
-function clampBgOpacity(v: number): number {
-  if (!Number.isFinite(v)) return 0.7;
-  return Math.min(1, Math.max(0, v));
-}
-
-function clampBlur(v: number): number {
-  if (!Number.isFinite(v)) return 16;
-  return Math.min(64, Math.max(0, Math.round(v)));
-}
-
-export async function setBackgroundKind(value: BackgroundKind): Promise<void> {
-  await writePref(KEY_BG_KIND, value);
-}
-
-export async function setBackgroundImageId(value: string | null): Promise<void> {
-  await writePref(KEY_BG_IMAGE_ID, value);
-}
-
-export async function setBackgroundOpacity(value: number): Promise<void> {
-  await writePref(KEY_BG_OPACITY, clampBgOpacity(value));
-}
-
-export async function setBackgroundBlur(value: number): Promise<void> {
-  await writePref(KEY_BG_BLUR, clampBlur(value));
-}
-
 
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
@@ -437,7 +396,9 @@ export async function setTerminalShell(value: string): Promise<void> {
 }
 
 export async function setTerminalLetterSpacing(value: number): Promise<void> {
-  const clamped = Number.isFinite(value) ? Math.max(-10, Math.min(10, Math.round(value))) : 0;
+  const clamped = Number.isFinite(value)
+    ? Math.max(-10, Math.min(10, Math.round(value)))
+    : 0;
   await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
 }
 
@@ -497,7 +458,7 @@ export async function setDefaultWorkspaceEnv(value: string): Promise<void> {
 }
 
 export async function setShortcuts(
-  value: Record<ShortcutId, KeyBinding[]> | {},
+  value: Partial<Record<ShortcutId, KeyBinding[]>>,
 ): Promise<void> {
   await writePref(KEY_SHORTCUTS, value);
 }
@@ -515,10 +476,6 @@ export async function onPreferencesChange(
   const map: Record<string, PrefKey> = {
     [KEY_THEME]: "theme",
     [KEY_THEME_ID]: "themeId",
-    [KEY_BG_KIND]: "backgroundKind",
-    [KEY_BG_IMAGE_ID]: "backgroundImageId",
-    [KEY_BG_OPACITY]: "backgroundOpacity",
-    [KEY_BG_BLUR]: "backgroundBlur",
     [KEY_EDITOR_THEME]: "editorTheme",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_VIM_MODE]: "vimMode",

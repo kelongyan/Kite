@@ -169,8 +169,7 @@ export const zhCN = {
       terminalProcessDescription: "有进程正在运行。关闭此标签会终止它。",
       deletedDirtyFile: (title: string) =>
         `"${title}" 有未保存的更改，且文件已被删除。仍要关闭？`,
-      deletedDirtyGeneric:
-        "此文件有未保存的更改，且文件已被删除。仍要关闭？",
+      deletedDirtyGeneric: "此文件有未保存的更改，且文件已被删除。仍要关闭？",
       deletedDirtyMultiple: (count: number) =>
         `${count} 个文件有未保存的更改，且这些文件已被删除。仍要全部关闭？`,
       closeAnyway: "仍要关闭",
@@ -215,14 +214,16 @@ export const zhCN = {
       skip: "跳过",
       overwrite: "覆盖",
       conflictTitle: "名称冲突",
-      conflictDescription: (count: number) => `目标位置已有 ${count} 个同名项目。`,
+      conflictDescription: (count: number) =>
+        `目标位置已有 ${count} 个同名项目。`,
       moreConflicts: (count: number) => `还有 ${count} 项`,
       folderEmpty: "此文件夹为空",
       loading: "加载中...",
       filter: "筛选",
       remoteSearch: "远程搜索",
       remoteSearchPrompt: "从当前远程目录搜索文件名",
-      remoteSearchResults: (count: number, query: string) => `找到 ${count} 项：“${query}”`,
+      remoteSearchResults: (count: number, query: string) =>
+        `找到 ${count} 项：“${query}”`,
       clearRemoteSearch: "清除远程搜索",
       syncLocalToRemote: "预览同步到远程",
       syncRemoteToLocal: "预览同步到本地",
@@ -334,7 +335,8 @@ export const zhCN = {
       push: "推送",
       changedFiles: "更改的文件",
       discardChangesTitle: "放弃更改？",
-      discardAllDescription: (label: string) => `这会放弃 ${label}，且无法撤销。`,
+      discardAllDescription: (label: string) =>
+        `这会放弃 ${label}，且无法撤销。`,
       discardSingleDescription: (label: string) =>
         `放弃 "${label}" 中的更改？此操作无法撤销。`,
       discard: "放弃",
@@ -356,13 +358,12 @@ export const zhCN = {
       copyAbsolutePath: "复制绝对路径",
       revealInFinder: "在 Finder 中显示",
       revealInFileManager: "在文件管理器中显示",
-      configureBranchForPush:
-        "请在终端中配置或发布此分支，以启用本轮推送。",
+      configureBranchForPush: "请在终端中配置或发布此分支，以启用本轮推送。",
       pullBeforePush: "推送本地提交前请先拉取远程更改。",
-      noLocalCommitsToPush: (upstream: string) => `没有可推送到 ${upstream} 的本地提交。`,
+      noLocalCommitsToPush: (upstream: string) =>
+        `没有可推送到 ${upstream} 的本地提交。`,
       pushesTo: (upstream: string) => `推送到 ${upstream}。`,
-      divergedRemoteIndicator:
-        "分支已与上游分叉。请使用源代码管理或终端处理。",
+      divergedRemoteIndicator: "分支已与上游分叉。请使用源代码管理或终端处理。",
       pullRemoteCommits: (count: number) =>
         `拉取 ${count} 个远程提交，仅使用 fast-forward。`,
       pushLocalCommits: (count: number) => `推送 ${count} 个本地提交。`,
@@ -370,7 +371,8 @@ export const zhCN = {
       fetchRemoteUpdates: "获取远程更新。",
       noStagedChanges: "没有已暂存更改",
       noUnstagedChanges: "没有未暂存更改",
-      committed: (shortSha: string, summary: string) => `已提交 ${shortSha} ${summary}`,
+      committed: (shortSha: string, summary: string) =>
+        `已提交 ${shortSha} ${summary}`,
       pushedTo: (upstream: string) => `已推送到 ${upstream}`,
       pushCompleted: "推送完成",
       unstagedFiles: (count: number) => `${count} 个未暂存文件`,
@@ -402,8 +404,7 @@ export const zhCN = {
     },
     editor: {
       newFileTitle: "新建文件",
-      newFileDescription:
-        "文件名（相对于工作区根目录）。扩展名决定语言模式。",
+      newFileDescription: "文件名（相对于工作区根目录）。扩展名决定语言模式。",
       nameRequired: "名称不能为空",
       pathMustBeRelative: "路径必须是相对路径",
       noWorkspaceRoot: "没有工作区根目录",
@@ -428,7 +429,8 @@ export const zhCN = {
       loading: "加载中...",
       readFailed: (message: string) => `读取文件失败：${message}`,
       binaryCannotRender: "二进制文件无法渲染为 Markdown。",
-      fileTooLarge: (size: number, limit: number) => `文件为 ${size} 字节，限制为 ${limit}。`,
+      fileTooLarge: (size: number, limit: number) =>
+        `文件为 ${size} 字节，限制为 ${limit}。`,
     },
   },
   settings: {
@@ -494,7 +496,7 @@ export const zhCN = {
           bold: "粗体",
         },
         shell: "集成终端 Shell",
-        shellUnavailableDescription: "此 Shell 不支持命令块和目录跟踪。",
+        shellUnavailableDescription: "此 Shell 不支持目录跟踪。",
         shellWithWslDescription:
           "集成终端使用的 Shell。WSL 工作区会使用发行版默认 Shell。已打开的标签保持原 Shell。",
         shellDescription: "新终端标签使用的 Shell。已打开的标签保持原 Shell。",
@@ -535,18 +537,6 @@ export const zhCN = {
         title: "编辑器主题",
         description: "代码编辑器的语法配色。自动模式会跟随应用主题。",
         auto: "自动（跟随应用主题）",
-      },
-      background: {
-        title: "背景",
-        remove: "移除",
-        replaceImage: "替换图片",
-        chooseImage: "选择图片",
-        notImage: "不是图片",
-        failedToImportImage: "导入图片失败",
-        opacity: "透明度",
-        blur: "模糊",
-        emptyHint:
-          "可将图片拖到这里或手动选择。图片只保存在本机，设置前不会影响默认外观。",
       },
     },
     shortcuts: {

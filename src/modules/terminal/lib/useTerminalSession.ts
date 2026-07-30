@@ -15,7 +15,6 @@ import {
 import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
 import {
   acquireSlot,
-  applyBackgroundActive,
   applyCursorPreferences,
   applyFontFamily,
   applyFontSize,
@@ -486,10 +485,7 @@ function detachSession(leafId: number): void {
   s.container = null;
 }
 
-async function respawnSession(
-  leafId: number,
-  cwd?: string,
-): Promise<void> {
+async function respawnSession(leafId: number, cwd?: string): Promise<void> {
   const s = sessions.get(leafId);
   if (!s || s.disposed) return;
   s.pty?.close();
@@ -671,13 +667,6 @@ export function useTerminalSession({
     applyCursorPreferences(cursorShape, cursorAnimation, cursorWidth);
   }, [cursorShape, cursorAnimation, cursorWidth]);
 
-  const bgActive = usePreferencesStore(
-    (p) => p.backgroundKind === "image" && !!p.backgroundImageId,
-  );
-  useEffect(() => {
-    applyBackgroundActive(bgActive);
-  }, [bgActive]);
-
   useEffect(() => {
     const s = sessions.get(leafId);
     if (!s) return;
@@ -757,13 +746,7 @@ export function useTerminalSession({
       getSelection,
       applyTheme,
     }),
-    [
-      write,
-      focus,
-      getBuffer,
-      getSelection,
-      applyTheme,
-    ],
+    [write, focus, getBuffer, getSelection, applyTheme],
   );
 }
 
