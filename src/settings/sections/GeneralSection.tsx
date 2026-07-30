@@ -431,7 +431,7 @@ export function GeneralSection() {
                   value={String(lines)}
                   className="text-[12px]"
                 >
-                  {g.terminal.scrollbackLines(lines.toLocaleString())}
+                  {g.terminal.scrollbackLines(lines)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -117,6 +117,7 @@ export const GraphRail = memo(function GraphRail({
       aria-hidden
       className="shrink-0 overflow-visible"
     >
+      <title>Git graph lane</title>
       {row.topEdges.map((e) => renderTopEdge(e, midY))}
       {row.bottomEdges.map((e) => renderBottomEdge(e, midY, rowHeight))}
       {/* Commit node */}

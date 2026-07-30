@@ -133,8 +133,6 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
     active ? loadStateFromCache(source) : { kind: "idle" },
   );
 
-  const key = cacheKey(source);
-
   useEffect(() => {
     if (!active) return;
     const cached = loadStateFromCache(source);
@@ -182,7 +180,7 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [active, key, source]);
+  }, [active, source]);
 
   const path = source.path;
   const repoRoot = source.repoRoot;
