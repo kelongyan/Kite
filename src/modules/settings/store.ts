@@ -109,7 +109,6 @@ export type Preferences = {
   backgroundOpacity: number;
   backgroundBlur: number;
   editorTheme: EditorThemePref;
-  autostart: boolean;
   restoreWindowState: boolean;
   vimMode: boolean;
   editorWordWrap: boolean;
@@ -142,7 +141,6 @@ const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
 const KEY_EDITOR_THEME = "editorTheme";
-const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
@@ -187,7 +185,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundOpacity: 0.5,
   backgroundBlur: 0,
   editorTheme: EDITOR_THEME_AUTO,
-  autostart: false,
   restoreWindowState: true,
   vimMode: false,
   editorWordWrap: false,
@@ -303,7 +300,6 @@ export async function loadPreferences(): Promise<Preferences> {
       if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored)) return stored;
       return DEFAULT_PREFERENCES.editorTheme;
     })(),
-    autostart: get<boolean>(KEY_AUTOSTART) ?? DEFAULT_PREFERENCES.autostart,
     restoreWindowState:
       get<boolean>(KEY_RESTORE_WINDOW) ??
       DEFAULT_PREFERENCES.restoreWindowState,
@@ -488,10 +484,6 @@ export async function setEditorTheme(value: EditorThemePref): Promise<void> {
   await writePref(KEY_EDITOR_THEME, value);
 }
 
-export async function setAutostart(value: boolean): Promise<void> {
-  await writePref(KEY_AUTOSTART, value);
-}
-
 export async function setRestoreWindowState(value: boolean): Promise<void> {
   await writePref(KEY_RESTORE_WINDOW, value);
 }
@@ -528,7 +520,6 @@ export async function onPreferencesChange(
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
     [KEY_EDITOR_THEME]: "editorTheme",
-    [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",

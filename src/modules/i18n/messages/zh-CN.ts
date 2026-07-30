@@ -485,7 +485,7 @@ export const zhCN = {
     },
     general: {
       title: "通用",
-      description: "模式、编辑器和启动项。",
+      description: "模式、编辑器和窗口行为。",
       appearance: {
         title: "外观",
         system: "跟随系统",
@@ -541,7 +541,7 @@ export const zhCN = {
         shell: "集成终端 Shell",
         shellUnavailableDescription: "此 Shell 不支持命令块和目录跟踪。",
         shellWithWslDescription:
-          "集成终端使用的 Shell。WSL 工作区会使用发行版登录 Shell。已打开的标签保持原 Shell。",
+          "集成终端使用的 Shell。WSL 工作区会使用发行版默认 Shell。已打开的标签保持原 Shell。",
         shellDescription: "新终端标签使用的 Shell。已打开的标签保持原 Shell。",
         autoShell: "自动",
         workspaceEnvironment: "工作区环境",
@@ -560,8 +560,6 @@ export const zhCN = {
       },
       startup: {
         title: "启动",
-        launchAtLogin: "登录时启动",
-        launchAtLoginDescription: "登录系统后自动打开 Kite。",
         restoreWindow: "恢复窗口位置和大小",
         restoreWindowDescription:
           "下次启动时回到上次关闭前的主窗口位置和大小。",
