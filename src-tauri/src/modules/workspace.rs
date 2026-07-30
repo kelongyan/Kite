@@ -72,7 +72,7 @@ impl WorkspaceRegistry {
 
 // User-initiated terminal spawn: canonicalize, require a real dir, and register
 // it as a root instead of rejecting paths outside existing roots.
-pub fn authorize_user_spawn_cwd(
+fn authorize_user_spawn_cwd(
     registry: &WorkspaceRegistry,
     cwd: Option<&str>,
     workspace: &WorkspaceEnv,
@@ -93,7 +93,7 @@ pub fn authorize_user_spawn_cwd(
 // A requested cwd can be stale, missing, or from another environment (e.g. a
 // Windows path after switching to WSL); the terminal must still open, so fall back
 // to home.
-pub fn user_spawn_cwd_or_home(
+pub(crate) fn user_spawn_cwd_or_home(
     registry: &WorkspaceRegistry,
     cwd: Option<&str>,
     workspace: &WorkspaceEnv,
@@ -108,7 +108,7 @@ pub fn user_spawn_cwd_or_home(
     }
 }
 
-pub fn bootstrap_registry(registry: &WorkspaceRegistry) {
+pub(crate) fn bootstrap_registry(registry: &WorkspaceRegistry) {
     let _ = registry.authorize(resolve_launch_dir());
     if let Some(home) = dirs::home_dir() {
         let _ = registry.authorize(home);
@@ -141,7 +141,7 @@ pub async fn workspace_current_dir(
 // falls back to the user home, not the process current_dir.
 static LAUNCH_CWD: OnceLock<Option<PathBuf>> = OnceLock::new();
 
-pub fn init_launch_cwd(cli_dir: Option<&str>) {
+pub(crate) fn init_launch_cwd(cli_dir: Option<&str>) {
     LAUNCH_CWD.get_or_init(|| resolve_launch_cwd(cli_dir));
 }
 
@@ -155,7 +155,7 @@ fn resolve_launch_cwd(cli_dir: Option<&str>) -> Option<PathBuf> {
     None
 }
 
-pub fn launch_cwd_snapshot() -> Option<PathBuf> {
+pub(crate) fn launch_cwd_snapshot() -> Option<PathBuf> {
     LAUNCH_CWD.get().and_then(|o| o.clone())
 }
 
@@ -226,7 +226,7 @@ const APPIMAGE_VALUE_VARS: &[&str] = &[
 #[cfg(target_os = "linux")]
 const APPIMAGE_MARKER_VARS: &[&str] = &["APPDIR", "APPIMAGE", "ARGV0"];
 
-pub fn appimage_env_overrides() -> Vec<(&'static str, Option<OsString>)> {
+pub(crate) fn appimage_env_overrides() -> Vec<(&'static str, Option<OsString>)> {
     #[cfg(target_os = "linux")]
     {
         let Some(appdir) = std::env::var_os("APPDIR") else {
@@ -399,7 +399,7 @@ pub fn wsl_path_to_host(distro: &str, path: &str) -> PathBuf {
 }
 
 #[cfg(windows)]
-pub fn decode_command_output(bytes: &[u8]) -> String {
+fn decode_command_output(bytes: &[u8]) -> String {
     if bytes.starts_with(&[0xff, 0xfe]) || looks_utf16le(bytes) {
         let start = if bytes.starts_with(&[0xff, 0xfe]) {
             2
@@ -543,7 +543,7 @@ pub fn wsl_home(distro: String) -> Result<String, String> {
 }
 
 #[cfg(windows)]
-pub fn wsl_login_shell(distro: String) -> Result<String, String> {
+pub(crate) fn wsl_login_shell(distro: String) -> Result<String, String> {
     const SCRIPT: &str = r#"uid="$(id -u 2>/dev/null || printf '')"
 entry=''
 if [ -n "$uid" ] && command -v getent >/dev/null 2>&1; then

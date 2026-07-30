@@ -100,7 +100,6 @@
     "@vitejs/plugin-react": "^6.0.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "knip": "^6.17.1",
-    "react-compiler-healthcheck": "^1.0.0",
     "react-scan": "^0.5.7",
     "rollup-plugin-visualizer": "^7.0.1",
     "shadcn": "^4.11.0",

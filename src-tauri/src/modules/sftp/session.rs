@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-pub type NativeSshSession = ssh2::Session;
+type NativeSshSession = ssh2::Session;
 
 #[derive(Clone)]
 pub struct ManagedSftpSession {
