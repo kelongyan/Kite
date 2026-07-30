@@ -118,9 +118,20 @@ pub fn run() {
     let cli_dir = parse_launch_dir();
     workspace::init_launch_cwd(cli_dir.as_deref());
 
-    let builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default();
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
+    }
     #[cfg(target_os = "linux")]
-    let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
+    {
+        builder = builder.plugin(tauri_plugin_clipboard_manager::init());
+    }
     builder
         // Skip restoring VISIBLE/MAXIMIZED/FULLSCREEN — frontend calls
         // window.show() after first paint so the user never sees a
