@@ -123,12 +123,15 @@ pub fn run() {
     #[cfg(target_os = "linux")]
     let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
     builder
-        // Skip restoring VISIBLE — frontend calls window.show() after first
-        // paint so the user never sees a transparent window-shadow flash on
-        // Windows/Linux.
+        // Skip restoring VISIBLE/MAXIMIZED/FULLSCREEN — frontend calls
+        // window.show() after first paint so the user never sees a
+        // transparent window-shadow flash on Windows/Linux. MAXIMIZED and
+        // FULLSCREEN are also excluded because set_maximized(true) maps to
+        // ShowWindow(SW_MAXIMIZE) which forces the window visible even when
+        // it was created hidden.
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::new().build())
