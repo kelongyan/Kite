@@ -88,3 +88,11 @@ lto = "fat"
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[profile.release-lowmem]
+inherits = "release"
+codegen-units = 4
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true
