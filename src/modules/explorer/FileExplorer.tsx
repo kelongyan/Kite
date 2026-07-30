@@ -60,7 +60,6 @@ type Props = {
   onPathRenamed?: (from: string, to: string) => void;
   onPathDeleted?: (path: string) => void;
   onRevealInTerminal?: (path: string) => void;
-  onAttachToAgent?: (path: string) => void;
   gitStatus?: GitStatusSnapshot | null;
 };
 
@@ -192,7 +191,6 @@ export const FileExplorer = memo(
       onPathRenamed,
       onPathDeleted,
       onRevealInTerminal,
-      onAttachToAgent,
       gitStatus,
     },
     ref,
@@ -561,7 +559,6 @@ export const FileExplorer = memo(
           onRequestClose={() => setIsSearchOpen(false)}
           onActiveChange={setIsSearchActive}
           onRevealInTerminal={onRevealInTerminal}
-          onAttachToAgent={onAttachToAgent}
         />
 
         {!isSearchActive ? (
@@ -739,13 +736,6 @@ export const FileExplorer = memo(
                     }
                   >
                     {messages.copyRelativePath}
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    className={COMPACT_ITEM}
-                    onSelect={() => onAttachToAgent?.(menuTarget.path)}
-                  >
-                    {messages.attachToAgent}
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem

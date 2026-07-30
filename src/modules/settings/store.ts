@@ -1,6 +1,6 @@
 import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
-import { coerceAppLanguage, type AppLanguage } from "@/modules/i18n/locale";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
+import { DEFAULT_THEME_ID, normalizeThemeId } from "@/modules/theme/types";
 import {
   DEFAULT_TERMINAL_CURSOR_ANIMATION,
   DEFAULT_TERMINAL_CURSOR_SHAPE,
@@ -13,8 +13,6 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
-
-export const DEFAULT_THEME_ID = "terax-default";
 
 export type BackgroundKind = "none" | "image";
 
@@ -111,7 +109,6 @@ export type Preferences = {
   backgroundOpacity: number;
   backgroundBlur: number;
   editorTheme: EditorThemePref;
-  appLanguage: AppLanguage;
   autostart: boolean;
   restoreWindowState: boolean;
   vimMode: boolean;
@@ -136,7 +133,8 @@ export type Preferences = {
   editorAutoSaveDelay: number;
 };
 
-const STORE_PATH = "terax-settings.json";
+const STORE_PATH = "kite-settings.json";
+const LEGACY_STORE_PATH = "terax-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
 const KEY_BG_KIND = "backgroundKind";
@@ -144,7 +142,6 @@ const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
 const KEY_EDITOR_THEME = "editorTheme";
-const KEY_APP_LANGUAGE = "appLanguage";
 const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_VIM_MODE = "vimMode";
@@ -190,7 +187,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundOpacity: 0.5,
   backgroundBlur: 0,
   editorTheme: EDITOR_THEME_AUTO,
-  appLanguage: "zh-CN",
   autostart: false,
   restoreWindowState: true,
   vimMode: false,
@@ -224,23 +220,32 @@ export function normalizeTerminalFontFamily(value: string | undefined): string {
 }
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
+const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
+  defaults: {},
+  autoSave: 200,
+});
 
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 1;
+const SETTINGS_VERSION = 2;
 const SETTINGS_MIGRATIONS: Record<
   number,
   (map: Map<string, unknown>) => void
 > = {
-  // reserved — example: 2: (m) => { m.set("newKey", m.get("oldKey")); m.delete("oldKey"); }
+  2: (map) => {
+    const themeId = map.get(KEY_THEME_ID);
+    if (typeof themeId === "string") {
+      map.set(KEY_THEME_ID, normalizeThemeId(themeId));
+    }
+  },
 };
 
 // LazyStore.onChange only fires within the writing process. The settings
 // page lives in a separate webview, so writes there never reach the main
 // window's subscribers. Mirror every setter through a Tauri event so any
 // window can listen.
-const PREFS_CHANGED_EVENT = "terax://prefs-changed";
+const PREFS_CHANGED_EVENT = "kite://prefs-changed";
 
 async function writePref<T>(key: string, value: T): Promise<void> {
   await store.set(key, value);
@@ -251,14 +256,19 @@ async function writePref<T>(key: string, value: T): Promise<void> {
 export async function loadPreferences(): Promise<Preferences> {
   // Single IPC roundtrip — fetching keys individually fans out to one
   // `plugin:store|get` per setting and is the dominant boot cost.
-  const entries = await store.entries();
+  let entries = await store.entries();
+  let migratedFromLegacyStore = false;
+  if (entries.length === 0) {
+    entries = await legacyStore.entries();
+    migratedFromLegacyStore = entries.length > 0;
+  }
   const map = new Map<string, unknown>(entries);
 
   // ── Schema migration ────────────────────────────────────────────────────
   // Stores created before versioning was introduced are treated as version 1
-  // (the baseline) so no migrations run on existing data.
+  // so every later migration runs in order.
   const storedVersion = (map.get(KEY_VERSION) as number) ?? 1;
-  let migrated = !map.has(KEY_VERSION);
+  let migrated = migratedFromLegacyStore || !map.has(KEY_VERSION);
   for (let v = storedVersion + 1; v <= SETTINGS_VERSION; v++) {
     SETTINGS_MIGRATIONS[v]?.(map);
     migrated = true;
@@ -274,7 +284,9 @@ export async function loadPreferences(): Promise<Preferences> {
   const get = <T>(k: string): T | undefined => map.get(k) as T | undefined;
   return {
     theme: get<ThemePref>(KEY_THEME) ?? DEFAULT_PREFERENCES.theme,
-    themeId: get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
+    themeId: normalizeThemeId(
+      get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
+    ),
     backgroundKind:
       get<BackgroundKind>(KEY_BG_KIND) ?? DEFAULT_PREFERENCES.backgroundKind,
     backgroundImageId:
@@ -291,9 +303,6 @@ export async function loadPreferences(): Promise<Preferences> {
       if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored)) return stored;
       return DEFAULT_PREFERENCES.editorTheme;
     })(),
-    appLanguage: coerceAppLanguage(
-      get<string>(KEY_APP_LANGUAGE) ?? DEFAULT_PREFERENCES.appLanguage,
-    ),
     autostart: get<boolean>(KEY_AUTOSTART) ?? DEFAULT_PREFERENCES.autostart,
     restoreWindowState:
       get<boolean>(KEY_RESTORE_WINDOW) ??
@@ -358,7 +367,7 @@ export async function setTheme(value: ThemePref): Promise<void> {
 }
 
 export async function setThemeId(value: string): Promise<void> {
-  await writePref(KEY_THEME_ID, value);
+  await writePref(KEY_THEME_ID, normalizeThemeId(value));
 }
 
 /** Slider stores 0..1. Actual rendered opacity is halved in SurfaceLayer
@@ -479,10 +488,6 @@ export async function setEditorTheme(value: EditorThemePref): Promise<void> {
   await writePref(KEY_EDITOR_THEME, value);
 }
 
-export async function setAppLanguage(value: AppLanguage): Promise<void> {
-  await writePref(KEY_APP_LANGUAGE, coerceAppLanguage(value));
-}
-
 export async function setAutostart(value: boolean): Promise<void> {
   await writePref(KEY_AUTOSTART, value);
 }
@@ -523,7 +528,6 @@ export async function onPreferencesChange(
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
     [KEY_EDITOR_THEME]: "editorTheme",
-    [KEY_APP_LANGUAGE]: "appLanguage",
     [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_VIM_MODE]: "vimMode",
@@ -561,16 +565,4 @@ export async function onPreferencesChange(
     unsubLocal();
     unsubEvent();
   };
-}
-
-// API key changes are stored in OS keychain (not the prefs store),
-// so we broadcast via a Tauri event for cross-window listeners.
-const KEYS_CHANGED_EVENT = "terax://ai-keys-changed";
-
-export async function emitKeysChanged(): Promise<void> {
-  await emit(KEYS_CHANGED_EVENT);
-}
-
-export function onKeysChanged(cb: () => void): Promise<UnlistenFn> {
-  return listen(KEYS_CHANGED_EVENT, () => cb());
 }

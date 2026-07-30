@@ -25,11 +25,7 @@ type Params = {
   clearWorkspaceState: () => void;
 };
 
-/**
- * Owns the resolved home / launch cwd. switchWorkspace runs an interactive
- * local⇄WSL switch (tears down sessions, re-authorizes home, resets tabs);
- * adoptWorkspaceEnv applies a space's env + home without tearing down tabs.
- */
+/** Owns the resolved home and launch cwd for Local and WSL workspaces. */
 export function useWorkspaceSwitcher({
   tabsRef,
   workspaceEnv,
@@ -110,27 +106,11 @@ export function useWorkspaceSwitcher({
     ],
   );
 
-  const adoptWorkspaceEnv = useCallback(
-    async (env: WorkspaceEnv): Promise<string | null> => {
-      setWorkspaceEnv(env.kind === "local" ? LOCAL_WORKSPACE : env);
-      let nextHome: string;
-      try {
-        nextHome = await resolveEnvHome(env);
-      } catch {
-        return null;
-      }
-      await authorizeHome(nextHome);
-      return nextHome;
-    },
-    [setWorkspaceEnv, authorizeHome],
-  );
-
   return {
     home,
     homeResolved,
     launchCwd,
     launchCwdResolved,
     switchWorkspace,
-    adoptWorkspaceEnv,
   };
 }

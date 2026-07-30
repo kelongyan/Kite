@@ -51,12 +51,6 @@ pub fn remote_dirname(path: &str) -> Result<String, String> {
     })
 }
 
-pub fn remote_temp_path(target: &str, transfer_id: &str) -> Result<String, String> {
-    let parent = remote_dirname(target)?;
-    let base = remote_basename(target)?;
-    join_remote_path(&parent, &format!(".{base}.{transfer_id}.tmp"))
-}
-
 pub fn remote_partial_path(target: &str) -> Result<String, String> {
     let parent = remote_dirname(target)?;
     let base = remote_basename(target)?;
@@ -187,14 +181,6 @@ mod tests {
         );
         assert!(join_remote_path("/home/deploy", "../app.log").is_err());
         assert!(join_remote_path("/home/deploy", "nested/app.log").is_err());
-    }
-
-    #[test]
-    fn remote_temp_path_uses_hidden_file_in_same_dir() {
-        assert_eq!(
-            remote_temp_path("/home/deploy/app.zip", "transfer-1").unwrap(),
-            "/home/deploy/.app.zip.transfer-1.tmp"
-        );
     }
 
     #[test]

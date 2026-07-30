@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { coerceAppLanguage, type AppLanguage } from "@/modules/i18n/locale";
 import {
   DEFAULT_PREFERENCES,
   loadPreferences,
@@ -15,9 +14,10 @@ type State = Preferences & {
 
 let initPromise: Promise<void> | null = null;
 
-const FAST_BG_KIND_KEY = "terax-ui-bg-kind-shadow";
-const FAST_BG_IMAGE_ID_KEY = "terax-ui-bg-image-shadow";
-const FAST_LANGUAGE_KEY = "terax-ui-language-shadow";
+const FAST_BG_KIND_KEY = "kite-ui-bg-kind-shadow";
+const FAST_BG_IMAGE_ID_KEY = "kite-ui-bg-image-shadow";
+const LEGACY_FAST_BG_KIND_KEY = "terax-ui-bg-kind-shadow";
+const LEGACY_FAST_BG_IMAGE_ID_KEY = "terax-ui-bg-image-shadow";
 
 function mirrorBgFastPath(
   kind: Preferences["backgroundKind"],
@@ -39,35 +39,20 @@ export function readBgFastPath(): {
 } {
   if (typeof window === "undefined") return { active: false, imageId: null };
   try {
-    const kind = window.localStorage.getItem(FAST_BG_KIND_KEY);
-    const imageId = window.localStorage.getItem(FAST_BG_IMAGE_ID_KEY);
+    const kind =
+      window.localStorage.getItem(FAST_BG_KIND_KEY) ??
+      window.localStorage.getItem(LEGACY_FAST_BG_KIND_KEY);
+    const imageId =
+      window.localStorage.getItem(FAST_BG_IMAGE_ID_KEY) ??
+      window.localStorage.getItem(LEGACY_FAST_BG_IMAGE_ID_KEY);
     return { active: kind === "image" && !!imageId, imageId };
   } catch {
     return { active: false, imageId: null };
   }
 }
 
-function mirrorLanguageFastPath(language: Preferences["appLanguage"]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(FAST_LANGUAGE_KEY, language);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function readLanguageFastPath(): AppLanguage {
-  if (typeof window === "undefined") return DEFAULT_PREFERENCES.appLanguage;
-  try {
-    return coerceAppLanguage(window.localStorage.getItem(FAST_LANGUAGE_KEY));
-  } catch {
-    return DEFAULT_PREFERENCES.appLanguage;
-  }
-}
-
 export const usePreferencesStore = create<State>((set) => ({
   ...DEFAULT_PREFERENCES,
-  appLanguage: readLanguageFastPath(),
   hydrated: false,
   init: () => {
     if (initPromise) return initPromise;
@@ -76,15 +61,11 @@ export const usePreferencesStore = create<State>((set) => ({
         const prefs = await loadPreferences();
         set({ ...prefs, hydrated: true });
         mirrorBgFastPath(prefs.backgroundKind, prefs.backgroundImageId);
-        mirrorLanguageFastPath(prefs.appLanguage);
         void onPreferencesChange((key, value) => {
           set({ [key]: value } as Partial<State>);
           if (key === "backgroundKind" || key === "backgroundImageId") {
             const s = usePreferencesStore.getState();
             mirrorBgFastPath(s.backgroundKind, s.backgroundImageId);
-          }
-          if (key === "appLanguage") {
-            mirrorLanguageFastPath(coerceAppLanguage(value));
           }
         });
       } catch (e) {

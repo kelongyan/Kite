@@ -48,10 +48,8 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 | `source-control` | Git staging/commit panel |
 | `git-history` | Git log viewer |
 | `sftp` | SFTP browser (uses Rust libssh2) |
-| `preview` | WebView/URL preview tab |
 | `markdown` | Rendered markdown tab |
 | `settings` | Preferences Zustand store and types (UI lives in `src/settings/`) |
-| `spaces` | Workspace spaces (named groups of tabs with independent env/cwd) |
 | `shortcuts` | Global keyboard shortcut registry |
 | `command-palette` | Cmd+K palette |
 | `workspace` | Workspace root path and environment context |
@@ -59,7 +57,7 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 
 ### Rust backend modules (`src-tauri/src/modules/`)
 
-`pty` (PTY sessions via portable-pty), `shell` (background processes, history), `fs` (file ops, grep via ripgrep crates, file watcher), `git` (git operations via shell commands), `sftp` (SSH2/SFTP), `history` (shell history parse), `workspace`, `proc`.
+`pty` (PTY sessions via portable-pty), `fs` (file ops, content search, file watcher), `git` (git operations via child processes), `sftp` (SSH2/SFTP), `history` (shell history parse), `workspace`, `proc`.
 
 ### IPC pattern
 
@@ -67,9 +65,9 @@ All Rust↔frontend calls use Tauri's `invoke()` and `Channel<T>`. Tauri command
 
 ### Tab system
 
-Seven tab kinds: `TerminalTab | EditorTab | PreviewTab | MarkdownTab | GitDiffTab | GitHistoryTab | GitCommitFileDiffTab | SftpTab`.
+Seven tab kinds: `TerminalTab | EditorTab | MarkdownTab | GitDiffTab | GitHistoryTab | GitCommitFileDiffTab | SftpTab`.
 
-`TerminalTab` has sub-mode: `blocks: true` (block output UI). Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4` (matches the shared WebGL renderer pool size).
+`TerminalTab` has sub-mode: `blocks: true` (block output UI). Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4`.
 
 Tabs are **cold by default** — shells only spawn on first activation. This is controlled by a `booted` flag to prevent spurious shell spawns during workspace restore.
 
@@ -77,6 +75,6 @@ Tabs are **cold by default** — shells only spawn on first activation. This is 
 
 - **Biome** for linting and formatting: 2-space indent, double quotes, trailing commas, 80-char line width.
 - `useImportType` / `useExportType` are errors — always use `import type` / `export type` for type-only imports.
-- `src/components/ui/**` is shadcn-generated — excluded from lint.
+- `src/components/ui/**` is shadcn-generated but remains covered by lint and dead-code scans.
 - Import order: Node builtins → `@/**` aliases → npm packages → relative paths.
 - Rust: `edition = "2021"`, incremental dev builds, fat LTO + `opt-level = "s"` for release.

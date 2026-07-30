@@ -3,7 +3,7 @@ import {
   type GitRepoInfo,
   type GitStatusSnapshot,
 } from "@/lib/native";
-import { messagesFor, type Messages, useMessages } from "@/modules/i18n";
+import { useMessages } from "@/modules/i18n";
 import { useWorkspaceEnvStore, workspaceScopeKey } from "@/modules/workspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,13 +14,13 @@ const FOCUS_REFRESH_MIN_INTERVAL_MS = 1500;
 // is still inside the loaded repo (cd-within-repo produces identical status).
 const SC_STATUS_TTL_MS = 2000;
 
-export type SourceControlRefreshMode = "auto" | "always" | "never";
-export type SourceControlRemoteAction = "fetch" | "pull" | "push";
-export type SourceControlRemoteActionMode =
+type SourceControlRefreshMode = "auto" | "always" | "never";
+type SourceControlRemoteAction = "fetch" | "pull" | "push";
+type SourceControlRemoteActionMode =
   | "contextual"
   | SourceControlRemoteAction;
 
-export type SourceControlRemoteActionResult = {
+type SourceControlRemoteActionResult = {
   ok: boolean;
   action: SourceControlRemoteAction | null;
   error?: string;
@@ -48,14 +48,6 @@ export type SourceControlSummary = {
   runRemoteAction: (
     mode?: SourceControlRemoteActionMode,
   ) => Promise<SourceControlRemoteActionResult>;
-};
-
-export type SourceControlRemoteIndicator = {
-  visible: boolean;
-  label: string;
-  title: string;
-  disabled: boolean;
-  action: SourceControlRemoteAction | null;
 };
 
 type SourceControlSummaryState = {
@@ -88,53 +80,6 @@ function getContextualAction(
   if (status.behind > 0) return "pull";
   if (status.ahead > 0) return "push";
   return "fetch";
-}
-
-export function getSourceControlRemoteIndicator(
-  summary: Pick<
-    SourceControlSummary,
-    "hasRepo" | "upstream" | "ahead" | "behind" | "busyAction"
-  >,
-  messages: Messages["workspace"]["sourceControl"] =
-    messagesFor("en").workspace.sourceControl,
-): SourceControlRemoteIndicator {
-  if (!summary.hasRepo || !summary.upstream) {
-    return { visible: false, label: "", title: "", disabled: true, action: null };
-  }
-  if (summary.ahead > 0 && summary.behind > 0) {
-    return {
-      visible: true,
-      label: `↑${summary.ahead} ↓${summary.behind}`,
-      title: messages.divergedRemoteIndicator,
-      disabled: true,
-      action: null,
-    };
-  }
-  if (summary.behind > 0) {
-    return {
-      visible: true,
-      label: `↓${summary.behind}`,
-      title: messages.pullRemoteCommits(summary.behind),
-      disabled: summary.busyAction !== null,
-      action: "pull",
-    };
-  }
-  if (summary.ahead > 0) {
-    return {
-      visible: true,
-      label: `↑${summary.ahead}`,
-      title: messages.pushLocalCommits(summary.ahead),
-      disabled: summary.busyAction !== null,
-      action: "push",
-    };
-  }
-  return {
-    visible: true,
-    label: messages.sync,
-    title: messages.fetchRemoteUpdates,
-    disabled: summary.busyAction !== null,
-    action: "fetch",
-  };
 }
 
 function touchAutoFetch(map: Map<string, number>, key: string): void {

@@ -2,15 +2,25 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import type { Theme } from "./types";
 
-const STORE_PATH = "terax-custom-themes.json";
+const STORE_PATH = "kite-custom-themes.json";
+const LEGACY_STORE_PATH = "terax-custom-themes.json";
 const KEY = "themes";
-const CHANGED_EVENT = "terax://custom-themes-changed";
+const CHANGED_EVENT = "kite://custom-themes-changed";
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
+const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
+  defaults: {},
+  autoSave: 200,
+});
 
 export async function listCustomThemes(): Promise<Theme[]> {
   const v = await store.get<Theme[]>(KEY);
-  return Array.isArray(v) ? v : [];
+  if (Array.isArray(v)) return v;
+  const legacy = await legacyStore.get<Theme[]>(KEY);
+  if (!Array.isArray(legacy)) return [];
+  await store.set(KEY, legacy);
+  await store.save();
+  return legacy;
 }
 
 export async function saveCustomTheme(theme: Theme): Promise<void> {

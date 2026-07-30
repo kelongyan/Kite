@@ -1,4 +1,4 @@
-import { messagesFor } from "@/modules/i18n";
+import { zhCN } from "@/modules/i18n/messages/zh-CN";
 import { describe, expect, it } from "vitest";
 import {
   type CommandPaletteActionContext,
@@ -36,7 +36,7 @@ function context(
 
 describe("createCommandItems", () => {
   it("uses localized command titles and disabled reasons", () => {
-    const messages = messagesFor("zh-CN").mainShell.commandPalette;
+    const messages = zhCN.mainShell.commandPalette;
     const items = createCommandItems(context(), messages);
 
     const settings = items.find((item) => item.id === "settings.open");

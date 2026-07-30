@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 import {
-  DEFAULT_THEME_ID,
   loadPreferences,
   onPreferencesChange,
   setTheme as persistTheme,
@@ -21,10 +20,9 @@ import {
 } from "./customThemes";
 import { SurfaceLayer } from "./SurfaceLayer";
 import { getBuiltinTheme, getDefaultTheme } from "./themes";
-import type { Theme } from "./types";
+import { DEFAULT_THEME_ID, normalizeThemeId, type Theme } from "./types";
 
 export type { Theme };
-export type ThemeModePref = ThemePref;
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -44,12 +42,16 @@ type ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState | null>(null);
 
-const FAST_PATH_KEY = "terax-ui-theme-shadow";
-const FAST_PATH_THEME_ID = "terax-ui-theme-id-shadow";
+const FAST_PATH_KEY = "kite-ui-theme-shadow";
+const FAST_PATH_THEME_ID = "kite-ui-theme-id-shadow";
+const LEGACY_FAST_PATH_KEY = "terax-ui-theme-shadow";
+const LEGACY_FAST_PATH_THEME_ID = "terax-ui-theme-id-shadow";
 
 function readFastMode(fallback: ThemePref): ThemePref {
   if (typeof window === "undefined") return fallback;
-  const v = window.localStorage.getItem(FAST_PATH_KEY);
+  const v =
+    window.localStorage.getItem(FAST_PATH_KEY) ??
+    window.localStorage.getItem(LEGACY_FAST_PATH_KEY);
   return v === "dark" || v === "light" || v === "system" ? v : fallback;
 }
 
@@ -59,7 +61,11 @@ function writeFastMode(t: ThemePref): void {
 
 function readFastThemeId(): string {
   if (typeof window === "undefined") return DEFAULT_THEME_ID;
-  return window.localStorage.getItem(FAST_PATH_THEME_ID) ?? DEFAULT_THEME_ID;
+  return normalizeThemeId(
+    window.localStorage.getItem(FAST_PATH_THEME_ID) ??
+      window.localStorage.getItem(LEGACY_FAST_PATH_THEME_ID) ??
+      DEFAULT_THEME_ID,
+  );
 }
 
 function writeFastThemeId(id: string): void {
@@ -149,10 +155,11 @@ export function ThemeProvider({ children, defaultMode = "system" }: ThemeProvide
   }, []);
 
   const setThemeId = useCallback((id: string) => {
+    const normalizedId = normalizeThemeId(id);
     setPreviewId(null);
-    setThemeIdState(id);
-    writeFastThemeId(id);
-    void persistThemeId(id);
+    setThemeIdState(normalizedId);
+    writeFastThemeId(normalizedId);
+    void persistThemeId(normalizedId);
   }, []);
 
   const previewThemeId = useCallback((id: string | null) => {

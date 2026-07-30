@@ -53,12 +53,6 @@ export function workspaceScopeKey(env: WorkspaceEnv): string {
   return env.kind === "wsl" ? `wsl:${env.distro}` : "local";
 }
 
-export function parseWorkspaceScopeKey(key: string): WorkspaceEnv {
-  return key.startsWith("wsl:")
-    ? { kind: "wsl", distro: key.slice("wsl:".length) }
-    : LOCAL_WORKSPACE;
-}
-
 export function currentWorkspaceScopeKey(): string {
   return workspaceScopeKey(currentWorkspaceEnv());
 }

@@ -1,5 +1,5 @@
 {
-  description = "Kite - open-source lightweight cross-platform AI-native terminal (ADE)";
+  description = "Kite - open-source lightweight cross-platform terminal emulator";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 

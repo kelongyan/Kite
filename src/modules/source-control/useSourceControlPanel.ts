@@ -19,15 +19,13 @@ type DiffMode = "+" | "-";
 type SelectionTransition = "none" | "moved-group" | "reset";
 
 const RECONCILE_DEBOUNCE_MS = 180;
-  /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?: .+/;
-  "You write concise Conventional Commit subject lines in English. Return exactly one complete line, with no markdown, no quotes, no body, and no explanation.";
 
-export type DiffSelection = {
+type DiffSelection = {
   path: string;
   mode: DiffMode;
 };
 
-export type SourceControlEntry = {
+type SourceControlEntry = {
   key: string;
   path: string;
   mode: DiffMode;
@@ -54,7 +52,7 @@ export type SourceControlFileEntry = {
   untracked: boolean;
 };
 
-export type PendingDiscard = {
+type PendingDiscard = {
   scope: "single" | "all";
   count: number;
   label: string;
@@ -78,8 +76,6 @@ type SourceControlPanelState = {
   allClean: boolean;
   canPush: boolean;
   pushHint: string | null;
-  canGenerateCommitMessage: boolean;
-  generateCommitMessageHint: string;
   selectionTransition: SelectionTransition;
   stagedEmptyText: string;
   unstagedEmptyText: string;
@@ -99,7 +95,6 @@ type SourceControlPanelState = {
   cancelPendingDiscard: () => void;
   stageAllEntries: () => Promise<void>;
   unstageAllEntries: () => Promise<void>;
-  generateCommitMessage: () => Promise<void>;
   commit: () => Promise<void>;
   push: () => Promise<void>;
 };
@@ -366,10 +361,6 @@ export function useSourceControlPanel(
 
   const allClean = stagedEntries.length === 0 && unstagedEntries.length === 0;
   const canPush = !!status?.upstream && status.behind === 0;
-  const anyActionBusy = localActionBusy !== null || summary.busyAction !== null;
-  void anyActionBusy; // suppress unused warning
-  const canGenerateCommitMessage = false;
-  const generateCommitMessageHint: string = "";
   const pushHint = useMemo(() => {
     if (!status) return null;
     if (!status.upstream) {
@@ -708,11 +699,6 @@ export function useSourceControlPanel(
     [repo, summary.busyAction],
   );
 
-  const generateCommitMessage = useCallback(async () => {
-    // AI commit message generation removed
-    return;
-  }, []);
-
   const commit = useCallback(async () => {
     if (!repo || summary.busyAction) return;
     setLocalActionBusy("commit");
@@ -785,8 +771,6 @@ export function useSourceControlPanel(
     allClean,
     canPush,
     pushHint,
-    canGenerateCommitMessage,
-    generateCommitMessageHint,
     selectionTransition,
     stagedEmptyText,
     unstagedEmptyText,
@@ -806,7 +790,6 @@ export function useSourceControlPanel(
     cancelPendingDiscard,
     stageAllEntries,
     unstageAllEntries,
-    generateCommitMessage,
     commit,
     push,
   };

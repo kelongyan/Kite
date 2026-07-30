@@ -2,8 +2,8 @@ import type { Messages } from "@/modules/i18n";
 import type { ShortcutId } from "@/modules/shortcuts";
 import type { TerminalIcon } from "@hugeicons/core-free-icons";
 
-export type PaletteIcon = typeof TerminalIcon;
-export type CommandPaletteGroupKey =
+type PaletteIcon = typeof TerminalIcon;
+type CommandPaletteGroupKey =
   keyof Messages["mainShell"]["commandPalette"]["groups"];
 
 export type PaletteItem = {

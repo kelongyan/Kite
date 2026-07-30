@@ -39,8 +39,6 @@ export type GitPanelSnapshot = {
 
 export type GitDiscardEntry = { path: string; untracked: boolean };
 
-export type GitDiffResult = { diffText: string; truncated: boolean };
-
 export type GitDiffContentResult = {
   originalContent: string;
   modifiedContent: string;
@@ -97,10 +95,6 @@ export const native = {
     await invoke("workspace_authorize", { dir }).catch(() => {});
   },
 
-  async gitCanonicalizeRoot(path: string): Promise<string> {
-    return invoke<string>("fs_canonicalize", { path });
-  },
-
   async gitResolveRepo(
     cwd: string,
     workspace?: WorkspaceEnv,
@@ -120,15 +114,6 @@ export const native = {
     workspace?: WorkspaceEnv,
   ): Promise<GitStatusSnapshot> {
     return invoke<GitStatusSnapshot>("git_status", { repoRoot, workspace });
-  },
-
-  async gitDiff(
-    repoRoot: string,
-    path: string | null,
-    staged: boolean,
-    workspace?: WorkspaceEnv,
-  ): Promise<GitDiffResult> {
-    return invoke<GitDiffResult>("git_diff", { repoRoot, path, staged, workspace });
   },
 
   async gitDiffContent(
@@ -175,16 +160,10 @@ export const native = {
     await invoke("git_fetch", { repoRoot, workspace });
   },
 
-  async gitPull(repoRoot: string, workspace?: WorkspaceEnv): Promise<void> {
-    await invoke("git_pull_ff_only", { repoRoot, workspace });
-  },
-
-  /** Alias kept for back-compat with existing callers. */
   async gitPullFfOnly(repoRoot: string, workspace?: WorkspaceEnv): Promise<void> {
     await invoke("git_pull_ff_only", { repoRoot, workspace });
   },
 
-  /** Alias kept for back-compat with existing callers. */
   async canonicalize(path: string): Promise<string> {
     return invoke<string>("fs_canonicalize", { path });
   },
@@ -200,14 +179,6 @@ export const native = {
     workspace?: WorkspaceEnv,
   ): Promise<GitLogEntry[]> {
     return invoke<GitLogEntry[]>("git_log", { repoRoot, limit, beforeSha, workspace });
-  },
-
-  async gitShowCommit(
-    repoRoot: string,
-    sha: string,
-    workspace?: WorkspaceEnv,
-  ): Promise<GitDiffResult> {
-    return invoke<GitDiffResult>("git_show_commit", { repoRoot, sha, workspace });
   },
 
   async gitCommitFiles(

@@ -8,9 +8,7 @@
   "files": {
     "includes": [
       "src/**/*.ts",
-      "src/**/*.tsx",
-      "!src/components/ui/**",
-      "!src/components/ai-elements/**"
+      "src/**/*.tsx"
     ]
   },
   "formatter": {

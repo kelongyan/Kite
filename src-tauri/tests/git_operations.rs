@@ -193,41 +193,6 @@ fn log_on_empty_repo_returns_empty_list() {
 }
 
 #[test]
-fn diff_shows_worktree_change() {
-    if skip_if_no_git() {
-        return;
-    }
-    let fx = GitRepoFixture::new();
-    fx.write_file("a.txt", "alpha\n");
-    fx.run_git(&["add", "a.txt"]);
-    fx.run_git(&["commit", "-q", "-m", "init"]);
-    fx.write_file("a.txt", "alpha\nbeta\n");
-
-    let diff = operations::diff(&fx.registry, &fx.repo_str(), None, false, &fx.workspace)
-        .expect("diff");
-    assert!(diff.diff_text.contains("+beta"));
-}
-
-#[test]
-fn diff_staged_only_shows_index_change() {
-    if skip_if_no_git() {
-        return;
-    }
-    let fx = GitRepoFixture::new();
-    fx.write_file("a.txt", "alpha\n");
-    fx.run_git(&["add", "a.txt"]);
-    fx.run_git(&["commit", "-q", "-m", "init"]);
-    fx.write_file("a.txt", "alpha\nbeta\n");
-    fx.run_git(&["add", "a.txt"]);
-    fx.write_file("a.txt", "alpha\nbeta\ngamma\n");
-
-    let staged = operations::diff(&fx.registry, &fx.repo_str(), None, true, &fx.workspace)
-        .expect("staged diff");
-    assert!(staged.diff_text.contains("+beta"));
-    assert!(!staged.diff_text.contains("+gamma"));
-}
-
-#[test]
 fn discard_tracked_restores_worktree() {
     if skip_if_no_git() {
         return;
@@ -309,44 +274,6 @@ fn panel_snapshot_outside_repo_is_empty() {
             .expect("panel_snapshot");
     assert!(snap.repo.is_none());
     assert!(snap.status.is_none());
-}
-
-#[test]
-fn show_commit_diff_returns_patch_for_known_sha() {
-    if skip_if_no_git() {
-        return;
-    }
-    let fx = GitRepoFixture::new();
-    fx.write_file("a.txt", "alpha\n");
-    fx.run_git(&["add", "a.txt"]);
-    fx.run_git(&["commit", "-q", "-m", "seed"]);
-
-    let entries =
-        operations::log(&fx.registry, &fx.repo_str(), 10, None, &fx.workspace).unwrap();
-    let sha = &entries[0].sha;
-
-    let diff = operations::show_commit_diff(&fx.registry, &fx.repo_str(), sha, &fx.workspace)
-        .expect("show_commit_diff");
-    assert!(diff.diff_text.contains("a.txt"));
-    assert!(diff.diff_text.contains("+alpha"));
-}
-
-#[test]
-fn show_commit_diff_rejects_invalid_sha() {
-    if skip_if_no_git() {
-        return;
-    }
-    let fx = GitRepoFixture::new();
-    match operations::show_commit_diff(
-        &fx.registry,
-        &fx.repo_str(),
-        "not-a-sha",
-        &fx.workspace,
-    ) {
-        Err(GitError::CommandFailed { .. }) => {}
-        Err(other) => panic!("expected CommandFailed, got {other}"),
-        Ok(_) => panic!("expected error for invalid sha"),
-    }
 }
 
 #[test]

@@ -1,7 +1,5 @@
 # SFTP File Transfer Phased Development Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build a production-grade SFTP file transfer workspace in Kite so users can move files between the local computer and a server with clear progress, safe credentials, and reliable error handling.
 
 **Architecture:** Add an SFTP module to the Rust/Tauri backend and a dedicated SFTP tab surface to the React frontend. Rust owns SSH/SFTP connections, credential access, filesystem streaming, host key verification, and transfer events. React owns the dual-pane UI, connection forms, table browsing, actions, and transfer queue state.
@@ -22,7 +20,7 @@
 
 Update this checklist after each phase is completed. Add the commit hash when a commit exists and always add verification commands to the phase notes before handing off.
 
-**Phase completion rule:** after every phase, update the phase checkbox, the phase status, task checkboxes, and the handoff notes before handing work to the next agent or starting the next phase.
+**Phase completion rule:** after every phase, update the phase checkbox, the phase status, task checkboxes, and the handoff notes before starting the next phase.
 
 ## Product Scope
 
@@ -42,7 +40,6 @@ The first release must support safe connection, remote listing, local listing, s
 - No two-way sync in P1.
 - No implicit reuse of an interactive terminal SSH session in P1.
 - No automatic overwrite without user choice.
-- No AI tool access to SFTP in P1.
 
 ## Key Architecture Decisions
 
@@ -293,7 +290,7 @@ sftp_cancel_transfer
   - `pnpm check-types` passed.
   - `pnpm test src/modules/sftp/lib/path.test.ts` passed: 1 file, 3 tests.
   - `pnpm test` passed: 40 files, 298 tests.
-  - `pnpm lint` exited 0. Existing unrelated warnings remain in AI and Settings files.
+  - `pnpm lint` exited 0. Existing unrelated warnings remain.
   - `cd src-tauri; cargo clippy --locked --all-targets` passed with no warnings.
   - `cd src-tauri; cargo test sftp --locked` passed: 20 SFTP tests.
   - `cd src-tauri; cargo test --locked` passed: 191 unit tests plus integration suites.
@@ -380,7 +377,7 @@ sftp_download_entries
   - `pnpm test src/modules/sftp/lib/selection.test.ts src/modules/sftp/lib/conflict.test.ts` passed: 2 files, 5 tests.
   - `pnpm check-types` passed.
   - `pnpm test` passed: 42 files, 303 tests.
-  - `pnpm lint` exited 0. Existing unrelated AI and Settings warnings remain.
+  - `pnpm lint` exited 0. Existing unrelated warnings remain.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo test --lib sftp --locked` passed: 24 SFTP tests.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo clippy --locked --all-targets` passed with no warnings.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo test --locked` passed: 195 unit tests plus integration suites.
@@ -452,7 +449,7 @@ sftp_download_entries
   - `pnpm test src/modules/command-palette/commands.test.ts src/modules/sftp/lib/sshCommand.test.ts` passed: 2 files, 4 tests.
   - `pnpm check-types` passed.
   - `pnpm test` passed: 43 files, 306 tests.
-  - `pnpm lint` exited 0. Existing unrelated AI and Settings warnings remain.
+  - `pnpm lint` exited 0. Existing unrelated warnings remain.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo test --lib ssh_config --locked` passed: 2 SSH config tests.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo test --lib sftp --locked` passed: 26 SFTP tests.
   - `cd src-tauri; rustfmt --check src\modules\sftp\ssh_config.rs` passed for the new Rust module. Full `cargo fmt --check` was not used as a phase gate because the existing Rust tree has unrelated formatting drift.
@@ -478,7 +475,6 @@ sftp_download_entries
 - Create: `src/modules/sftp/components/SyncPreview.tsx`
 - Create: `src/modules/sftp/lib/diffEntries.ts`
 - Modify: `src-tauri/src/modules/sftp/transfer.rs`
-- Modify: `src/modules/ai/tools/tools.ts` only when AI SFTP access is approved
 
 **Tasks:**
 
@@ -488,9 +484,7 @@ sftp_download_entries
 - [x] Add local vs remote comparison preview.
 - [x] Add one-way sync: local to remote.
 - [x] Add one-way sync: remote to local.
-- [x] Add AI tool access only behind explicit approval cards.
 - [x] Add tests for sync diff generation.
-- [x] Add tests for deny-list behavior on AI SFTP requests.
 - [x] Run full frontend and backend verification.
 - [ ] Commit with `feat: add advanced sftp workflows`.
 
@@ -498,7 +492,6 @@ sftp_download_entries
 
 - User can preview sync changes before applying them.
 - Sync never deletes or overwrites without an explicit visible confirmation.
-- AI cannot transfer files without user approval.
 
 ### Phase P4 Handoff
 
@@ -513,15 +506,13 @@ sftp_download_entries
   - `src/modules/sftp/lib/api.ts`
   - `src/modules/sftp/lib/diffEntries.ts`
   - `src/modules/sftp/lib/diffEntries.test.ts`
-  - `src/modules/ai/tools/tools.test.ts`
-  - `src/modules/i18n/messages/en.ts`
   - `src/modules/i18n/messages/zh-CN.ts`
   - `docs/sftp-phased-development-plan.md`
 - Verification:
-  - `pnpm test src/modules/sftp/lib/diffEntries.test.ts src/modules/ai/tools/tools.test.ts` passed: 2 files, 5 tests.
+  - `pnpm test src/modules/sftp/lib/diffEntries.test.ts` passed at implementation time.
   - `pnpm check-types` passed.
   - `pnpm test` passed: 45 files, 311 tests.
-  - `pnpm lint` exited 0. Existing unrelated warnings remain in AI and Settings files.
+  - `pnpm lint` exited 0. Existing unrelated warnings remain.
   - `cd src-tauri; rustfmt --edition 2024 --config skip_children=true --check src\modules\sftp\commands.rs src\lib.rs` passed.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo test --lib sftp --locked` passed: 30 SFTP tests.
   - `cd src-tauri; $env:CARGO_BUILD_JOBS='1'; $env:RUSTFLAGS='-C debuginfo=0'; cargo clippy --locked --all-targets` passed with no warnings.
@@ -532,9 +523,8 @@ sftp_download_entries
   - Resume support uses stable `.kitepart` partial files and resumes when the partial size is smaller than the source total. It does not yet verify partial content with checksums.
   - Upload resume depends on the server accepting seek/write on the existing partial file. Servers that reject that mode may require restarting the transfer.
   - Sync preview compares the currently loaded pane entries and never deletes destination-only files. It does not recursively diff already-existing matching directories yet.
-  - AI SFTP tools remain default-denied. No SFTP tool is exposed to the agent until a separate explicit approval-card design is added.
   - Browser UI verification through plain Vite was attempted, but the app requires the Tauri runtime and crashes in a normal browser due missing Tauri internals. Type, unit, lint, clippy, and Rust tests are the completed verification gates for this phase.
-- Next phase entry point: decide whether to add P5 live-server smoke tests, recursive sync diff, or explicit AI SFTP approval-card tools.
+- Next phase entry point: decide whether to add P5 live-server smoke tests or recursive sync diff.
 
 ## Risk Register
 

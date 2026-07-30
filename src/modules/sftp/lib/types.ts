@@ -64,7 +64,7 @@ export type LocalEntry = {
 
 export type SftpConflictPolicy = "skip" | "overwrite" | "rename";
 
-export type SftpBatchIssue = {
+type SftpBatchIssue = {
   source: string;
   target: string;
   error: string;

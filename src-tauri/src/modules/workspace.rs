@@ -70,31 +70,6 @@ impl WorkspaceRegistry {
     }
 }
 
-// `None` means "use bootstrapped default". `Some` is canonicalized to defeat
-// symlink/`..` traversal and must sit under an authorized root.
-pub fn authorize_spawn_cwd(
-    registry: &WorkspaceRegistry,
-    cwd: Option<&str>,
-    workspace: &WorkspaceEnv,
-) -> Result<Option<PathBuf>, String> {
-    let Some(cwd) = cwd.map(str::trim).filter(|s| !s.is_empty()) else {
-        return Ok(None);
-    };
-    let resolved = resolve_path(cwd, workspace);
-    let canonical =
-        std::fs::canonicalize(&resolved).map_err(|e| format!("cwd not accessible: {e}"))?;
-    if !canonical.is_dir() {
-        return Err(format!("cwd is not a directory: {}", canonical.display()));
-    }
-    if !registry.is_authorized(&canonical) {
-        return Err(format!(
-            "cwd is outside the authorized workspace: {}",
-            canonical.display()
-        ));
-    }
-    Ok(Some(canonical))
-}
-
 // User-initiated terminal spawn: canonicalize, require a real dir, and register
 // it as a root instead of rejecting paths outside existing roots.
 pub fn authorize_user_spawn_cwd(
@@ -116,7 +91,7 @@ pub fn authorize_user_spawn_cwd(
 }
 
 // A requested cwd can be stale, missing, or from another environment (e.g. a
-// Windows path in a now-WSL space); the terminal must still open, so fall back
+// Windows path after switching to WSL); the terminal must still open, so fall back
 // to home.
 pub fn user_spawn_cwd_or_home(
     registry: &WorkspaceRegistry,
@@ -400,7 +375,7 @@ pub fn wsl_path_to_unc(distro: &str, path: &str) -> PathBuf {
     // and is normally trustworthy, but a locally-registered malicious distro
     // can name itself with traversal characters; this filter blocks that.
     if !is_safe_distro_name(distro) {
-        return PathBuf::from(r"\\wsl.localhost\__terax_invalid_distro__");
+        return PathBuf::from(r"\\wsl.localhost\__kite_invalid_distro__");
     }
     let normalized = path.replace('\\', "/");
     let trimmed = normalized.trim_start_matches('/');
@@ -549,27 +524,6 @@ pub async fn wsl_list_distros() -> Result<Vec<WslDistro>, String> {
 }
 
 #[tauri::command]
-pub async fn wsl_default_distro() -> Result<Option<String>, String> {
-    #[cfg(not(windows))]
-    {
-        Ok(None)
-    }
-    #[cfg(windows)]
-    {
-        tauri::async_runtime::spawn_blocking(|| {
-            let distros = list_distros_blocking()?;
-            Ok(distros
-                .iter()
-                .find(|d| d.default)
-                .map(|d| d.name.clone())
-                .or_else(|| distros.first().map(|d| d.name.clone())))
-        })
-        .await
-        .map_err(|e| e.to_string())?
-    }
-}
-
-#[tauri::command]
 pub fn wsl_home(distro: String) -> Result<String, String> {
     #[cfg(not(windows))]
     {
@@ -653,7 +607,7 @@ mod tests {
         // never escape the WSL share root.
         let p = wsl_path_to_unc("..\\..\\..\\Windows", "/etc/passwd");
         let s = p.to_string_lossy();
-        assert!(s.contains("__terax_invalid_distro__"), "got: {s}");
+        assert!(s.contains("__kite_invalid_distro__"), "got: {s}");
         assert!(!s.contains("\\..\\"), "got: {s}");
     }
 
@@ -661,7 +615,7 @@ mod tests {
     fn wsl_path_to_unc_accepts_valid_distro() {
         let p = wsl_path_to_unc("Ubuntu", "/etc/hosts");
         let s = p.to_string_lossy();
-        assert!(!s.contains("__terax_invalid_distro__"), "got: {s}");
+        assert!(!s.contains("__kite_invalid_distro__"), "got: {s}");
     }
 
     #[test]
@@ -729,82 +683,9 @@ mod auth_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        p.push(format!("terax-auth-{label}-{nanos}-{}", std::process::id()));
+        p.push(format!("kite-auth-{label}-{nanos}-{}", std::process::id()));
         fs::create_dir_all(&p).expect("create tempdir");
         fs::canonicalize(&p).expect("canonicalize tempdir")
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_accepts_none() {
-        let reg = WorkspaceRegistry::default();
-        assert!(authorize_spawn_cwd(&reg, None, &WorkspaceEnv::Local)
-            .unwrap()
-            .is_none());
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_accepts_empty_string() {
-        let reg = WorkspaceRegistry::default();
-        assert!(authorize_spawn_cwd(&reg, Some("   "), &WorkspaceEnv::Local)
-            .unwrap()
-            .is_none());
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_accepts_authorized_path() {
-        let dir = tempdir("ok");
-        let reg = WorkspaceRegistry::default();
-        reg.authorize(&dir).expect("authorize root");
-        let s = dir.to_string_lossy().into_owned();
-        let resolved = authorize_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
-            .expect("authorized")
-            .expect("returned canonical");
-        assert_eq!(resolved, dir);
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_accepts_subdir_of_authorized_root() {
-        let root = tempdir("subroot");
-        let sub = root.join("inside");
-        fs::create_dir_all(&sub).expect("subdir");
-        let canonical_sub = fs::canonicalize(&sub).expect("canon sub");
-        let reg = WorkspaceRegistry::default();
-        reg.authorize(&root).expect("authorize root");
-        let s = canonical_sub.to_string_lossy().into_owned();
-        let resolved = authorize_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
-            .expect("subdir authorized")
-            .expect("returned canonical");
-        assert_eq!(resolved, canonical_sub);
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_rejects_unauthorized_path() {
-        let allowed = tempdir("allowed");
-        let foreign = tempdir("foreign");
-        let reg = WorkspaceRegistry::default();
-        reg.authorize(&allowed).expect("authorize root");
-        let s = foreign.to_string_lossy().into_owned();
-        let err = authorize_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
-            .expect_err("should reject unauthorized cwd");
-        assert!(err.contains("outside"), "got: {err}");
-    }
-
-    #[test]
-    fn authorize_spawn_cwd_rejects_missing_path() {
-        let mut missing = env::temp_dir();
-        missing.push(format!(
-            "terax-missing-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        ));
-        let reg = WorkspaceRegistry::default();
-        let s = missing.to_string_lossy().into_owned();
-        let err = authorize_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
-            .expect_err("should reject missing path");
-        assert!(err.contains("cwd not accessible"), "got: {err}");
     }
 
     #[test]
@@ -823,7 +704,7 @@ mod auth_tests {
     #[test]
     fn authorize_user_spawn_cwd_rejects_missing_path() {
         let mut missing = env::temp_dir();
-        missing.push(format!("terax-user-missing-{}", std::process::id()));
+        missing.push(format!("kite-user-missing-{}", std::process::id()));
         let reg = WorkspaceRegistry::default();
         let s = missing.to_string_lossy().into_owned();
         let err = authorize_user_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
@@ -846,7 +727,7 @@ mod auth_tests {
     #[test]
     fn user_spawn_cwd_or_home_falls_back_when_inaccessible() {
         let mut missing = env::temp_dir();
-        missing.push(format!("terax-orhome-missing-{}", std::process::id()));
+        missing.push(format!("kite-orhome-missing-{}", std::process::id()));
         let reg = WorkspaceRegistry::default();
         let s = missing.to_string_lossy().into_owned();
         assert_eq!(
@@ -869,27 +750,6 @@ mod auth_tests {
     }
 
     #[test]
-    fn authorize_spawn_cwd_blocks_symlink_escape() {
-        let allowed = tempdir("symroot");
-        let outside = tempdir("symtarget");
-        let link = allowed.join("escape");
-        #[cfg(unix)]
-        std::os::unix::fs::symlink(&outside, &link).expect("symlink");
-        #[cfg(windows)]
-        match std::os::windows::fs::symlink_dir(&outside, &link) {
-            Ok(()) => {}
-            Err(e) if e.raw_os_error() == Some(1314) => return,
-            Err(e) => panic!("symlink: {e}"),
-        }
-        let reg = WorkspaceRegistry::default();
-        reg.authorize(&allowed).expect("authorize root");
-        let s = link.to_string_lossy().into_owned();
-        let err = authorize_spawn_cwd(&reg, Some(&s), &WorkspaceEnv::Local)
-            .expect_err("symlink-escape must be rejected");
-        assert!(err.contains("outside"), "got: {err}");
-    }
-
-    #[test]
     fn resolve_launch_cwd_uses_cli_dir() {
         let cli = tempdir("cli");
         let s = cli.to_string_lossy().into_owned();
@@ -904,7 +764,7 @@ mod auth_tests {
 
     #[test]
     fn resolve_launch_cwd_ignores_nonexistent_cli_dir() {
-        let resolved = resolve_launch_cwd(Some("/no/such/terax/dir"));
+        let resolved = resolve_launch_cwd(Some("/no/such/kite/dir"));
         assert_eq!(resolved, None);
     }
 }

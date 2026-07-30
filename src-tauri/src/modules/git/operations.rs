@@ -9,7 +9,7 @@ use crate::modules::git::process::{
 };
 use crate::modules::git::types::{
     DiscardEntry, GitBranchEntry, GitBranchListResult, GitCommitFileChange, GitCommitResult,
-    GitDiffContentResult, GitDiffResult, GitLogEntry, GitOutput, GitPanelSnapshot,
+    GitDiffContentResult, GitLogEntry, GitOutput, GitPanelSnapshot,
     GitPushResult, GitRepoInfo, GitStatusSnapshot, TextSource, DEFAULT_TIMEOUT_SECS,
     NETWORK_TIMEOUT_SECS,
 };
@@ -158,53 +158,6 @@ fn status_inner(repo_root: &ResolvedGitDirectory) -> Result<GitStatusSnapshot> {
     })
 }
 
-pub fn diff(
-    registry: &WorkspaceRegistry,
-    repo_root: &str,
-    path: Option<&str>,
-    staged: bool,
-    workspace: &WorkspaceEnv,
-) -> Result<GitDiffResult> {
-    let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
-    ensure_git_available(&repo_root.workspace)?;
-    diff_inner(&repo_root, path, staged)
-}
-
-fn diff_inner(
-    repo_root: &ResolvedGitDirectory,
-    path: Option<&str>,
-    staged: bool,
-) -> Result<GitDiffResult> {
-    let mut args: Vec<OsString> = vec!["diff".into(), "--no-ext-diff".into()];
-    if staged {
-        args.push("--cached".into());
-    }
-    let pathspec = match path.filter(|p| !p.is_empty()) {
-        Some(p) => Some(pathspec_from_input(&repo_root.local_path, p)?),
-        None => None,
-    };
-    if let Some(spec) = pathspec.as_ref() {
-        args.push("--".into());
-        args.push(spec.clone().into());
-    }
-    let output = run_git(
-        &repo_root.workspace,
-        Some(&repo_root.git_path),
-        args,
-        DEFAULT_TIMEOUT_SECS,
-    )?;
-    ensure_success(&output, "git diff failed")?;
-
-    let diff_text = match String::from_utf8(output.stdout) {
-        Ok(text) => text,
-        Err(e) => String::from_utf8_lossy(&e.into_bytes()).into_owned(),
-    };
-    Ok(GitDiffResult {
-        diff_text,
-        truncated: output.truncated,
-    })
-}
-
 pub fn diff_content(
     registry: &WorkspaceRegistry,
     repo_root: &str,
@@ -249,7 +202,7 @@ pub fn diff_content(
     } else {
         read_text_file(&worktree_path)?
     };
-    let patch = diff_inner(&repo_root, Some(&rel_path), staged)?;
+    let (fallback_patch, truncated) = diff_patch(&repo_root, &rel_path, staged)?;
     let is_binary =
         matches!(original, TextSource::Binary) || matches!(modified, TextSource::Binary);
 
@@ -257,9 +210,33 @@ pub fn diff_content(
         original_content: original.into_text(),
         modified_content: modified.into_text(),
         is_binary,
-        fallback_patch: patch.diff_text,
-        truncated: patch.truncated,
+        fallback_patch,
+        truncated,
     })
+}
+
+fn diff_patch(
+    repo_root: &ResolvedGitDirectory,
+    path: &str,
+    staged: bool,
+) -> Result<(String, bool)> {
+    let mut args: Vec<OsString> = vec!["diff".into(), "--no-ext-diff".into()];
+    if staged {
+        args.push("--cached".into());
+    }
+    args.push("--".into());
+    args.push(pathspec_from_input(&repo_root.local_path, path)?.into());
+    let output = run_git(
+        &repo_root.workspace,
+        Some(&repo_root.git_path),
+        args,
+        DEFAULT_TIMEOUT_SECS,
+    )?;
+    ensure_success(&output, "git diff failed")?;
+    let truncated = output.truncated;
+    let text = String::from_utf8(output.stdout)
+        .unwrap_or_else(|error| String::from_utf8_lossy(&error.into_bytes()).into_owned());
+    Ok((text, truncated))
 }
 
 pub fn stage(
@@ -578,41 +555,6 @@ pub fn log(
         }
     }
     Ok(entries)
-}
-
-pub fn show_commit_diff(
-    registry: &WorkspaceRegistry,
-    repo_root: &str,
-    sha: &str,
-    workspace: &WorkspaceEnv,
-) -> Result<GitDiffResult> {
-    let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
-    ensure_git_available(&repo_root.workspace)?;
-    if !sha_is_safe(sha) {
-        return Err(GitError::command("git show", "invalid commit identifier"));
-    }
-    let output = run_git(
-        &repo_root.workspace,
-        Some(&repo_root.git_path),
-        [
-            OsStr::new("show"),
-            OsStr::new("--no-color"),
-            OsStr::new("--no-ext-diff"),
-            OsStr::new("--patch-with-stat"),
-            OsStr::new(sha),
-            OsStr::new("--"),
-        ],
-        DEFAULT_TIMEOUT_SECS,
-    )?;
-    ensure_success(&output, "git show failed")?;
-    let diff_text = match String::from_utf8(output.stdout) {
-        Ok(text) => text,
-        Err(e) => String::from_utf8_lossy(&e.into_bytes()).into_owned(),
-    };
-    Ok(GitDiffResult {
-        diff_text,
-        truncated: output.truncated,
-    })
 }
 
 fn parse_shortstat(tail: &str) -> (u32, u32, u32) {

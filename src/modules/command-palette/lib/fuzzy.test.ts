@@ -22,7 +22,7 @@ describe("fuzzyScore", () => {
   });
 
   it("scores word-boundary matches above mid-word matches", () => {
-    expect(score("np", "new private")).toBeGreaterThan(score("np", "unzip"));
+    expect(score("np", "new pane")).toBeGreaterThan(score("np", "unzip"));
   });
 
   it("rewards consecutive runs over scattered matches", () => {
@@ -34,7 +34,7 @@ describe("fuzzyScore", () => {
 
 describe("fuzzyBest", () => {
   it("takes the highest-scoring candidate", () => {
-    const score = fuzzyBest("ai", ["close tab", "toggle ai agent"]);
+    const score = fuzzyBest("fi", ["close tab", "find files"]);
     expect(score).not.toBeNull();
   });
 

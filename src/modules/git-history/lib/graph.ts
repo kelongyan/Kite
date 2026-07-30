@@ -17,9 +17,9 @@
 
 import type { GitLogEntry } from "@/lib/native";
 
-export type LaneColor = string;
+type LaneColor = string;
 
-export const LANE_COLORS: LaneColor[] = [
+const LANE_COLORS: LaneColor[] = [
   "#60a5fa", // blue-400
   "#c084fc", // purple-400
   "#34d399", // emerald-400
@@ -30,7 +30,7 @@ export const LANE_COLORS: LaneColor[] = [
   "#a3e635", // lime-400
 ];
 
-export function laneColor(index: number): LaneColor {
+function laneColor(index: number): LaneColor {
   return LANE_COLORS[index % LANE_COLORS.length];
 }
 

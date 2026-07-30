@@ -68,7 +68,7 @@ stdenv.mkDerivation {
   '';
 
   meta = with lib; {
-    description = "Open-source lightweight cross-platform AI-native terminal (ADE)";
+    description = "Open-source lightweight cross-platform terminal emulator";
     homepage = "https://github.com/kelongyan/Kite";
     license = licenses.asl20;
     platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
@@ -8,7 +8,9 @@
     <script>
       (function () {
         try {
-          var t = localStorage.getItem("terax-ui-theme-shadow");
+          var t =
+            localStorage.getItem("kite-ui-theme-shadow") ??
+            localStorage.getItem("terax-ui-theme-shadow");
           var resolved =
             t === "light" || t === "dark"
               ? t

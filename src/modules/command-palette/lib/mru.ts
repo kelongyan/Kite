@@ -1,14 +1,25 @@
 // Non-critical, single-window usage ranking. localStorage keeps it off the
 // preferences store and its IPC change-broadcast path.
 
-const KEY = "terax-palette-mru";
+const KEY = "kite-palette-mru";
+const LEGACY_KEY = "terax-palette-mru";
 const MAX_ENTRIES = 120;
 
 type MruMap = Record<string, number>;
 
 function read(): MruMap {
   try {
-    const raw = localStorage.getItem(KEY);
+    let raw = localStorage.getItem(KEY);
+    if (raw === null) {
+      raw = localStorage.getItem(LEGACY_KEY);
+      if (raw !== null) {
+        try {
+          localStorage.setItem(KEY, raw);
+        } catch {
+          // Keep the in-memory legacy value when storage is read-only.
+        }
+      }
+    }
     return raw ? (JSON.parse(raw) as MruMap) : {};
   } catch {
     return {};

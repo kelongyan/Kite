@@ -1,7 +1,7 @@
-export const TERMINAL_CURSOR_SHAPES = ["bar", "block", "underline"] as const;
+const TERMINAL_CURSOR_SHAPES = ["bar", "block", "underline"] as const;
 export type TerminalCursorShape = (typeof TERMINAL_CURSOR_SHAPES)[number];
 
-export const TERMINAL_CURSOR_ANIMATIONS = [
+const TERMINAL_CURSOR_ANIMATIONS = [
   "steady",
   "blink",
   "smooth",
@@ -10,7 +10,7 @@ export const TERMINAL_CURSOR_ANIMATIONS = [
 export type TerminalCursorAnimation =
   (typeof TERMINAL_CURSOR_ANIMATIONS)[number];
 
-export const TERMINAL_CURSOR_WIDTHS = [1, 2, 3, 4] as const;
+const TERMINAL_CURSOR_WIDTHS = [1, 2, 3, 4] as const;
 export type TerminalCursorWidth = (typeof TERMINAL_CURSOR_WIDTHS)[number];
 export type TerminalCursorRenderStrategy = "native" | "overlay";
 

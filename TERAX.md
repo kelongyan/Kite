@@ -1,164 +1,205 @@
 # TERAX.md
 
-Kite loads `TERAX.md` from the workspace root as agent memory (similar to AGENTS.md / CLAUDE.md). This file is also the project's living architecture doc — read it before making changes.
+Kite loads `TERAX.md` from the workspace root as coding-assistant memory. This file is
+also the living architecture reference. Read it before making changes and keep
+it aligned with structural changes.
 
 ## Project
 
-**Kite** — open-source terminal emulator. Tauri 2 + Rust (`portable-pty`) backend, React 19 + TypeScript + xterm.js (webgl) client.
+Kite is an open-source, lightweight, cross-platform terminal emulator.
 
+- Desktop runtime: Tauri 2
+- Backend: Rust 2021, `portable-pty`, `ssh2`
+- Frontend: React 19, TypeScript, Vite, xterm.js, CodeMirror 6
+- Package manager: pnpm only
 - Bundle id: `app.kelongyan.kite`
-- Package manager: **pnpm**
-- Platforms: macOS, Linux, Windows
-- Frontend checks: `pnpm lint`, `pnpm check-types`, `pnpm test`
-- Rust checks: `cd src-tauri && cargo clippy && cargo test --locked`
+- Platforms: macOS, Linux, Windows, including WSL workspaces
 
-## Quality bar
+Common gates:
 
-Production-grade or it does not ship. Every change is judged against all of these, not just "it works":
+```text
+pnpm lint
+pnpm check-types
+pnpm test
+pnpm build
+pnpm analyze:eager
+pnpm size
+pnpm knip
 
-- **Correctness**: edge cases, failure modes, concurrent access. No "works for now".
-- **Performance**: ultra-lightweight is the product. ~7-8 MB bundle, high-performance terminal. For every change ask: how much RAM it costs, whether it adds IPC round-trips or redundant requests, whether it triggers extra re-renders or wasted work, whether it pulls a heavy dependency. Unused features consume zero resources.
-- **Security**: no critical security holes. Validate at every boundary (IPC, fs, network, AI tool surface). The secret-path deny-list applies on both read and write and is never bypassed.
-- **UI/UX**: polished, professional, premium. Every state and detail considered.
-- **Architecture**: new or changed logic lives in pure, dependency-light functions (functional core); tauri commands and React components stay thin (imperative shell). Keeps it testable without a later rewrite.
+cd src-tauri
+cargo check --all-targets --locked
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+```
 
-Verify before claiming done: `pnpm lint`, `pnpm check-types`, `pnpm test`, `cargo clippy`, `cargo test --locked`. A change to a core subsystem (terminal/shell spawn, workspace auth, git, fs, IPC or AI tool surface) needs a test that locks the invariant.
+## Quality Bar
 
-## Conventions
+- Correctness: handle edge cases, failures, and concurrent access.
+- Performance: avoid unnecessary IPC, renders, memory, and dependencies.
+- Security: validate IPC, filesystem, process, Git, and network boundaries.
+- UI/UX: keep every state polished, accessible, and platform appropriate.
+- Architecture: put new logic in pure, dependency-light functions and keep
+  Tauri commands and React components thin.
 
-- **Comments**: default to none, the code should explain itself. If genuinely needed, 1-2 lines on *why*, never *what*. No AI-generic filler.
-- **No em-dash** anywhere: code, comments, commits, docs.
-- **No emojis** anywhere.
-- **Imports**: always `@/...` on the frontend, never relative across modules.
-- **pnpm only**, never npm/npx/yarn.
-
-## Architecture
-
-### Two-process model
-- Package manager: **pnpm**
-- Platforms: macOS, Linux, Windows
-- Frontend checks: `pnpm lint`, `pnpm check-types`, `pnpm test`
-- Rust checks: `cd src-tauri && cargo clippy && cargo test --locked`
-
-## Quality bar
-
-Production-grade or it does not ship. Every change is judged against all of these, not just "it works":
-
-- **Correctness**: edge cases, failure modes, concurrent access. No "works for now".
-- **Performance**: ultra-lightweight is the product. ~7-8 MB bundle, high-performance terminal. For every change ask: how much RAM it costs, whether it adds IPC round-trips or redundant requests, whether it triggers extra re-renders or wasted work, whether it pulls a heavy dependency. Unused features consume zero resources.
-- **Security**: no critical security holes. Validate at every boundary (IPC, fs, network).
-- **UI/UX**: polished, professional, premium. Every state and detail considered.
-- **Architecture**: new or changed logic lives in pure, dependency-light functions (functional core); tauri commands and React components stay thin (imperative shell). Keeps it testable without a later rewrite.
-
-Verify before claiming done: `pnpm lint`, `pnpm check-types`, `pnpm test`, `cargo clippy`, `cargo test --locked`. A change to a core subsystem (terminal/shell spawn, workspace auth, git, fs, IPC) needs a test that locks the invariant.
+Changes to terminal spawning, workspace authorization, Git, filesystem, IPC,
+or SFTP security need tests that lock the relevant invariant.
 
 ## Conventions
 
-- **Comments**: default to none, the code should explain itself. If genuinely needed, 1-2 lines on *why*, never *what*. No AI-generic filler.
-- **No em-dash** anywhere: code, comments, commits, docs.
-- **No emojis** anywhere.
-- **Imports**: always `@/...` on the frontend, never relative across modules.
-- **pnpm only**, never npm/npx/yarn.
+- Comments explain why, not what. Prefer self-explanatory code.
+- Do not use em dashes or emojis in code, comments, commits, or docs.
+- Frontend imports across modules use `@/...`.
+- Use pnpm, never npm, npx, or yarn.
+- Normalize cross-platform paths at boundaries. Frontend canonical paths use
+  forward slashes and path splitting must accept both `/` and `\`.
 
-## Architecture
+## Process Boundary
 
-### Two-process model
+Rust under `src-tauri/` owns operating-system access. The webview does not
+touch shells, processes, Git, SFTP, or the local filesystem directly. Calls go
+through commands registered in `src-tauri/src/lib.rs`; streaming uses Tauri
+channels and events.
 
-**Rust (`src-tauri/`)** owns all OS access. The webview never touches the FS, processes, or shells directly — everything goes through `invoke()` calls to commands registered in `src-tauri/src/lib.rs`:
+Backend command groups:
 
-- `pty::pty_*` — long-lived interactive PTY sessions (xterm ↔ portable-pty), managed by `PtyState` (`RwLock<HashMap<id, Session>>`). Output streams via a Tauri `Channel<PtyEvent>`.
-- `fs::tree::*` (`fs_read_dir`, `list_subdirs`), `fs::file::*` (`fs_read_file`, `fs_write_file`, `fs_stat`, `fs_canonicalize`), `fs::mutate::*` (`fs_create_file`, `fs_create_dir`, `fs_rename`, `fs_delete`): file explorer + editor IO.
-- `fs::search::*` (`fs_search`, `fs_list_files`), `fs::grep::*` (`fs_grep`, `fs_glob`): fuzzy file finder + content search (powered by `ignore` + `grep-*` crates).
-- `git::commands::*`: full source-control surface (`git_status`, `git_diff`, `git_diff_content`, `git_stage`, `git_unstage`, `git_discard`, `git_commit`, `git_fetch`, `git_pull_ff_only`, `git_push`, `git_log`, `git_show_commit`, `git_commit_files`, `git_commit_file_diff`, `git_panel_snapshot`, `git_resolve_repo`, `git_remote_url`). All gated through the workspace authorization registry.
-- `shell::shell_run_command`: one-shot subshell exec. Distinct from PTY sessions; not the user's interactive terminal. On Windows via PowerShell (`-NoProfile -Command`), on Unix via `$SHELL -lc`. Shared helper `build_oneshot_command`.
-- `shell::shell_session_*`: persistent shell with state across calls. `shell::shell_bg_*` (`spawn`, `logs`, `kill`, `list`): long-running background processes (dev servers etc.) with bounded ring-buffer log capture.
-- `workspace::*`: `workspace_authorize` / `workspace_current_dir` (explicit launch dir from "Open in Kite" / CLI, otherwise user home, plus the spawn/git cwd authorization registry) plus the WSL bridge (`wsl_list_distros`, `wsl_default_distro`, `wsl_home`).
-- `open_settings_window`: separate webview window for Settings (optional `tab` arg deep-links a section).
+- `pty::*`: open, write, resize, close, foreground-process checks, shell list.
+- `fs::tree`, `fs::file`, `fs::mutate`: directory, file, and mutation APIs.
+- `fs::watch`, `fs::search`, `fs::grep`: watchers, fuzzy search, interactive
+  content search.
+- `git::commands`: repository resolution, status snapshots, diffs, stage,
+  discard, commit, remotes, log, and branch operations.
+- `sftp::commands`: profiles, sessions, directory operations, search,
+  transfers, and cancellation.
+- `workspace::*`: authorization, current directory, WSL list and home.
+- `history::*`: shell history suggestions, recording, and listing.
+- `open_settings_window`: creates or focuses the separate settings webview.
 
-### PTY shell integration
+Every filesystem, Git, and process entry point must preserve workspace
+authorization. Do not add a command only to expose an internal helper.
 
-PTY shells are bootstrapped via injected init scripts in `src-tauri/src/modules/pty/scripts/`:
+## PTY And Shell Integration
 
-- **Unix** (`zshenv.zsh`, `zprofile.zsh`, `zlogin.zsh`, `zshrc.zsh`, `bashrc.bash`) — installed via `ZDOTDIR` (zsh) or `--rcfile` (bash). Emit OSC 7 (cwd) and OSC 133 A/B/C/D (prompt boundaries + exit code) so the host can track cwd and detect command boundaries without re-parsing the prompt.
-- **Windows** (`profile.ps1`) — passed via `pwsh -NoLogo -NoExit -ExecutionPolicy Bypass -File <path>`. Wraps the user's existing `prompt` function (after their `$PROFILE` runs) to emit OSC 7 + OSC 133 A/B/D. Shell priority: `pwsh.exe` (PS 7+) → `powershell.exe` (PS 5.1) → `cmd.exe` (no integration). cwd is normalized to backslashes before being passed to ConPTY (`CreateProcessW` misbehaves with forward-slash cwd).
+PTY sessions are managed by `PtyState` and `portable-pty`. Shell bootstrap
+scripts live in `src-tauri/src/modules/pty/scripts/` and emit:
 
-`pty/shell_init.rs` is split into `#[cfg(unix)]` / `#[cfg(windows)]` modules — keep new platform-specific code in the right cfg arm.
+- OSC 7 for cwd tracking.
+- OSC 133 A/B/C/D for prompt and command boundaries.
 
-ConPTY on Windows requires `SPAWN_LOCK` (Mutex) around `openpty + spawn_command` in `session.rs`. Concurrent spawns leave one of the resulting PTYs with a stalled output pipe. Don't remove the lock without verifying first-tab stability under fast tab spam.
+Platform rules:
 
-Each ConPTY child is also assigned to a per-session **Job Object** with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (`pty/job.rs`). When the Job HANDLE drops — clean shutdown, panic, or even SIGKILL'd Kite process — the kernel kills every descendant of the shell (e.g. `npm run dev` spawned from inside pwsh). Without this Windows orphans the entire process subtree because `TerminateProcess` only kills the immediate child. macOS/Linux rely on `Drop for Session → killer.kill()`; on dev-`Ctrl-C` of `cargo run` destructors don't fire and orphans are possible there too — acceptable for now since dev only.
+- Unix shells use injected zsh, bash, or fish initialization.
+- Windows prefers `pwsh.exe`, then `powershell.exe`, then `cmd.exe`.
+- Enter is sent as carriage return (`\r`), not line feed.
+- Windows cwd values are normalized before ConPTY spawn.
+- `SPAWN_LOCK` serializes `openpty + spawn_command` on Windows. Removing it can
+  stall one of multiple concurrent ConPTY sessions.
+- Each Windows session uses a Job Object with kill-on-close so child process
+  trees do not survive Kite unexpectedly.
 
-### Frontend (`src/`)
+React 19 Strict Mode mounts effects twice in development. An initial PTY may
+open and close immediately before the real session starts.
 
-Single-window React app. Path alias `@/*` → `src/*`. Tabs are a tagged union (`kind`: `terminal` | `editor` | `preview` | `markdown` | `git-diff` | `git-history` | `git-commit-file`) and **not** unmounted on switch — they're hidden via `invisible pointer-events-none` so PTYs and dev servers keep streaming in the background.
+## Frontend
 
-`App.tsx` wires modules together — keep it a coordinator. New features go inside the appropriate `modules/<area>/`.
+There are two Vite entry points:
 
-### Module layout (`src/modules/`)
+- `src/main.tsx`: main workspace.
+- `src/settings/main.tsx`: separate settings window.
 
-Each module is self-contained, exports a thin barrel via `index.ts`, and owns its hooks under `lib/`.
+`src/app/App.tsx` coordinates modules. Feature logic belongs in
+`src/modules/<area>/`. Module barrels should expose only consumers' actual
+public surface.
 
-- **terminal/** — `TerminalStack` keeps one mounted xterm per tab via `useTerminalSession` + `pty-bridge`. `osc-handlers.ts` parses OSC 7 (with Windows drive-letter normalization: `/C:/Users/foo` → `C:/Users/foo`) and OSC 133 markers. The xterm color palette is driven by the central theme engine (`modules/theme`), not a local table. Renderer slots are pooled (`rendererPool.ts`, max 5): a hidden leaf keeps its live grid parked with rendering paused via `display:none`; an idle hidden leaf releases its slot but the buffer is retained and serialized lazily only when another leaf steals it. The `DormantRing` (1 MiB, no terminal reset on overflow) buffers bytes only for leaves whose slot was stolen or never bound.
-- **editor/** — CodeMirror 6 stack (`EditorStack` mirrors `TerminalStack`). `extensions.ts` configures language modes; supports vim mode. Editor theme is decoupled from the app theme: the `editorTheme` pref is `"auto" | EditorThemeId` (default `"auto"`), resolved at render time by `useEditorThemeExt` via `resolveEditorThemeId`. In `auto` the editor follows the active app theme's `editorTheme[mode]` pairing (live, never stale); an explicit pick overrides. Theme ids + labels live in `settings/store.ts` (`EDITOR_THEMES`/`EDITOR_THEME_LABELS`); the matching extensions in `editor/lib/themes.ts` (`EDITOR_THEME_EXT`). Prebuilt `@uiw` themes plus locally-built ones in `editor/lib/cmThemes.ts` (Kanagawa wave/lotus/dragon, Everforest, Dracula, Solarized, Catppuccin, Rosé Pine) via `createTheme` (no extra deps). The CM surfaces (`EditorPane`, `GitDiffPane`) all read the theme through `useEditorThemeExt`.
-- **explorer/** — file tree with Material/Catppuccin icons (`iconResolver.ts`), fuzzy search, keyboard nav, inline rename, context actions. Backslash-aware `basename`.
-- **preview/** — auto-detected dev-server preview tab (status-bar pill suggests opening when a localhost URL is detected).
-- **tabs/** — `useTabs` is the source of truth for tab list + active id. `useWorkspaceCwd` derives explorer root + inherited cwd for new tabs from active tab. `basename` splits on both `/` and `\`.
-- **header/** — top bar + inline search (`SearchInline` adapts to terminal vs editor via `SearchTarget`). `WindowControls` rendered when `USE_CUSTOM_WINDOW_CONTROLS` is true (Linux + Windows; macOS uses native traffic lights).
-- **statusbar/** — bottom bar, `CwdBreadcrumb` (handles Unix paths, Windows drive letters, and home `~` segments via `pathUtils.segmentsFromCwd`).
-- **shortcuts/** — keymap registry (`shortcuts.ts`) + `useGlobalShortcuts`. Handlers live in `App.tsx` and are passed in by id (`tab.new`, …). `metaKey || ctrlKey` for cross-platform Cmd/Ctrl.
-- **settings/** — settings store (`store.ts` via `tauri-plugin-store`), preferences hook, settings window opener.
-- **sidebar/** — activity bar + collapsible side panels (explorer, source control, git history).
-- **source-control/** — git status / stage / commit panel and diff workflow.
-- **git-history/** — commit graph rail, refs, per-commit file diffs.
-- **markdown/** — markdown preview renderer (backs the `markdown` tab kind).
-- **workspace/** — workspace environment switching (Local + WSL distros).
-- **theme/** — custom theme engine (no `next-themes`). `ThemeProvider` + `applyTheme` write CSS variables; built-in presets in `themes/` (terax-default, claude, kanagawa, kanagawa-dragon, tokyo-night, catppuccin, rose-pine, everforest, nord, gruvbox, dracula, solarized, tide, sage, caffeine), each optionally declaring an `editorTheme` pairing consumed by `resolveEditorThemeId` (see editor/). User themes via `customThemes.ts` + `validateTheme.ts`.
+Current tab kinds are:
 
-### UI conventions
+- `terminal`
+- `editor`
+- `markdown`
+- `git-diff`
+- `git-history`
+- `git-commit-file`
+- `sftp`
 
-- **shadcn/ui** is configured (`components.json`, style `radix-luma`, base `mist`, icon lib **hugeicons**). Primitives in `src/components/ui/` — don't hand-edit; re-run `pnpm dlx shadcn add` to upgrade.
-- **Tailwind v4** — no `tailwind.config.*`, config is in `src/styles/globals.css` via `@theme`. Use `cn()` from `@/lib/utils`.
-- Animation: local CSS tokens + `usePresence` for lightweight transitions; no `motion` runtime dependency. Resizable layout: `react-resizable-panels`.
-- Path imports: always `@/…`, never relative across modules.
-- Cross-platform paths: anywhere a path may originate from OSC 7, the explorer, or the OS, normalize separators with `.split(/[\\/]/)` rather than `.split("/")`.
-- Canonical path form on the frontend is **forward-slash**. `homeDir()` returns backslashes on Windows; convert at the boundary (App.tsx setHome). OSC 7 already arrives as forward-slash. Equal canonical strings keep `useFileTree` from wiping its tree and flashing the explorer when `tab.cwd` first arrives.
+Mounted, booted tabs remain alive while inactive so PTYs and editors keep their
+state. Terminal tabs contain a binary pane tree and allow at most four panes.
 
-### Window styling
+### Modules
 
-- macOS: `titleBarStyle: Overlay` + `hiddenTitle: true` in `tauri.conf.json` (native traffic lights via overlay).
-- Linux: `decorations: false` + `transparent: true` from `tauri.linux.conf.json`; re-asserted post-realize for GNOME/Mutter CSD.
-- Windows: same as Linux via `tauri.windows.conf.json`. React renders custom `WindowControls`.
+- `terminal`: xterm sessions, split panes, block mode, renderer pool, OSC.
+- `editor`: CodeMirror editor, local media/PDF display, Git diff surfaces.
+- `explorer`: file tree, fuzzy search, keyboard navigation, mutations.
+- `tabs`: tab source of truth, switcher, pane-aware close behavior.
+- `source-control`: status, stage, commit, fetch, pull, and push workflow.
+- `git-history`: commit graph and per-commit file diffs.
+- `sftp`: profile UI, local/remote panes, transfers, and sync preview.
+- `markdown`: rendered Markdown tabs using `streamdown`.
+- `workspace`: Local and WSL environment selection.
+- `theme`: built-in/custom themes, editor pairing, background images.
+- `settings`, `shortcuts`, `command-palette`: preferences and commands.
+- `header`, `sidebar`, `statusbar`, `i18n`: application chrome.
 
-### Tauri capabilities
+## Terminal Rendering
 
-`src-tauri/capabilities/default.json` is the allowlist for plugin APIs available to the webview. Current plugins such as dialog, autostart, window-state, store, opener, os, log, and notification are wired in `lib.rs`; adding another plugin typically needs:
-1. `Cargo.toml` dependency
-2. `.plugin(...)` call in `lib.rs` `run()`
-3. capability entry in `default.json`
+`rendererPool.ts` maintains at most five renderer slots. Hidden leaves may keep
+a parked live grid or release the renderer while retaining their buffer. A
+1 MiB dormant ring buffers output for leaves without a bound renderer.
 
-### Cross-platform conventions
+Do not reset a terminal when the dormant ring overflows. Avoid reading layout
+from parked `display:none` slots. Cursor styling is shared between xterm native
+rendering and the overlay implementation.
 
-- HOME / cache dirs: use the `dirs` crate (`dirs::home_dir()`, `dirs::cache_dir()`), never raw `$HOME` / `%USERPROFILE%`.
-- Shell init scripts: gate Unix-only logic behind `#[cfg(unix)]`; Windows arm in `pty::shell_init::windows`.
-- Terminal input: send `\r` (CR) for Enter, not `\n` (LF) — PowerShell on Windows requires CR.
+## Editor And Themes
 
-### Bundle config
+The editor uses CodeMirror 6 with language packages loaded on demand. The
+editor theme preference is `auto` or an explicit editor theme id. `auto`
+resolves against the active application theme at render time.
 
-- `bundle.targets: "all"` plus per-platform sections in `tauri.conf.json`:
-  - **macOS**: `minimumSystemVersion: 13.0`.
-  - **Linux**: deb depends `libwebkit2gtk-4.1-0`, `libgtk-3-0`; rpm `webkit2gtk4.1`, `gtk3`; AppImage bundles its media framework.
-  - **Windows**: NSIS installer in `currentUser` mode (no admin required), WebView2 via `downloadBootstrapper`.
-- Auto-updater is disabled for this fork (`createUpdaterArtifacts: false`); release artifacts are published manually through GitHub Releases, and the release workflow does not patch `latest.json`.
+The app theme engine is custom, not `next-themes`. `ThemeProvider` and
+`applyTheme` write CSS variables. Built-ins live under
+`src/modules/theme/themes/`; custom themes are validated before use.
 
-### Known gotchas
+Legacy `terax-*` store keys and theme ids are read only as migration fallbacks.
+New state is written under `kite-*` names. `.terax-theme` remains a supported
+legacy import extension.
 
-- **React 19 strict mode** double-mounts `useEffect` in dev → terminals spawn twice on first render. The first PTY is cleaned up almost immediately. The `SPAWN_LOCK` mutex serializes this; don't be alarmed by `pty opened id=1` followed by `pty closed id=1` in dev logs.
-- **Windows PowerShell process lifecycle**: `killer.kill()` from `portable-pty` only kills the immediate child. Descendants (e.g. `npm run dev` started inside pwsh) survive unless something else takes them down. The Job Object in `pty/job.rs` handles this for the Kite-process-death case; an explicit `pty_close` from JS also kills only the immediate child + relies on the Job to take the rest. Don't disable the Job without a replacement.
-- **Tab `cwd` storage**: comes from OSC 7 with forward slashes (after `parseOsc7` strips `/C:` → `C:`). Anything that consumes `tab.cwd` and passes it to a Rust fs command on Windows must normalize separators or accept both forms — `apply_common` in `pty::shell_init` handles this for PTY spawn; other call sites must do their own.
+## SFTP And Secrets
 
-### Terminal font configuration
+SFTP runs entirely in Rust through `ssh2`. Credentials are never stored in the
+frontend:
 
-- The terminal font is configured via CSS font-family stack in Settings → General → "Font family". The field accepts a comma-separated list (e.g. `"JetBrains Mono", "Microsoft YaHei", monospace`). Per-glyph browser font fallback handles CJK characters at runtime.
-- The empty `terminalFontFamily` default (`src/lib/fonts.ts`) uses a stable fallback stack: Nerd Font candidates for icons, bundled `JetBrains Mono` for Latin text, CJK candidates for Chinese/Japanese/Korean glyphs, then system monospace fallbacks.
-- **WebGL rendering caveat**: xterm.js's WebGL renderer pre-bakes glyphs into a GPU texture atlas with a fixed cell width derived from the primary font. CJK glyphs rendered via fallback fonts may misalign or show artifacts. Disabling WebGL (same Settings page) forces per-glyph browser font resolution which resolves most CJK rendering issues at a small performance cost.
-- Recommended monospace fonts that cover both Latin and CJK with correct double-width cell alignment: `Sarasa Mono SC`, `Source Han Mono SC`, `LXGW WenKai Mono`, `Noto Sans Mono CJK SC`.
+- Windows and macOS use the operating system credential store through
+  `keyring`.
+- Linux uses an application-local `secrets.json`, written atomically with mode
+  `0600`.
+
+Host-key verification and transfer conflict decisions must remain explicit.
+Never log passwords, private-key passphrases, or raw credential values.
+
+## UI
+
+- Tailwind CSS v4 configuration lives in `src/styles/globals.css`.
+- shadcn/ui uses `components.json`, radix-luma, mist, and Hugeicons.
+- `src/components/ui/` is linted and included in dead-code scans.
+- Use `cn()` from `@/lib/utils`.
+- Layout resizing uses `react-resizable-panels`.
+- Arbitrary URLs are not embedded. Local images, video, audio, and PDF files
+  are displayed through Tauri's asset protocol inside the editor.
+
+## Windows And Bundling
+
+- macOS uses overlay title bars and native traffic lights.
+- Linux and Windows use transparent, undecorated windows plus React controls.
+- The NSIS installer is per-user and embeds the WebView2 bootstrapper.
+- Update artifacts are disabled and releases are published manually.
+- The CSP allows Tauri IPC, local development connections, and local asset
+  frames. It does not allow arbitrary WebView network connections or frames.
+
+## Known Gotchas
+
+- `tab.cwd` originates from OSC 7 and uses forward slashes. Rust filesystem
+  callers must accept or normalize both separators on Windows.
+- `homeDir()` returns backslashes on Windows; normalize at the frontend
+  boundary to prevent file-tree resets.
+- xterm WebGL uses a fixed glyph atlas. CJK fallback fonts can misalign; users
+  can disable WebGL or choose a monospaced CJK font.
+- Rust tools may live under `D:\cargo\bin` on the maintainer workstation.

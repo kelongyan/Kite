@@ -18,7 +18,7 @@ export function WorkspaceInputBar({ isBlockTab, activeLeafId }: Props) {
   if (!isBlockTab || !controller || activeLeafId == null) return null;
 
   return (
-    <div data-state="open" className="terax-reveal">
+    <div data-state="open" className="kite-reveal">
       <div className="shrink-0 border-t border-border/60 bg-card/40 px-3 py-2">
         <Suspense fallback={null}>
           <ShellInput

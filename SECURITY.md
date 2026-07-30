@@ -20,7 +20,7 @@ Until `1.0.0`, only the latest minor gets security fixes.
 
 ## What's in scope
 
-- The Rust backend in `src-tauri/` (PTY, FS, IPC, plugins)
+- The Rust backend in `src-tauri/` (PTY, FS, Git, SFTP, IPC, plugins)
 - The frontend in `src/` — anywhere untrusted input lands (terminal output, file content)
 - Release artifacts on GitHub
 
@@ -31,7 +31,7 @@ Until `1.0.0`, only the latest minor gets security fixes.
 
 ## What we do to keep things safe
 
-- **No telemetry.** Kite only talks to the network when you ask it to (web preview).
+- **No telemetry.** Network access is limited to user-facing SFTP and Git remote operations.
 - **No Node in the renderer.** The frontend only reaches the host through the allow-listed Tauri commands.
 - **Signed releases.** Release artifacts should be verified before installation.
 

@@ -50,7 +50,6 @@ import {
 } from "@/modules/explorer/lib/menuItemClass";
 import { joinPath } from "@/modules/explorer/lib/useFileTree";
 import {
-  AiContentGenerator02Icon,
   Alert02Icon,
   ArrowDown01Icon,
   ArrowRight01Icon,
@@ -378,7 +377,6 @@ export const SourceControlPanel = memo(function SourceControlPanel({
   }, [messages.title, scm.status]);
 
   const commitShortcut = IS_MAC ? "⌘↩" : "Ctrl+Enter";
-  const generateShortcut = IS_MAC ? "⌘G" : "Ctrl+G";
   const canCommit =
     scm.stagedEntries.length > 0 &&
     scm.commitMessage.trim().length > 0 &&
@@ -435,14 +433,6 @@ export const SourceControlPanel = memo(function SourceControlPanel({
       event.preventDefault();
       void scm.commit();
       return;
-    }
-    if (
-      event.key.toLowerCase() === "g" &&
-      (event.metaKey || event.ctrlKey) &&
-      scm.canGenerateCommitMessage
-    ) {
-      event.preventDefault();
-      void scm.generateCommitMessage();
     }
   };
 
@@ -805,42 +795,6 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                       {commitShortcut} <p>{messages.toCommit}</p>
                     </span>
                   )}
-                </div>
-                <div className="absolute right-1 top-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`${scm.generateCommitMessageHint} (${generateShortcut})`}
-                        disabled={!scm.canGenerateCommitMessage}
-                        onClick={() => void scm.generateCommitMessage()}
-                        className={cn(
-                          "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/65 transition-colors",
-                          "hover:bg-foreground/[0.06] hover:text-foreground",
-                          "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground/65",
-                        )}
-                      >
-                        {scm.actionBusy === "generate-message" ? (
-                          <Spinner className="size-3" />
-                        ) : (
-                          <HugeiconsIcon
-                            icon={AiContentGenerator02Icon}
-                            size={14}
-                            strokeWidth={1.75}
-                          />
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="left"
-                      className={cn(
-                        SOURCE_CONTROL_TOOLTIP_CLASS,
-                        "text-[10.5px]",
-                      )}
-                    >
-                      {`${scm.generateCommitMessageHint} (${generateShortcut})`}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
               </div>
 

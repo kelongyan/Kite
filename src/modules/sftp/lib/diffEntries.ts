@@ -7,7 +7,7 @@ export type SyncOperation =
   | "same"
   | "keepDestination"
   | "conflict";
-export type SyncConflictReason = "kindMismatch";
+type SyncConflictReason = "kindMismatch";
 
 export type SyncChange = {
   name: string;

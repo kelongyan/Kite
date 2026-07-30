@@ -86,7 +86,7 @@ export type GitCommitFileDiffTab = TabBase & {
   originalPath: string | null;
 };
 
-export type SftpTab = TabBase & {
+type SftpTab = TabBase & {
   id: number;
   kind: "sftp";
   title: string;
@@ -118,18 +118,7 @@ function basename(path: string): string {
   return parts.length ? parts[parts.length - 1] : path;
 }
 
-export const DEFAULT_SPACE_ID = "default";
-
-// Returns the tab at position `idx` within the given space, or undefined when
-export function pickTabBySpaceIndex(
-  tabs: Tab[],
-  idx: number,
-  _spaceId?: string,
-): Tab | undefined {
-  return tabs[idx];
-}
-
-export function nextActiveInSpace(
+export function nextActiveTab(
   tabs: Tab[],
   closingId: number,
 ): number | null {
@@ -265,8 +254,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   useEffect(() => {
     if (!import.meta.env?.DEV || typeof window === "undefined") return;
     (
-      window as unknown as { __teraxNewBlockTab?: (cwd?: string) => number }
-    ).__teraxNewBlockTab = newBlockTab;
+      window as unknown as { __kiteNewBlockTab?: (cwd?: string) => number }
+    ).__kiteNewBlockTab = newBlockTab;
   }, [newBlockTab]);
 
   /**
@@ -274,7 +263,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
    *
    * - `pin = true` (default) — opens or activates a **persistent** tab.
    *   If the path is currently in the preview slot it is promoted in-place.
-   *   Use this for programmatic opens (AI diff, New File dialog, etc.).
+   *   Use this for programmatic opens such as the New File dialog.
    * - `pin = false` — VSCode-style **preview** tab. A single shared slot is
    *   reused: if a persistent tab for the path already exists it is activated;
    *   otherwise the current preview slot is replaced with the new path.
@@ -602,7 +591,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   const closeTab = useCallback((id: number) => {
     let toDispose: number[] = [];
     setTabs((curr) => {
-      const fallback = nextActiveInSpace(curr, id);
+      const fallback = nextActiveTab(curr, id);
       if (fallback === null) return curr;
       const target = curr.find((t) => t.id === id);
       if (target?.kind === "terminal") {
@@ -748,7 +737,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       if (tab?.kind !== "terminal") return curr;
       const newTree = removeLeaf(tab.paneTree, leafId);
       if (newTree === null) {
-        const fallback = nextActiveInSpace(curr, tab.id);
+        const fallback = nextActiveTab(curr, tab.id);
         if (fallback === null) return curr;
         const next = curr.filter((x) => x.id !== tab.id);
         setActiveId((active) => (active === tab.id ? fallback : active));
@@ -780,7 +769,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       const target = t.activeLeafId;
       const newTree = removeLeaf(t.paneTree, target);
       if (newTree === null) {
-        const fallback = nextActiveInSpace(curr, tabId);
+        const fallback = nextActiveTab(curr, tabId);
         if (fallback === null) return curr;
         const next = curr.filter((x) => x.id !== tabId);
         setActiveId((active) => (active === tabId ? fallback : active));

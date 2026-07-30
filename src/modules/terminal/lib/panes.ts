@@ -11,7 +11,7 @@ export type PaneNode =
       children: PaneNode[];
     };
 
-export function isLeaf(
+function isLeaf(
   n: PaneNode,
 ): n is Extract<PaneNode, { kind: "leaf" }> {
   return n.kind === "leaf";

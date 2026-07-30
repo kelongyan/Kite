@@ -30,7 +30,7 @@ export function joinPath(parent: string, name: string): string {
   return `${parent}/${name}`;
 }
 
-export function dirname(path: string): string {
+function dirname(path: string): string {
   const i = path.lastIndexOf("/");
   if (i <= 0) return "/";
   return path.slice(0, i);

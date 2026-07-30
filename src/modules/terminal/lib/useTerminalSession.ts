@@ -20,7 +20,6 @@ import {
 } from "./osc-handlers";
 import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
 import "../block/block.css";
-import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
 import {
   acquireSlot,
   applyBackgroundActive,
@@ -106,42 +105,6 @@ const sessions = new Map<number, Session>();
 // Block-overlay viewport listeners, keyed by leafId at module scope so the
 // overlay (a child) can subscribe before the parent effect creates the session.
 const blockViewportListeners = new Map<number, Set<() => void>>();
-
-const readyLeaves = new Set<number>();
-const readyWaiters = new Map<
-  number,
-  { resolve: () => void; timer: ReturnType<typeof setTimeout> }[]
->();
-
-function markSessionReady(leafId: number): void {
-  if (readyLeaves.has(leafId)) return;
-  readyLeaves.add(leafId);
-  const waiters = readyWaiters.get(leafId);
-  if (!waiters) return;
-  readyWaiters.delete(leafId);
-  for (const w of waiters) {
-    clearTimeout(w.timer);
-    w.resolve();
-  }
-}
-
-export function whenSessionReady(
-  leafId: number,
-  timeoutMs = 4000,
-): Promise<void> {
-  if (readyLeaves.has(leafId)) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      const arr = readyWaiters.get(leafId);
-      const i = arr?.findIndex((w) => w.timer === timer) ?? -1;
-      if (arr && i >= 0) arr.splice(i, 1);
-      resolve();
-    }, timeoutMs);
-    const arr = readyWaiters.get(leafId) ?? [];
-    arr.push({ resolve, timer });
-    readyWaiters.set(leafId, arr);
-  });
-}
 
 const PENDING_INPUT_MAX = 256 * 1024;
 
@@ -273,7 +236,7 @@ export function blockWatermarkState(leafId: number): WatermarkState {
 /**
  * Clear the scrollback and screen of the currently focused terminal, keeping
  * the active prompt line — macOS Terminal's ⌘K behaviour. Returns false when no
- * focused terminal slot is bound (e.g. focus is in the editor or AI panel).
+ * focused terminal slot is bound (e.g. focus is in the editor).
  */
 export function clearFocusedTerminal(): boolean {
   for (const [leafId, s] of sessions) {
@@ -286,15 +249,8 @@ export function clearFocusedTerminal(): boolean {
   return false;
 }
 
-export function leafIdForPty(ptyId: number): number | null {
-  for (const [leafId, s] of sessions) {
-    if (s.pty?.id === ptyId) return leafId;
-  }
-  return null;
-}
-
 function leafBusy(s: Session): boolean {
-  return s.commandRunning || (s.pty !== null && isAgentActivePty(s.pty.id));
+  return s.commandRunning;
 }
 
 const HIDDEN_RELEASE_DELAY_MS = 300;
@@ -346,7 +302,7 @@ function onLeafCommandState(leafId: number, running: boolean): void {
     return;
   }
   cancelHiddenRelease(s);
-  // A command started in a hidden released leaf (e.g. submitted by the AI):
+  // A command started in a hidden released leaf (e.g. through an integration):
   // rebind its retained slot so output parses live instead of filling the
   // ring. Deferred: this callback fires inside xterm's parse loop and the
   // rebind touches the same terminal (fit/resize).
@@ -359,13 +315,6 @@ function onLeafCommandState(leafId: number, running: boolean): void {
     }, 0);
   }
 }
-
-ensureAgentActivityListener((ptyId) => {
-  const leafId = leafIdForPty(ptyId);
-  if (leafId === null) return;
-  const s = sessions.get(leafId);
-  if (s) scheduleHiddenRelease(leafId, s);
-});
 
 configureRendererPool({
   resolveLeaf(leafId) {
@@ -623,7 +572,6 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         const osc52 = registerOsc52ClipboardHandler(term);
         const deco = new BlockDecorations(term, {
           onCwd: (next) => {
-            markSessionReady(leafId);
             if (s.lastCwd === next) return;
             s.lastCwd = next;
             s.callbacks.onCwd?.(next);
@@ -660,7 +608,6 @@ function bindLeafToSlot(leafId: number, s: Session): void {
       const cwd = registerCwdHandler(
         term,
         (next) => {
-          markSessionReady(leafId);
           if (s.lastCwd === next) return;
           s.lastCwd = next;
           s.callbacks.onCwd?.(next);
@@ -736,7 +683,7 @@ function detachSession(leafId: number): void {
   s.container = null;
 }
 
-export async function respawnSession(
+async function respawnSession(
   leafId: number,
   cwd?: string,
 ): Promise<void> {
@@ -819,15 +766,6 @@ export function disposeSession(leafId: number): void {
   s.pendingInput = "";
   sessions.delete(leafId);
   blockViewportListeners.delete(leafId);
-  readyLeaves.delete(leafId);
-  const waiters = readyWaiters.get(leafId);
-  if (waiters) {
-    readyWaiters.delete(leafId);
-    for (const w of waiters) {
-      clearTimeout(w.timer);
-      w.resolve();
-    }
-  }
 }
 
 type Options = {
@@ -967,7 +905,7 @@ export function useTerminalSession({
     } else if (s.hasSlot) {
       // Always park first (keeps the grid live, pauses rendering); release
       // only after confirming nothing owns the terminal. Sync signals (OSC
-      // 133, agent detect) short-circuit; the async foreground-process check
+      // 133) short-circuits; the async foreground-process check
       // covers shells without integration.
       parkLeafSlot(leafId);
       if (!s.blocks && !isLeafAltScreen(leafId) && !leafBusy(s)) {
@@ -1119,7 +1057,7 @@ function stripAnsi(s: string): string {
   return s.replace(ANSI_RE, "");
 }
 
-export function terminalDebugStats() {
+function terminalDebugStats() {
   const liveSessions = [...sessions.entries()].map(([leafId, s]) => ({
     leafId,
     pty: !!s.pty,
@@ -1152,6 +1090,6 @@ export function terminalDebugStats() {
 }
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
-  (window as unknown as { __teraxTerm?: unknown }).__teraxTerm =
+  (window as unknown as { __kiteTerm?: unknown }).__kiteTerm =
     terminalDebugStats;
 }

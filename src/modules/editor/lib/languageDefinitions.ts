@@ -22,7 +22,7 @@ async function defineLanguage(
   return StreamLanguage.define(resolvedParser);
 }
 
-export const LANGUAGES: LanguageDefinition[] = [
+const LANGUAGES: LanguageDefinition[] = [
   {
     name: "JavaScript",
     extensions: ["js", "cjs", "mjs"],

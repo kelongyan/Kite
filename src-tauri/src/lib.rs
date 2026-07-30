@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{fs, git, history, pty, sftp, shell, workspace};
+use modules::{fs, git, history, pty, sftp, workspace};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
@@ -46,7 +46,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
             // emit() serializes via JSON — no string-escape footgun, unlike
             // eval() with format!(). Frontend listens via Tauri event API.
-            let _ = window.emit("terax:settings-tab", t);
+            let _ = window.emit("kite:settings-tab", t);
         }
         return Ok(());
     }
@@ -135,7 +135,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)
@@ -163,7 +162,6 @@ pub fn run() {
         })
         .manage(modules::secrets::SecretsState::default())
         .manage(pty::PtyState::default())
-        .manage(shell::ShellState::default())
         .manage(sftp::session::SftpState::default())
         .manage(fs::watch::FsWatchState::default())
         .manage(history::HistoryState::default())
@@ -185,7 +183,6 @@ pub fn run() {
             pty::pty_close_all,
             pty::pty_has_foreground_process,
             pty::pty_has_foreground_job,
-            pty::pty_shell_name,
             pty::pty_list_shells,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
@@ -201,14 +198,10 @@ pub fn run() {
             fs::watch::fs_watch_add,
             fs::watch::fs_watch_remove,
             fs::search::fs_search,
-            fs::search::fs_list_files,
-            fs::grep::fs_grep,
             fs::grep::fs_grep_interactive,
-            fs::grep::fs_glob,
             git::commands::git_resolve_repo,
             git::commands::git_panel_snapshot,
             git::commands::git_status,
-            git::commands::git_diff,
             git::commands::git_diff_content,
             git::commands::git_stage,
             git::commands::git_unstage,
@@ -218,20 +211,11 @@ pub fn run() {
             git::commands::git_pull_ff_only,
             git::commands::git_push,
             git::commands::git_log,
-            git::commands::git_show_commit,
             git::commands::git_commit_files,
             git::commands::git_commit_file_diff,
             git::commands::git_remote_url,
             git::commands::git_list_branches,
             git::commands::git_checkout_branch,
-            shell::shell_run_command,
-            shell::shell_session_open,
-            shell::shell_session_run,
-            shell::shell_session_close,
-            shell::shell_bg_spawn,
-            shell::shell_bg_logs,
-            shell::shell_bg_kill,
-            shell::shell_bg_list,
             sftp::commands::sftp_profile_list,
             sftp::commands::sftp_profile_save,
             sftp::commands::sftp_profile_delete,
@@ -249,7 +233,6 @@ pub fn run() {
             sftp::commands::sftp_cancel_transfer,
             sftp::ssh_config::sftp_ssh_config_templates,
             workspace::wsl_list_distros,
-            workspace::wsl_default_distro,
             workspace::wsl_home,
             workspace::workspace_authorize,
             workspace::workspace_current_dir,

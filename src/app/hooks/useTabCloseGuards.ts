@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { leafHasForegroundProcess, leafIds } from "@/modules/terminal";
-import { nextActiveInSpace, type Tab } from "@/modules/tabs";
+import { nextActiveTab, type Tab } from "@/modules/tabs";
 
 type Params = {
   tabs: Tab[];
@@ -23,9 +23,9 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
 
   const handleClose = useCallback(
     async (id: number) => {
-      // Last tab in its space can't be closed (closeTab refuses). Skip the
+      // The last tab can't be closed (closeTab refuses). Skip the
       // dialog entirely so confirming it doesn't appear to silently fail.
-      if (nextActiveInSpace(tabs, id) === null) return;
+      if (nextActiveTab(tabs, id) === null) return;
       const t = tabs.find((x) => x.id === id);
       if (t?.kind === "editor" && t.dirty) {
         setPendingCloseTab(id);

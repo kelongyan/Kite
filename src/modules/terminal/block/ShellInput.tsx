@@ -1,5 +1,4 @@
 import { resolveFontFamily } from "@/lib/fonts";
-import { fmtShortcut, MOD_KEY } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -66,7 +65,7 @@ export default function ShellInput({
   const fontFamilyPref = usePreferencesStore((p) => p.terminalFontFamily);
   const fontSize = usePreferencesStore((p) => p.terminalFontSize);
   const messages = useMessages().mainShell.terminalBlocks;
-  const inputPlaceholder = messages.inputPlaceholder(fmtShortcut(MOD_KEY, "U"));
+  const inputPlaceholder = messages.inputPlaceholder;
   const inputPlaceholderRef = useRef(inputPlaceholder);
   inputPlaceholderRef.current = inputPlaceholder;
   const fontFamily = resolveFontFamily(fontFamilyPref);

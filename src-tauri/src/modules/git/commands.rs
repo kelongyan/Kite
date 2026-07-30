@@ -3,7 +3,7 @@ use tauri::{AppHandle, Manager};
 use crate::modules::git::operations;
 use crate::modules::git::types::{
     DiscardEntry, GitBranchListResult, GitCommitFileChange, GitCommitResult,
-    GitDiffContentResult, GitDiffResult, GitLogEntry, GitPanelSnapshot, GitPushResult,
+    GitDiffContentResult, GitLogEntry, GitPanelSnapshot, GitPushResult,
     GitRepoInfo, GitStatusSnapshot,
 };
 use crate::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
@@ -56,21 +56,6 @@ pub async fn git_status(
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
         operations::status(r, &repo_root, &workspace).map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_diff(
-    repo_root: String,
-    path: Option<String>,
-    staged: bool,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<GitDiffResult, String> {
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::diff(r, &repo_root, path.as_deref(), staged, &workspace).map_err(Into::into)
     })
     .await
 }
@@ -212,20 +197,6 @@ pub async fn git_log(
             &workspace,
         )
         .map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_show_commit(
-    repo_root: String,
-    sha: String,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<GitDiffResult, String> {
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::show_commit_diff(r, &repo_root, &sha, &workspace).map_err(Into::into)
     })
     .await
 }

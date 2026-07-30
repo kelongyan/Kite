@@ -39,7 +39,7 @@ import {
   writeTerminalClipboard,
 } from "./terminalClipboard";
 
-export const POOL_MAX_SIZE = 5;
+const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
 const PTY_RESIZE_DEBOUNCE_MS = 256;
 const SNAPSHOT_SCROLLBACK_CAP = 5_000;
@@ -54,7 +54,7 @@ export type SlotAdapter = {
   storeSnapshot(leafId: number, out: SerializeOutput): void;
 };
 
-export type LeafBridge = {
+type LeafBridge = {
   writeToPty(data: string): void;
   resizePty(cols: number, rows: number): void;
   // Force a SIGWINCH on the underlying PTY at the given dims. Implemented
@@ -143,10 +143,6 @@ export function configureRendererPool(a: SlotAdapter): void {
   bindWindowActivityListeners();
 }
 
-export function forEachSlot(fn: (slot: Slot) => void): void {
-  for (const s of slots) fn(s);
-}
-
 export function poolSize(): number {
   return slots.length;
 }
@@ -231,7 +227,7 @@ export function writeToSlot(slot: Slot, data: string | Uint8Array): void {
 function getRecycler(): HTMLDivElement {
   if (recyclerEl?.isConnected) return recyclerEl;
   const el = document.createElement("div");
-  el.setAttribute("data-terax-recycler", "");
+  el.setAttribute("data-kite-recycler", "");
   el.style.cssText =
     "position:fixed;left:-99999px;top:-99999px;width:1024px;height:768px;overflow:hidden;pointer-events:none;contain:strict;";
   document.body.appendChild(el);
@@ -311,7 +307,7 @@ function createSlot(): Slot {
 
   const host = document.createElement("div");
   host.style.cssText = "position:relative;width:100%;height:100%;";
-  host.setAttribute("data-terax-slot", String(slots.length));
+  host.setAttribute("data-kite-slot", String(slots.length));
   getRecycler().appendChild(host);
   term.open(host);
 
@@ -1169,7 +1165,7 @@ function setupResizeObserver(slot: Slot, p: AcquireParams): void {
   slot.observer.observe(container);
 }
 
-export type SerializeOutput = {
+type SerializeOutput = {
   snapshot: string | null;
   cols: number;
   rows: number;
@@ -1584,14 +1580,6 @@ export function applyCursorPreferences(
         : false,
     );
   }
-}
-
-export function applyCursorBlink(enabled: boolean): void {
-  applyCursorPreferences(
-    cursorShape,
-    enabled ? "blink" : "steady",
-    cursorWidth,
-  );
 }
 
 function applyCursorRenderingOnSlot(slot: Slot, focused: boolean): void {
