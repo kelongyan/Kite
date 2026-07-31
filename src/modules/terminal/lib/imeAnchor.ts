@@ -1,4 +1,5 @@
 import type { Terminal } from "@xterm/xterm";
+import { resolveTerminalCursorViewportPosition } from "./cursorStyle";
 
 export type ImeAnchorInput = {
   cols: number;
@@ -42,6 +43,7 @@ type ImeBufferLine = {
 type ImeBuffer = {
   cursorX: number;
   cursorY: number;
+  baseY?: number;
   viewportY?: number;
   length: number;
   getLine(index: number): ImeBufferLine | undefined;
@@ -88,11 +90,17 @@ export function computeImeAnchor(input: ImeAnchorInput): ImeAnchor | null {
   };
 }
 
-export function resolveImeAnchorCursor(input: ImeCursorInput): ImeCursor {
-  const fallback = {
-    cursorX: clamp(Math.trunc(input.buffer.cursorX), 0, input.cols - 1),
-    cursorY: clamp(Math.trunc(input.buffer.cursorY), 0, input.rows - 1),
-  };
+export function resolveImeAnchorCursor(
+  input: ImeCursorInput,
+): ImeCursor | null {
+  const fallback = resolveTerminalCursorViewportPosition({
+    cols: input.cols,
+    rows: input.rows,
+    cursorX: input.buffer.cursorX,
+    cursorY: input.buffer.cursorY,
+    baseY: input.buffer.baseY,
+    viewportY: input.buffer.viewportY,
+  });
 
   if (!input.cursorHidden) return fallback;
 
@@ -158,7 +166,9 @@ export function syncImeTextarea(
   return true;
 }
 
-export function resolveTerminalImeAnchorCursor(term: Terminal): ImeCursor {
+export function resolveTerminalImeAnchorCursor(
+  term: Terminal,
+): ImeCursor | null {
   return resolveImeAnchorCursor({
     buffer: term.buffer.active,
     cols: term.cols,
@@ -185,6 +195,7 @@ export function syncTerminalImeAnchor(
   const width = dimensionFromStyleOrRect(screen, "width");
   const height = dimensionFromStyleOrRect(screen, "height");
   const cursor = lockedCursor ?? resolveTerminalImeAnchorCursor(term);
+  if (!cursor) return false;
 
   return syncImeTextarea(
     textarea,

@@ -32,6 +32,20 @@ export type TerminalCursorOverlayBox = {
   height: number;
 };
 
+export type TerminalCursorViewportPositionInput = {
+  cols: number;
+  rows: number;
+  cursorX: number;
+  cursorY: number;
+  baseY?: number;
+  viewportY?: number;
+};
+
+export type TerminalCursorViewportPosition = {
+  cursorX: number;
+  cursorY: number;
+};
+
 export type TerminalCursorMaskCell = {
   getChars(): string;
   getWidth(): number;
@@ -233,6 +247,42 @@ export function computeTerminalCursorOverlayBox(
     width: cellWidth,
     height: cellHeight,
   };
+}
+
+export function resolveTerminalCursorViewportPosition(
+  input: TerminalCursorViewportPositionInput,
+): TerminalCursorViewportPosition | null {
+  if (
+    !Number.isFinite(input.cols) ||
+    !Number.isFinite(input.rows) ||
+    input.cols <= 0 ||
+    input.rows <= 0
+  ) {
+    return null;
+  }
+
+  const cursorX = clamp(Math.trunc(input.cursorX), 0, input.cols - 1);
+  const cursorY = Math.trunc(input.cursorY);
+  const baseY = finiteInteger(input.baseY);
+  const viewportY = finiteInteger(input.viewportY);
+
+  if (baseY === null || viewportY === null) {
+    return {
+      cursorX,
+      cursorY: clamp(cursorY, 0, input.rows - 1),
+    };
+  }
+
+  const viewportCursorY = baseY + cursorY - viewportY;
+  if (viewportCursorY < 0 || viewportCursorY >= input.rows) return null;
+
+  return { cursorX, cursorY: viewportCursorY };
+}
+
+function finiteInteger(value: number | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.trunc(value)
+    : null;
 }
 
 function clamp(value: number, min: number, max: number): number {

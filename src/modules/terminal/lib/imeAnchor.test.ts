@@ -126,6 +126,44 @@ describe("resolveImeAnchorCursor", () => {
     ).toEqual({ cursorX: 8, cursorY: 5 });
   });
 
+  it("maps a PTY cursor through viewport scroll offsets", () => {
+    const buffer = createBuffer({
+      cursorX: 8,
+      cursorY: 20,
+      baseY: 100,
+      viewportY: 97,
+      lines: ["plain shell prompt"],
+    });
+
+    expect(
+      resolveImeAnchorCursor({
+        buffer,
+        cols: 40,
+        rows: 24,
+        cursorHidden: false,
+      }),
+    ).toEqual({ cursorX: 8, cursorY: 23 });
+  });
+
+  it("does not anchor a PTY cursor that has scrolled out of view", () => {
+    const buffer = createBuffer({
+      cursorX: 8,
+      cursorY: 23,
+      baseY: 100,
+      viewportY: 99,
+      lines: ["plain shell prompt"],
+    });
+
+    expect(
+      resolveImeAnchorCursor({
+        buffer,
+        cols: 40,
+        rows: 24,
+        cursorHidden: false,
+      }),
+    ).toBeNull();
+  });
+
   it("identifies an inverse blank cell as a synthetic TUI cursor", () => {
     const buffer = createBuffer({
       cursorX: 28,
@@ -299,13 +337,16 @@ type TestLine = string | TestCell[];
 function createBuffer(input: {
   cursorX: number;
   cursorY: number;
+  baseY?: number;
+  viewportY?: number;
   lines: TestLine[];
 }) {
   const lines = input.lines.map(createLine);
   return {
     cursorX: input.cursorX,
     cursorY: input.cursorY,
-    viewportY: 0,
+    baseY: input.baseY,
+    viewportY: input.viewportY ?? 0,
     length: lines.length,
     getLine: (index: number) => lines[index],
   };

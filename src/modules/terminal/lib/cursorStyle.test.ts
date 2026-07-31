@@ -9,6 +9,7 @@ import {
   getTerminalCursorRenderStrategy,
   resolveTerminalNativeCursorShape,
   resolveTerminalNativeCursorWidth,
+  resolveTerminalCursorViewportPosition,
   shouldInterceptTerminalCursorColor,
   shouldInterceptTerminalCursorStyle,
   shouldShowTerminalCursorOverlay,
@@ -52,9 +53,7 @@ describe("terminal cursor style preferences", () => {
   it("falls back to the default for unsupported cursor widths", () => {
     expect(coerceTerminalCursorWidth(0)).toBe(DEFAULT_TERMINAL_CURSOR_WIDTH);
     expect(coerceTerminalCursorWidth(5)).toBe(DEFAULT_TERMINAL_CURSOR_WIDTH);
-    expect(coerceTerminalCursorWidth(2.5)).toBe(
-      DEFAULT_TERMINAL_CURSOR_WIDTH,
-    );
+    expect(coerceTerminalCursorWidth(2.5)).toBe(DEFAULT_TERMINAL_CURSOR_WIDTH);
     expect(coerceTerminalCursorWidth(Number.NaN)).toBe(
       DEFAULT_TERMINAL_CURSOR_WIDTH,
     );
@@ -279,6 +278,43 @@ describe("terminal cursor style preferences", () => {
         screenHeight: 80,
       }),
     ).toBeNull();
+  });
+
+  it("maps the cursor from the bottom page into the current viewport", () => {
+    expect(
+      resolveTerminalCursorViewportPosition({
+        cols: 80,
+        rows: 24,
+        cursorX: 7,
+        cursorY: 20,
+        baseY: 100,
+        viewportY: 97,
+      }),
+    ).toEqual({ cursorX: 7, cursorY: 23 });
+  });
+
+  it("hides the viewport cursor when scrollback moves it off screen", () => {
+    expect(
+      resolveTerminalCursorViewportPosition({
+        cols: 80,
+        rows: 24,
+        cursorX: 7,
+        cursorY: 23,
+        baseY: 100,
+        viewportY: 99,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps clamped cursor coordinates for test buffers without scroll offsets", () => {
+    expect(
+      resolveTerminalCursorViewportPosition({
+        cols: 80,
+        rows: 24,
+        cursorX: 80,
+        cursorY: 30,
+      }),
+    ).toEqual({ cursorX: 79, cursorY: 23 });
   });
 });
 

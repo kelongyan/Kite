@@ -13,6 +13,7 @@ import {
   getTerminalCursorRenderStrategy,
   resolveTerminalNativeCursorShape,
   resolveTerminalNativeCursorWidth,
+  resolveTerminalCursorViewportPosition,
   shouldInterceptTerminalCursorColor,
   shouldInterceptTerminalCursorStyle,
   shouldShowTerminalCursorOverlay,
@@ -785,6 +786,7 @@ function bindSlotImeAnchorSync(slot: Slot): void {
   textarea.addEventListener("keydown", syncOnImeKey, true);
   const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
   const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
+  const scrollDisposable = slot.term.onScroll(syncSoon);
 
   slot.imeDisposers.push(
     () =>
@@ -802,6 +804,7 @@ function bindSlotImeAnchorSync(slot: Slot): void {
     () => textarea.removeEventListener("keydown", syncOnImeKey, true),
     () => cursorMoveDisposable.dispose(),
     () => writeParsedDisposable.dispose(),
+    () => scrollDisposable.dispose(),
   );
 }
 
@@ -881,9 +884,14 @@ function bindSlotCursorOverlaySync(slot: Slot): void {
   const syncSoon = () => scheduleSlotCursorOverlaySync(slot);
   const renderDisposable = slot.term.onRender(syncSoon);
   const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
+  const scrollDisposable = slot.term.onScroll(() => {
+    resetSlotCursorMotion(slot);
+    scheduleSlotCursorOverlaySync(slot);
+  });
   slot.cursorDisposers.push(
     () => renderDisposable.dispose(),
     () => writeParsedDisposable.dispose(),
+    () => scrollDisposable.dispose(),
   );
 }
 
@@ -989,8 +997,7 @@ function syncSlotCursorOverlay(slot: Slot): void {
     scheduleSlotCursorOverlayMotionEnd(slot);
   }
   const useMotionClass =
-    animateMotion ||
-    (sameGrid && now <= slot.cursorMotionTransitionUntil);
+    animateMotion || (sameGrid && now <= slot.cursorMotionTransitionUntil);
 
   syncSlotCursorOverlayMask(
     slot,
@@ -1048,7 +1055,17 @@ type SlotVisualCursor = {
 function resolveSlotVisualCursor(slot: Slot): SlotVisualCursor | null {
   const buffer = slot.term.buffer.active;
   if (!isXtermCursorHidden(slot.term)) {
-    return slotVisualCursor(slot, buffer.cursorX, buffer.cursorY);
+    const cursor = resolveTerminalCursorViewportPosition({
+      cols: slot.term.cols,
+      rows: slot.term.rows,
+      cursorX: buffer.cursorX,
+      cursorY: buffer.cursorY,
+      baseY: buffer.baseY,
+      viewportY: buffer.viewportY,
+    });
+    return cursor
+      ? slotVisualCursor(slot, cursor.cursorX, cursor.cursorY)
+      : null;
   }
   if (buffer.type !== "normal") return null;
 
