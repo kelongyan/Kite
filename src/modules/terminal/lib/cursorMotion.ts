@@ -23,11 +23,18 @@ export type TerminalCursorMotionInput = {
   suppressed: boolean;
 };
 
+export type TerminalCursorHiddenMotionInput = Omit<
+  TerminalCursorMotionInput,
+  "next"
+>;
+
 export const DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION: TerminalCursorSmoothCaretAnimation =
   "explicit";
 
 export const TERMINAL_CURSOR_MOTION_INTENT_MS = 220;
 export const TERMINAL_CURSOR_MOTION_SUPPRESS_MS = 220;
+export const TERMINAL_CURSOR_MOTION_TRANSITION_MS = 96;
+export const TERMINAL_CURSOR_MOTION_HIDDEN_GRACE_MS = 140;
 
 const MAX_SMOOTH_CURSOR_DELTA_X = 5;
 const MAX_SMOOTH_CURSOR_DELTA_Y = 1;
@@ -69,6 +76,20 @@ export function shouldAnimateTerminalCursorMotion(
   // Full-screen TUIs update the grid continuously. Keep automatic smoothing
   // out of their redraw stream, while still allowing direct user movement.
   return input.explicit || !input.alternateScreen;
+}
+
+export function shouldHoldTerminalCursorMotionForHiddenCursor(
+  input: TerminalCursorHiddenMotionInput,
+): boolean {
+  return (
+    input.preference !== "off" &&
+    !!input.previous &&
+    input.explicit &&
+    !input.alternateScreen &&
+    !input.composing &&
+    !input.reducedMotion &&
+    !input.suppressed
+  );
 }
 
 export function shouldSuppressCursorMotionForInput(data: string): boolean {

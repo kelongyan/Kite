@@ -24,10 +24,13 @@ import {
   terminalCursorMaskColor,
 } from "./cursorStyle";
 import {
+  shouldHoldTerminalCursorMotionForHiddenCursor,
   shouldAnimateTerminalCursorMotion,
   shouldSuppressCursorMotionForInput,
+  TERMINAL_CURSOR_MOTION_HIDDEN_GRACE_MS,
   TERMINAL_CURSOR_MOTION_INTENT_MS,
   TERMINAL_CURSOR_MOTION_SUPPRESS_MS,
+  TERMINAL_CURSOR_MOTION_TRANSITION_MS,
   type TerminalCursorGridPosition,
   type TerminalCursorSmoothCaretAnimation,
 } from "./cursorMotion";
@@ -110,9 +113,11 @@ export type Slot = {
   cursorOverlayVisual: HTMLDivElement | null;
   cursorOverlayMask: HTMLDivElement | null;
   cursorOverlayRaf: number | null;
+  cursorOverlayHiddenTimer: ReturnType<typeof setTimeout> | null;
   cursorDisposers: (() => void)[];
   cursorMotionIntentUntil: number;
   cursorMotionSuppressUntil: number;
+  cursorMotionTransitionUntil: number;
   cursorOverlayLastGrid: TerminalCursorGridPosition | null;
   cursorNativeSuppressed: boolean;
   lastCols: number;
@@ -368,9 +373,11 @@ function createSlot(): Slot {
     cursorOverlayVisual: null,
     cursorOverlayMask: null,
     cursorOverlayRaf: null,
+    cursorOverlayHiddenTimer: null,
     cursorDisposers: [],
     cursorMotionIntentUntil: 0,
     cursorMotionSuppressUntil: 0,
+    cursorMotionTransitionUntil: 0,
     cursorOverlayLastGrid: null,
     cursorNativeSuppressed: false,
     lastCols: term.cols,
@@ -907,11 +914,31 @@ function syncSlotCursorOverlay(slot: Slot): void {
     return;
   }
 
+  const now = cursorNow();
+  const explicitMotion = now <= slot.cursorMotionIntentUntil;
+  const suppressedMotion = now <= slot.cursorMotionSuppressUntil;
+  const alternateScreen = isAltScreen(slot);
   const visualCursor = resolveSlotVisualCursor(slot);
   if (!visualCursor) {
+    if (
+      isXtermCursorHidden(slot.term) &&
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        preference: cursorSmoothCaretAnimation,
+        previous: slot.cursorOverlayLastGrid,
+        explicit: explicitMotion,
+        alternateScreen,
+        composing: slot.imeComposing,
+        reducedMotion,
+        suppressed: suppressedMotion,
+      }) &&
+      holdSlotCursorOverlayDuringHiddenCursor(slot)
+    ) {
+      return;
+    }
     hideSlotCursorOverlay(slot);
     return;
   }
+  cancelSlotCursorOverlayHiddenGrace(slot);
 
   const screen = slot.term.element?.querySelector<HTMLElement>(".xterm-screen");
   if (!screen?.isConnected) {
@@ -940,17 +967,27 @@ function syncSlotCursorOverlay(slot: Slot): void {
     cursorX: visualCursor.cursorX,
     cursorY: visualCursor.cursorY,
   };
-  const now = cursorNow();
+  const sameGrid = isSameTerminalCursorGrid(
+    slot.cursorOverlayLastGrid,
+    nextGrid,
+  );
   const animateMotion = shouldAnimateTerminalCursorMotion({
     preference: cursorSmoothCaretAnimation,
     previous: slot.cursorOverlayLastGrid,
     next: nextGrid,
-    explicit: now <= slot.cursorMotionIntentUntil,
-    alternateScreen: isAltScreen(slot),
+    explicit: explicitMotion,
+    alternateScreen,
     composing: slot.imeComposing,
     reducedMotion,
-    suppressed: now <= slot.cursorMotionSuppressUntil,
+    suppressed: suppressedMotion,
   });
+  if (animateMotion) {
+    slot.cursorMotionTransitionUntil =
+      now + TERMINAL_CURSOR_MOTION_TRANSITION_MS;
+  }
+  const useMotionClass =
+    animateMotion ||
+    (sameGrid && now <= slot.cursorMotionTransitionUntil);
 
   syncSlotCursorOverlayMask(
     slot,
@@ -968,13 +1005,13 @@ function syncSlotCursorOverlay(slot: Slot): void {
         })
       : null,
     visualCursor.maskColor,
-    animateMotion,
+    useMotionClass,
   );
   const overlay = ensureSlotCursorOverlay(slot, screen);
   const visual = ensureSlotCursorOverlayVisual(slot, overlay);
   const overlayClassName = [
     "kite-terminal-cursor-overlay",
-    animateMotion ? "kite-terminal-cursor-overlay-motion" : "",
+    useMotionClass ? "kite-terminal-cursor-overlay-motion" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1039,6 +1076,13 @@ function slotVisualCursor(
       xtermPaletteColor(slot.term, index),
     ),
   };
+}
+
+function isSameTerminalCursorGrid(
+  a: TerminalCursorGridPosition | null,
+  b: TerminalCursorGridPosition,
+): boolean {
+  return !!a && a.cursorX === b.cursorX && a.cursorY === b.cursorY;
 }
 
 function setOverlayStyle(
@@ -1145,6 +1189,7 @@ function hideSlotCursorOverlayMask(slot: Slot): void {
 }
 
 function hideSlotCursorOverlay(slot: Slot): void {
+  cancelSlotCursorOverlayHiddenGrace(slot);
   if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
   slot.cursorOverlayLastGrid = null;
   hideSlotCursorOverlayMask(slot);
@@ -1152,12 +1197,41 @@ function hideSlotCursorOverlay(slot: Slot): void {
 
 function disposeSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlaySync(slot);
+  cancelSlotCursorOverlayHiddenGrace(slot);
   slot.cursorOverlay?.remove();
   slot.cursorOverlay = null;
   slot.cursorOverlayVisual = null;
   slot.cursorOverlayMask?.remove();
   slot.cursorOverlayMask = null;
   slot.host.classList.remove("kite-terminal-overlay-cursor-active");
+}
+
+function holdSlotCursorOverlayDuringHiddenCursor(slot: Slot): boolean {
+  const overlay = slot.cursorOverlay;
+  if (!overlay?.isConnected || overlay.style.display !== "block") {
+    return false;
+  }
+  hideSlotCursorOverlayMask(slot);
+  scheduleSlotCursorOverlayHiddenGrace(slot);
+  return true;
+}
+
+function scheduleSlotCursorOverlayHiddenGrace(slot: Slot): void {
+  if (slot.cursorOverlayHiddenTimer !== null) return;
+  slot.cursorOverlayHiddenTimer = setTimeout(() => {
+    slot.cursorOverlayHiddenTimer = null;
+    if (isXtermCursorHidden(slot.term)) {
+      hideSlotCursorOverlay(slot);
+      return;
+    }
+    scheduleSlotCursorOverlaySync(slot);
+  }, TERMINAL_CURSOR_MOTION_HIDDEN_GRACE_MS);
+}
+
+function cancelSlotCursorOverlayHiddenGrace(slot: Slot): void {
+  if (slot.cursorOverlayHiddenTimer === null) return;
+  clearTimeout(slot.cursorOverlayHiddenTimer);
+  slot.cursorOverlayHiddenTimer = null;
 }
 
 function cursorNow(): number {
@@ -1174,10 +1248,12 @@ function suppressSlotCursorMotion(slot: Slot): void {
 }
 
 function resetSlotCursorMotion(slot: Slot): void {
+  cancelSlotCursorOverlayHiddenGrace(slot);
   slot.cursorOverlayLastGrid = null;
   slot.cursorMotionIntentUntil = 0;
   slot.cursorMotionSuppressUntil =
     cursorNow() + TERMINAL_CURSOR_MOTION_SUPPRESS_MS;
+  slot.cursorMotionTransitionUntil = 0;
 }
 
 export function resetSlotCursorVisibility(slot: Slot): void {

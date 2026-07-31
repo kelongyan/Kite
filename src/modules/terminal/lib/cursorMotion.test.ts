@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   coerceTerminalCursorSmoothCaretAnimation,
   shouldAnimateTerminalCursorMotion,
+  shouldHoldTerminalCursorMotionForHiddenCursor,
   shouldSuppressCursorMotionForInput,
 } from "./cursorMotion";
 
@@ -98,5 +99,74 @@ describe("terminal cursor motion", () => {
     expect(shouldSuppressCursorMotionForInput("\x1b[200~pasted\x1b[201~")).toBe(
       true,
     );
+  });
+
+  it("holds the last cursor position through brief shell cursor hides", () => {
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        preference: "explicit",
+        previous: base.previous,
+        explicit: true,
+        alternateScreen: false,
+        composing: false,
+        reducedMotion: false,
+        suppressed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not hold hidden cursor motion in unsafe contexts", () => {
+    const hidden = {
+      preference: "explicit" as const,
+      previous: base.previous,
+      explicit: true,
+      alternateScreen: false,
+      composing: false,
+      reducedMotion: false,
+      suppressed: false,
+    };
+
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        preference: "off",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        previous: null,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        explicit: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        alternateScreen: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        composing: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        reducedMotion: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTerminalCursorMotionForHiddenCursor({
+        ...hidden,
+        suppressed: true,
+      }),
+    ).toBe(false);
   });
 });
