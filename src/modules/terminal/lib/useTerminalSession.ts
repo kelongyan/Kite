@@ -654,9 +654,17 @@ export function useTerminalSession({
   const cursorShape = usePreferencesStore((p) => p.terminalCursorShape);
   const cursorAnimation = usePreferencesStore((p) => p.terminalCursorAnimation);
   const cursorWidth = usePreferencesStore((p) => p.terminalCursorWidth);
+  const cursorSmoothCaretAnimation = usePreferencesStore(
+    (p) => p.terminalCursorSmoothCaretAnimation,
+  );
   useEffect(() => {
-    applyCursorPreferences(cursorShape, cursorAnimation, cursorWidth);
-  }, [cursorShape, cursorAnimation, cursorWidth]);
+    applyCursorPreferences(
+      cursorShape,
+      cursorAnimation,
+      cursorWidth,
+      cursorSmoothCaretAnimation,
+    );
+  }, [cursorShape, cursorAnimation, cursorWidth, cursorSmoothCaretAnimation]);
 
   useEffect(() => {
     const s = sessions.get(leafId);

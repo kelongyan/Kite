@@ -2,6 +2,11 @@ import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { DEFAULT_THEME_ID, normalizeThemeId } from "@/modules/theme/types";
 import {
+  coerceTerminalCursorSmoothCaretAnimation,
+  DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION,
+  type TerminalCursorSmoothCaretAnimation,
+} from "@/modules/terminal/lib/cursorMotion";
+import {
   DEFAULT_TERMINAL_CURSOR_ANIMATION,
   DEFAULT_TERMINAL_CURSOR_SHAPE,
   DEFAULT_TERMINAL_CURSOR_WIDTH,
@@ -113,6 +118,7 @@ export type Preferences = {
   terminalCursorShape: TerminalCursorShape;
   terminalCursorAnimation: TerminalCursorAnimation;
   terminalCursorWidth: TerminalCursorWidth;
+  terminalCursorSmoothCaretAnimation: TerminalCursorSmoothCaretAnimation;
   terminalFontFamily: string;
   terminalFontWeight: string;
   terminalShell: string;
@@ -138,6 +144,8 @@ const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
 const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
+const KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION =
+  "terminalCursorSmoothCaretAnimation";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_TERMINAL_SHELL = "terminalShell";
@@ -187,6 +195,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
   terminalCursorAnimation: DEFAULT_TERMINAL_CURSOR_ANIMATION,
   terminalCursorWidth: DEFAULT_TERMINAL_CURSOR_WIDTH,
+  terminalCursorSmoothCaretAnimation:
+    DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION,
   terminalFontFamily: DEFAULT_MONO_FONT_FAMILY,
   terminalFontWeight: "normal",
   terminalShell: "",
@@ -342,6 +352,10 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalCursorShape: DEFAULT_PREFERENCES.terminalCursorShape,
     terminalCursorAnimation: DEFAULT_PREFERENCES.terminalCursorAnimation,
     terminalCursorWidth: DEFAULT_PREFERENCES.terminalCursorWidth,
+    terminalCursorSmoothCaretAnimation:
+      coerceTerminalCursorSmoothCaretAnimation(
+        get<string>(KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION),
+      ),
     terminalFontFamily: normalizeTerminalFontFamily(
       get<string>(KEY_TERMINAL_FONT_FAMILY),
     ),
@@ -402,6 +416,15 @@ export async function setShowHidden(value: boolean): Promise<void> {
 
 export async function setTerminalWebglEnabled(value: boolean): Promise<void> {
   await writePref(KEY_TERMINAL_WEBGL_ENABLED, value);
+}
+
+export async function setTerminalCursorSmoothCaretAnimation(
+  value: TerminalCursorSmoothCaretAnimation,
+): Promise<void> {
+  await writePref(
+    KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION,
+    coerceTerminalCursorSmoothCaretAnimation(value),
+  );
 }
 
 export async function setTerminalFontFamily(value: string): Promise<void> {
@@ -510,6 +533,8 @@ export async function onPreferencesChange(
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
+    [KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION]:
+      "terminalCursorSmoothCaretAnimation",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
     [KEY_TERMINAL_SHELL]: "terminalShell",

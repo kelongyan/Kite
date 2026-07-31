@@ -18,10 +18,19 @@ import {
   shouldShowTerminalCursorOverlay,
   shouldSuppressNativeCursor,
   type TerminalCursorAnimation,
+  type TerminalCursorOverlayBox,
   type TerminalCursorShape,
   type TerminalCursorWidth,
   terminalCursorMaskColor,
 } from "./cursorStyle";
+import {
+  shouldAnimateTerminalCursorMotion,
+  shouldSuppressCursorMotionForInput,
+  TERMINAL_CURSOR_MOTION_INTENT_MS,
+  TERMINAL_CURSOR_MOTION_SUPPRESS_MS,
+  type TerminalCursorGridPosition,
+  type TerminalCursorSmoothCaretAnimation,
+} from "./cursorMotion";
 import {
   findVisibleCursorCell,
   type ImeCursor,
@@ -98,9 +107,13 @@ export type Slot = {
   imeCompositionCursor: ImeCursor | null;
   imeDisposers: (() => void)[];
   cursorOverlay: HTMLDivElement | null;
+  cursorOverlayVisual: HTMLDivElement | null;
   cursorOverlayMask: HTMLDivElement | null;
   cursorOverlayRaf: number | null;
   cursorDisposers: (() => void)[];
+  cursorMotionIntentUntil: number;
+  cursorMotionSuppressUntil: number;
+  cursorOverlayLastGrid: TerminalCursorGridPosition | null;
   cursorNativeSuppressed: boolean;
   lastCols: number;
   lastRows: number;
@@ -121,6 +134,13 @@ let cursorShape: TerminalCursorShape = initialPreferences.terminalCursorShape;
 let cursorAnimation: TerminalCursorAnimation =
   initialPreferences.terminalCursorAnimation;
 let cursorWidth: TerminalCursorWidth = initialPreferences.terminalCursorWidth;
+let cursorSmoothCaretAnimation: TerminalCursorSmoothCaretAnimation =
+  initialPreferences.terminalCursorSmoothCaretAnimation;
+let reducedMotion =
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let reducedMotionBound = false;
 
 function bindWindowActivityListeners(): void {
   if (windowActivityBound || typeof window === "undefined") return;
@@ -129,6 +149,27 @@ function bindWindowActivityListeners(): void {
   window.addEventListener("focus", sync);
   window.addEventListener("blur", sync);
   document.addEventListener("visibilitychange", sync);
+}
+
+function bindReducedMotionListener(): void {
+  if (
+    reducedMotionBound ||
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return;
+  }
+  reducedMotionBound = true;
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const sync = () => {
+    reducedMotion = query.matches;
+    for (const slot of slots) {
+      resetSlotCursorMotion(slot);
+      scheduleSlotCursorOverlaySync(slot);
+    }
+  };
+  query.addEventListener("change", sync);
+  reducedMotion = query.matches;
 }
 
 function setWindowActive(active: boolean): void {
@@ -146,6 +187,7 @@ function setWindowActive(active: boolean): void {
 export function configureRendererPool(a: SlotAdapter): void {
   adapter = a;
   bindWindowActivityListeners();
+  bindReducedMotionListener();
 }
 
 export function poolSize(): number {
@@ -323,9 +365,13 @@ function createSlot(): Slot {
     imeCompositionCursor: null,
     imeDisposers: [],
     cursorOverlay: null,
+    cursorOverlayVisual: null,
     cursorOverlayMask: null,
     cursorOverlayRaf: null,
     cursorDisposers: [],
+    cursorMotionIntentUntil: 0,
+    cursorMotionSuppressUntil: 0,
+    cursorOverlayLastGrid: null,
     cursorNativeSuppressed: false,
     lastCols: term.cols,
     lastRows: term.rows,
@@ -353,24 +399,36 @@ function createSlot(): Slot {
     });
     if (lineNavigation) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(lineNavigation);
+      if (event.type === "keydown") {
+        markSlotCursorMotionIntent(slot);
+        bridge.writeToPty(lineNavigation);
+      }
       return false;
     }
     const wordNavigation = terminalWordNavigationSequence(event);
     if (wordNavigation) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(wordNavigation);
+      if (event.type === "keydown") {
+        markSlotCursorMotionIntent(slot);
+        bridge.writeToPty(wordNavigation);
+      }
       return false;
     }
     const deleteSeq = terminalDeleteSequence(event, { isMac: IS_MAC });
     if (deleteSeq) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(deleteSeq);
+      if (event.type === "keydown") {
+        markSlotCursorMotionIntent(slot);
+        bridge.writeToPty(deleteSeq);
+      }
       return false;
     }
     if (isShiftEnter(event)) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty("\x1b\r");
+      if (event.type === "keydown") {
+        markSlotCursorMotionIntent(slot);
+        bridge.writeToPty("\x1b\r");
+      }
       return false;
     }
     if (isTerminalCopy(event)) {
@@ -412,12 +470,18 @@ function createSlot(): Slot {
       event.preventDefault();
       return false;
     }
+    if (event.type === "keydown" && isSmoothCaretIntentKey(event)) {
+      markSlotCursorMotionIntent(slot);
+    }
     return true;
   });
 
   term.onData((data) => {
     const leafId = slot.currentLeafId;
     if (leafId === null) return;
+    if (shouldSuppressCursorMotionForInput(data)) {
+      suppressSlotCursorMotion(slot);
+    }
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
   });
 
@@ -694,7 +758,9 @@ function bindSlotImeAnchorSync(slot: Slot): void {
     syncSlotImeAnchor(slot);
   };
   const onCompositionFinish = () => {
+    const wasComposing = slot.imeComposing;
     resetSlotImeComposition(slot);
+    if (wasComposing) markSlotCursorMotionIntent(slot);
     scheduleSlotImeAnchorSync(slot);
   };
   const syncSoon = () => {
@@ -870,6 +936,22 @@ function syncSlotCursorOverlay(slot: Slot): void {
     return;
   }
 
+  const nextGrid = {
+    cursorX: visualCursor.cursorX,
+    cursorY: visualCursor.cursorY,
+  };
+  const now = cursorNow();
+  const animateMotion = shouldAnimateTerminalCursorMotion({
+    preference: cursorSmoothCaretAnimation,
+    previous: slot.cursorOverlayLastGrid,
+    next: nextGrid,
+    explicit: now <= slot.cursorMotionIntentUntil,
+    alternateScreen: isAltScreen(slot),
+    composing: slot.imeComposing,
+    reducedMotion,
+    suppressed: now <= slot.cursorMotionSuppressUntil,
+  });
+
   syncSlotCursorOverlayMask(
     slot,
     screen,
@@ -886,19 +968,36 @@ function syncSlotCursorOverlay(slot: Slot): void {
         })
       : null,
     visualCursor.maskColor,
+    animateMotion,
   );
   const overlay = ensureSlotCursorOverlay(slot, screen);
-  const className = [
+  const visual = ensureSlotCursorOverlayVisual(slot, overlay);
+  const overlayClassName = [
     "kite-terminal-cursor-overlay",
+    animateMotion ? "kite-terminal-cursor-overlay-motion" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const visualClassName = [
+    "kite-terminal-cursor-overlay-visual",
     `kite-terminal-cursor-overlay-${cursorAnimation}`,
     `kite-terminal-cursor-overlay-${cursorShape}`,
   ].join(" ");
-  if (overlay.className !== className) overlay.className = className;
+  if (overlay.className !== overlayClassName) {
+    overlay.className = overlayClassName;
+  }
+  if (visual.className !== visualClassName) visual.className = visualClassName;
   setOverlayStyle(overlay.style, "display", "block");
-  setOverlayStyle(overlay.style, "left", `${box.left}px`);
-  setOverlayStyle(overlay.style, "top", `${box.top}px`);
+  setOverlayStyle(overlay.style, "left", "0px");
+  setOverlayStyle(overlay.style, "top", "0px");
+  setOverlayStyle(
+    overlay.style,
+    "transform",
+    `translate3d(${box.left}px, ${box.top}px, 0)`,
+  );
   setOverlayStyle(overlay.style, "width", `${box.width}px`);
   setOverlayStyle(overlay.style, "height", `${box.height}px`);
+  slot.cursorOverlayLastGrid = nextGrid;
 }
 
 type SlotVisualCursor = {
@@ -944,7 +1043,14 @@ function slotVisualCursor(
 
 function setOverlayStyle(
   style: CSSStyleDeclaration,
-  property: "background" | "display" | "left" | "top" | "width" | "height",
+  property:
+    | "background"
+    | "display"
+    | "left"
+    | "top"
+    | "transform"
+    | "width"
+    | "height",
   value: string,
 ): void {
   if (style[property] !== value) style[property] = value;
@@ -982,28 +1088,54 @@ function ensureSlotCursorOverlay(
   return overlay;
 }
 
+function ensureSlotCursorOverlayVisual(
+  slot: Slot,
+  overlay: HTMLDivElement,
+): HTMLDivElement {
+  let visual = slot.cursorOverlayVisual;
+  if (!visual) {
+    visual = document.createElement("div");
+    slot.cursorOverlayVisual = visual;
+  }
+  if (visual.parentElement !== overlay) overlay.appendChild(visual);
+  return visual;
+}
+
 function syncSlotCursorOverlayMask(
   slot: Slot,
   screen: HTMLElement,
-  box: ReturnType<typeof computeTerminalCursorOverlayBox>,
+  box: TerminalCursorOverlayBox | null,
   color: string | null,
+  animateMotion: boolean,
 ): void {
   if (!box || !color) {
     hideSlotCursorOverlayMask(slot);
     return;
   }
   let mask = slot.cursorOverlayMask;
+  const wasVisible = mask?.style.display === "block";
   if (!mask) {
     mask = document.createElement("div");
-    mask.className = "kite-terminal-cursor-overlay-mask";
     mask.setAttribute("aria-hidden", "true");
     slot.cursorOverlayMask = mask;
   }
+  const className = [
+    "kite-terminal-cursor-overlay-mask",
+    animateMotion && wasVisible ? "kite-terminal-cursor-overlay-motion" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (mask.className !== className) mask.className = className;
   if (mask.parentElement !== screen) screen.appendChild(mask);
   setOverlayStyle(mask.style, "background", color);
   setOverlayStyle(mask.style, "display", "block");
-  setOverlayStyle(mask.style, "left", `${box.left}px`);
-  setOverlayStyle(mask.style, "top", `${box.top}px`);
+  setOverlayStyle(mask.style, "left", "0px");
+  setOverlayStyle(mask.style, "top", "0px");
+  setOverlayStyle(
+    mask.style,
+    "transform",
+    `translate3d(${box.left}px, ${box.top}px, 0)`,
+  );
   setOverlayStyle(mask.style, "width", `${box.width}px`);
   setOverlayStyle(mask.style, "height", `${box.height}px`);
 }
@@ -1014,6 +1146,7 @@ function hideSlotCursorOverlayMask(slot: Slot): void {
 
 function hideSlotCursorOverlay(slot: Slot): void {
   if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
+  slot.cursorOverlayLastGrid = null;
   hideSlotCursorOverlayMask(slot);
 }
 
@@ -1021,12 +1154,34 @@ function disposeSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlaySync(slot);
   slot.cursorOverlay?.remove();
   slot.cursorOverlay = null;
+  slot.cursorOverlayVisual = null;
   slot.cursorOverlayMask?.remove();
   slot.cursorOverlayMask = null;
   slot.host.classList.remove("kite-terminal-overlay-cursor-active");
 }
 
+function cursorNow(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function markSlotCursorMotionIntent(slot: Slot): void {
+  slot.cursorMotionIntentUntil = cursorNow() + TERMINAL_CURSOR_MOTION_INTENT_MS;
+}
+
+function suppressSlotCursorMotion(slot: Slot): void {
+  slot.cursorMotionSuppressUntil =
+    cursorNow() + TERMINAL_CURSOR_MOTION_SUPPRESS_MS;
+}
+
+function resetSlotCursorMotion(slot: Slot): void {
+  slot.cursorOverlayLastGrid = null;
+  slot.cursorMotionIntentUntil = 0;
+  slot.cursorMotionSuppressUntil =
+    cursorNow() + TERMINAL_CURSOR_MOTION_SUPPRESS_MS;
+}
+
 export function resetSlotCursorVisibility(slot: Slot): void {
+  resetSlotCursorMotion(slot);
   scheduleSlotCursorOverlaySync(slot);
 }
 
@@ -1101,6 +1256,7 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   setupResizeObserver(slot, p);
   slot.fitAddon.fit();
   syncSlotImeAnchor(slot);
+  resetSlotCursorMotion(slot);
   applyCursorRenderingOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
   slot.lastW = p.container.clientWidth;
   slot.lastH = p.container.clientHeight;
@@ -1142,6 +1298,7 @@ function setupResizeObserver(slot: Slot, p: AcquireParams): void {
       slot.lastH = h;
       slot.fitAddon.fit();
       syncSlotImeAnchor(slot);
+      resetSlotCursorMotion(slot);
       scheduleSlotCursorOverlaySync(slot);
       if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
       slot.ptyTimer = setTimeout(flushPty, PTY_RESIZE_DEBOUNCE_MS);
@@ -1456,6 +1613,7 @@ function refitSlot(slot: Slot): void {
   }
   slot.fitAddon.fit();
   syncSlotImeAnchor(slot);
+  resetSlotCursorMotion(slot);
   scheduleSlotCursorOverlaySync(slot);
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
@@ -1532,6 +1690,7 @@ export function applyCursorPreferences(
   shape: TerminalCursorShape,
   animation: TerminalCursorAnimation,
   width: TerminalCursorWidth,
+  smoothCaretAnimation: TerminalCursorSmoothCaretAnimation,
 ): void {
   const previousStrategy = getTerminalCursorRenderStrategy(cursorAnimation);
   const nextStrategy = getTerminalCursorRenderStrategy(animation);
@@ -1546,6 +1705,7 @@ export function applyCursorPreferences(
   cursorShape = shape;
   cursorAnimation = animation;
   cursorWidth = width;
+  cursorSmoothCaretAnimation = smoothCaretAnimation;
   for (const slot of slots) {
     if (enteringOverlay) {
       clearXtermCursorStyleOverride(slot.term);
@@ -1560,6 +1720,7 @@ export function applyCursorPreferences(
     if (slot.term.options.cursorWidth !== nativeWidth) {
       slot.term.options.cursorWidth = nativeWidth;
     }
+    resetSlotCursorMotion(slot);
     applyCursorRenderingOnSlot(
       slot,
       slot.currentLeafId !== null
@@ -1703,4 +1864,26 @@ function isShiftEnter(e: KeyboardEvent): boolean {
   return (
     e.key === "Enter" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
   );
+}
+
+function isSmoothCaretIntentKey(e: KeyboardEvent): boolean {
+  if (e.altKey || e.metaKey || isTerminalCopy(e) || isTerminalPaste(e)) {
+    return false;
+  }
+  const key = e.key;
+  if (
+    key === "ArrowLeft" ||
+    key === "ArrowRight" ||
+    key === "ArrowUp" ||
+    key === "ArrowDown" ||
+    key === "Backspace" ||
+    key === "Delete" ||
+    key === "Enter" ||
+    key === "Home" ||
+    key === "End" ||
+    key === "Tab"
+  ) {
+    return true;
+  }
+  return key.length === 1 && !e.ctrlKey;
 }

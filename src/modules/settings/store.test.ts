@@ -78,6 +78,28 @@ describe("loadPreferences", () => {
     );
   });
 
+  it("loads the hidden smooth caret animation preference", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 6],
+      ["terminalCursorSmoothCaretAnimation", "on"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalCursorSmoothCaretAnimation).toBe("on");
+  });
+
+  it("falls back for invalid smooth caret animation preferences", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 6],
+      ["terminalCursorSmoothCaretAnimation", "always"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalCursorSmoothCaretAnimation).toBe("explicit");
+  });
+
   it("migrates the legacy default theme id to the Kite id", async () => {
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 1],

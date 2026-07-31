@@ -74,7 +74,7 @@ describe("writeToSlot synchronized output", () => {
   it("waits for xterm parsing before syncing an overlay cursor visibility change", () => {
     const requestAnimationFrame = vi.fn(() => 1);
     vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
-    applyCursorPreferences("bar", "expand", 1);
+    applyCursorPreferences("bar", "expand", 1, "explicit");
 
     try {
       const { slot } = createTestSlot();
