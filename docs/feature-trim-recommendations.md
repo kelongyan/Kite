@@ -35,13 +35,21 @@
 - 后端 `git_log`、`git_commit_files`、`git_commit_file_diff`、`git_remote_url` IPC 链路已清空。
 - 保留 Source Control 的状态、暂存、提交、fetch、pull、push、分支切换和当前工作区 diff。
 
+2026-07-31，Explorer 已收缩为轻量目录导航器：
+
+- 前端文件搜索、新建、重命名、删除、拖拽移动、外部复制和 Git 标记已删除。
+- Explorer 只保留当前目录树、键盘导航、打开文件、目录打开到终端、复制路径、系统文件管理器显示和手动刷新。
+- 后端 `fs_search`、`fs_grep_interactive`、`fs_watch_add`、`fs_watch_remove`、`fs_rename`、`fs_copy` IPC 链路已清空。
+- Rust 依赖 `notify`、`ignore`、`nucleo-matcher`、`grep-regex`、`grep-searcher` 已移除。
+- 保留 `fs_read_dir`、`fs_read_file`、`fs_write_file`、`fs_stat`、`fs_canonicalize`、`fs_create_file`、`fs_create_dir`、`fs_delete`，用于轻导航、编辑器和自定义主题。
+
 ## 结论先行
 
 建议新版产品边界:
 
 - 必须保留: 原生 PTY、xterm 渲染、多标签、分屏、终端搜索、链接识别、shell 集成、Windows 进程树清理、Workspace 授权、WSL 支持、SFTP、Git 工作流、内置编辑器和 Markdown 预览、快捷键、命令面板核心、基础主题和终端字体设置。
-- 第一优先级删除: 文件资源管理器的重功能、Blocks 终端、背景图、过量主题、低频设置项。
-- 第二优先级收缩: 内容搜索、文件监听、应用级命令历史，以及 Explorer 中的文件操作快捷入口。
+- 第一优先级删除: 文件资源管理器的重功能、Blocks 终端、背景图、过量主题、低频设置项。Explorer 重功能、Blocks、背景图已完成。
+- 第二优先级收缩: 内容搜索、文件监听、应用级命令历史，以及 Explorer 中的文件操作快捷入口。内容搜索、文件监听和 Explorer 文件操作已完成。
 - 第三优先级精简: 仅保留少量高质量主题和必要的终端视觉设置。
 
 如果目标是“极简但仍保留实用协作能力”，我推荐路线是:
@@ -57,14 +65,14 @@
 
 Kite 当前不是单纯终端，而是一个桌面开发工作台。现有主功能包括:
 
-- 终端: 多标签、分屏、xterm WebGL、搜索、链接、OSC 7 cwd 跟踪、OSC 133 命令边界、后台输出、文件拖拽、Blocks 模式。
+- 终端: 多标签、分屏、xterm WebGL、搜索、链接、OSC 7 cwd 跟踪、OSC 133 命令边界、后台输出、文件拖拽。
 - 工作区: 本地和 WSL 环境切换、启动目录解析、workspace 授权。
-- 文件: 左侧文件树、模糊搜索、内容搜索、文件创建、重命名、删除、复制、拖拽移动、文件监听、隐藏文件和 Git ignore 标记。
+- 文件: 轻量目录树、键盘导航、打开文件、目录打开到终端、复制路径、系统文件管理器显示、手动刷新、隐藏文件开关。
 - 编辑器: CodeMirror 编辑、语言高亮、Vim 模式、自动保存、媒体/PDF 预览、Git diff 视图。
 - Markdown: 渲染预览和原文切换。
 - Git: 状态面板、暂存、取消暂存、丢弃、提交、fetch、pull、push、分支列表/切换、当前工作区单文件 diff。
 - SFTP: 连接配置、SSH config 模板、凭据存储、主机指纹确认、本地/远程双栏、上传下载、批量传输、冲突处理、同步预览。
-- 个性化: 应用主题、自定义主题、背景图、编辑器主题、终端字体、字号、字重、字距、回滚行数、WebGL 开关、快捷键自定义、窗口状态恢复、缩放、专注模式。
+- 个性化: 应用主题、自定义主题、编辑器主题、终端字体、字号、字重、字距、回滚行数、WebGL 开关、快捷键自定义、窗口状态恢复、缩放、专注模式。
 
 ## 证据摘要
 
@@ -193,9 +201,9 @@ Tauri command 数量:
 - `src/modules/i18n/messages/zh-CN.ts`
 - CodeMirror、UIW theme、Vim、streamdown 相关依赖
 
-### P2: 收缩文件资源管理器
+### P2: 收缩文件资源管理器（已完成）
 
-建议: 不一定第一刀删除，但要从“IDE 文件管理器”收缩成“终端目录导航器”。
+建议: 已完成。Explorer 已从“IDE 文件管理器”收缩成“终端目录导航器”。
 
 当前文件树能力偏重:
 
@@ -205,14 +213,14 @@ Tauri command 数量:
 - 文件监听和编辑器同步。
 - 隐藏文件、Git ignore、Git status 标记。
 
-推荐保留的轻量版:
+已保留的轻量版:
 
 - 当前 cwd 展示。
 - 上级目录、子目录浏览。
 - 选择目录后 `cd` 到当前终端或新建终端。
 - 复制路径。
 
-推荐删除的部分:
+已删除的部分:
 
 - 内容搜索 `fs_grep_interactive`。
 - 文件名模糊搜索 `fs_search`，除非你把它做成命令面板核心能力。
@@ -395,8 +403,8 @@ Tauri command 数量:
 | Git 图谱 | 删除 | 中 | 失去提交历史图 | 已删除，保留 Source Control |
 | 编辑器 | 保留 | 高 | 无 | 保留为轻编辑和查看 |
 | Markdown | 保留 | 中 | 无 | 保留为轻量预览 |
-| Explorer | 收缩 | 很高 | 失去完整文件管理 | 降级目录导航 |
-| 内容搜索 | 删除 | 中高 | 失去项目内 grep UI | 用 rg CLI |
+| Explorer | 收缩 | 很高 | 失去完整文件管理 | 已降级目录导航 |
+| 内容搜索 | 删除 | 中高 | 失去项目内 grep UI | 已删除，用 rg CLI |
 | Blocks | 删除或保留招牌 | 中 | 失去命令块体验 | 追求极简就删 |
 | 命令面板 | 保留核心 | 中 | 无 | 保留，删非核心命令 |
 | 快捷键自定义 | 保留 | 低 | 无 | 保留 |

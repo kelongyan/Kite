@@ -24,7 +24,6 @@ import {
   type SearchTarget,
 } from "@/modules/header";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
-import { usePreferencesStore } from "@/modules/settings/preferences";
 import { isMarkdownPath } from "@/lib/utils";
 import {
   useGlobalShortcuts,
@@ -178,7 +177,7 @@ export default function App() {
   const isTerminalTab = activeTab?.kind === "terminal";
   const isEditorTab = activeTab?.kind === "editor";
 
-  useEditorFileSync({ tabs, tabsRef, editorRefs });
+  useEditorFileSync({ tabsRef, editorRefs });
   useThemeFileEditing({ tabsRef, openFileTab });
 
   const { explorerRoot, inheritedCwdForNewTab } = useWorkspaceCwd(
@@ -220,15 +219,11 @@ export default function App() {
   const {
     pendingCloseTab,
     pendingTerminalCloseTab,
-    pendingDeleteTabs,
     handleClose,
     confirmClose,
     cancelClose,
     confirmTerminalClose,
     cancelTerminalClose,
-    confirmDeleteClose,
-    cancelDeleteClose,
-    handlePathDeleted,
   } = useTabCloseGuards({ tabs, disposeTab });
 
   useEffect(() => {
@@ -318,27 +313,6 @@ export default function App() {
     [openFileTab, newMarkdownTab],
   );
 
-  const handlePathRenamed = useCallback(
-    (from: string, to: string) => {
-      for (const t of tabs) {
-        if (t.kind !== "editor") continue;
-        if (t.path === from) {
-          const i = to.lastIndexOf("/");
-          updateTab(t.id, { path: to, title: i === -1 ? to : to.slice(i + 1) });
-        } else if (t.path.startsWith(`${from}/`)) {
-          const suffix = t.path.slice(from.length);
-          const newPath = `${to}${suffix}`;
-          const i = newPath.lastIndexOf("/");
-          updateTab(t.id, {
-            path: newPath,
-            title: i === -1 ? newPath : newPath.slice(i + 1),
-          });
-        }
-      }
-    },
-    [tabs, updateTab],
-  );
-
   const activeTerminalLeafCwd =
     activeTab?.kind === "terminal"
       ? (findLeafCwd(activeTab.paneTree, activeTab.activeLeafId) ??
@@ -371,10 +345,6 @@ export default function App() {
     sidebarView,
     cycleSidebarView,
   });
-  const explorerGitDecorations = usePreferencesStore(
-    (s) => s.explorerGitDecorations,
-  );
-
   const openNewSftpTab = useCallback(() => {
     newSftpTab(inheritedCwdForNewTab());
   }, [newSftpTab, inheritedCwdForNewTab]);
@@ -583,7 +553,6 @@ export default function App() {
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
               splitPaneDown: () => splitActivePaneInActiveTab("col"),
               focusSearch: () => searchInlineRef.current?.focus(),
-              focusExplorerSearch: () => explorerRef.current?.focusSearch(),
               toggleSidebar,
               openSettings: () => void openSettingsWindow(),
               openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
@@ -664,13 +633,8 @@ export default function App() {
                       <FileExplorer
                         ref={explorerRef}
                         rootPath={explorerRoot}
-                        gitStatus={
-                          explorerGitDecorations ? sourceControl.status : null
-                        }
                         activeFilePath={explorerActiveFilePath}
                         onOpenFile={handleOpenFile}
-                        onPathRenamed={handlePathRenamed}
-                        onPathDeleted={handlePathDeleted}
                         onRevealInTerminal={cdInNewTab}
                       />
                     ) : (
@@ -751,9 +715,6 @@ export default function App() {
             pendingTerminalCloseTab={pendingTerminalCloseTab}
             onCancelTerminalClose={cancelTerminalClose}
             onConfirmTerminalClose={confirmTerminalClose}
-            pendingDeleteTabs={pendingDeleteTabs}
-            onCancelDeleteClose={cancelDeleteClose}
-            onConfirmDeleteClose={confirmDeleteClose}
           />
         </div>
       </TooltipProvider>

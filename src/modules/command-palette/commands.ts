@@ -44,7 +44,6 @@ export type CommandPaletteActionContext = {
   splitPaneRight: () => void;
   splitPaneDown: () => void;
   focusSearch: () => void;
-  focusExplorerSearch: () => void;
   toggleSidebar: () => void;
   openSettings: () => void;
   openKeyboardShortcuts: () => void;
@@ -176,16 +175,6 @@ export function createCommandItems(
         ? undefined
         : messages.disabled.noSearchableView,
       run: ctx.focusSearch,
-    },
-    {
-      id: "explorer.search",
-      ...item("searchFilesByName", "Search"),
-      icon: Search01Icon,
-      shortcutId: "explorer.search",
-      disabledReason: ctx.explorerRoot
-        ? undefined
-        : messages.disabled.noWorkspaceRoot,
-      run: ctx.focusExplorerSearch,
     },
     {
       id: "sidebar.toggle",

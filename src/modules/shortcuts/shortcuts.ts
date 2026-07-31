@@ -19,7 +19,6 @@ export type ShortcutId =
   | "pane.source"
   | "terminal.clear"
   | "search.focus"
-  | "explorer.search"
   | "explorer.focus"
   | "view.zoomIn"
   | "view.zoomOut"
@@ -144,12 +143,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Jump to tab 1–9",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "1" }],
-  },
-  {
-    id: "explorer.search",
-    label: "Search files",
-    group: "Search",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "f" }],
   },
   {
     id: "search.focus",

@@ -1,12 +1,4 @@
 import catppuccinIcons from "@iconify-json/catppuccin/icons.json";
-import { EXT_TO_LANGUAGE_ID } from "./constants";
-import * as fileIconsMod from "./fileIcons";
-import * as folderIconsMod from "./folderIcons";
-
-const catFileNames = fileIconsMod.fileNames as Record<string, string>;
-const catFileExtensions = fileIconsMod.fileExtensions as Record<string, string>;
-const catLanguageIds = fileIconsMod.languageIds as Record<string, string>;
-const catFolderNames = folderIconsMod.folderNames as Record<string, string>;
 
 type IconifySet = {
   icons: Record<string, { body: string }>;
@@ -23,19 +15,57 @@ const DEFAULT_FILE = "file";
 const DEFAULT_FOLDER = "folder";
 const DEFAULT_FOLDER_OPEN = "folder-open";
 
+const FILE_ICONS_BY_NAME: Record<string, string> = {
+  ".env": "env",
+  ".gitignore": "git",
+  "cargo.lock": "rust",
+  "cargo.toml": "rust",
+  "package.json": "nodejs",
+  "pnpm-lock.yaml": "pnpm",
+  "tauri.conf.json": "tauri",
+  "vite.config.ts": "vite",
+};
+
+const FILE_ICONS_BY_EXT: Record<string, string> = {
+  css: "css",
+  html: "html",
+  js: "javascript",
+  json: "json",
+  jsx: "javascript-react",
+  lock: "lock",
+  md: "markdown",
+  mjs: "javascript",
+  pdf: "pdf",
+  png: "image",
+  rs: "rust",
+  svg: "svg",
+  toml: "toml",
+  ts: "typescript",
+  tsx: "typescript-react",
+  txt: "text",
+  yaml: "yaml",
+  yml: "yaml",
+};
+
+const FOLDER_ICONS_BY_NAME: Record<string, string> = {
+  ".git": "folder-git",
+  ".github": "folder-github",
+  "node_modules": "folder-node",
+  dist: "folder-dist",
+  docs: "folder-docs",
+  public: "folder-public",
+  scripts: "folder-script",
+  src: "folder-src",
+  target: "folder-target",
+  tests: "folder-test",
+};
+
 const dataUrlCache = new Map<string, string>();
 
-// Catppuccin's manifest emits names like `folder_src`/`typescript-react`, but
-// the iconify export normalizes everything to hyphenated slugs.
-function toIconifySlug(name: string): string {
-  return name.replace(/_/g, "-");
-}
-
 function catBody(iconName: string): string | null {
-  const slug = toIconifySlug(iconName);
-  const direct = cat.icons[slug];
+  const direct = cat.icons[iconName];
   if (direct) return direct.body;
-  const alias = cat.aliases?.[slug];
+  const alias = cat.aliases?.[iconName];
   if (alias) {
     const parent = cat.icons[alias.parent];
     if (parent) return parent.body;
@@ -59,38 +89,23 @@ function buildDataUrl(iconName: string): string | null {
 
 function extOf(name: string): string {
   const lower = name.toLowerCase();
-  const dot = lower.indexOf(".");
-  if (dot === -1 || dot === lower.length - 1) return "";
+  const dot = lower.lastIndexOf(".");
+  if (dot <= 0 || dot === lower.length - 1) return "";
   return lower.slice(dot + 1);
 }
 
 export function fileIconUrl(name: string): string {
   const lower = name.toLowerCase();
-
-  const byName = catFileNames[lower];
+  const byName = FILE_ICONS_BY_NAME[lower];
   if (byName) {
     const url = buildDataUrl(byName);
     if (url) return url;
   }
 
-  let ext = extOf(lower);
-  while (ext) {
-    const iconName = catFileExtensions[ext];
-    if (iconName) {
-      const url = buildDataUrl(iconName);
-      if (url) return url;
-    }
-    const langId = EXT_TO_LANGUAGE_ID[ext];
-    if (langId) {
-      const iconByLang = catLanguageIds[langId];
-      if (iconByLang) {
-        const url = buildDataUrl(iconByLang);
-        if (url) return url;
-      }
-    }
-    const nextDot = ext.indexOf(".");
-    if (nextDot === -1) break;
-    ext = ext.slice(nextDot + 1);
+  const byExt = FILE_ICONS_BY_EXT[extOf(lower)];
+  if (byExt) {
+    const url = buildDataUrl(byExt);
+    if (url) return url;
   }
 
   return buildDataUrl(DEFAULT_FILE) ?? "";
@@ -98,11 +113,9 @@ export function fileIconUrl(name: string): string {
 
 export function folderIconUrl(name: string, expanded: boolean): string {
   const lower = name.toLowerCase();
-
-  const mapped = catFolderNames[lower];
+  const mapped = FOLDER_ICONS_BY_NAME[lower];
   if (mapped) {
-    const slug = toIconifySlug(mapped);
-    const target = expanded ? `${slug}-open` : slug;
+    const target = expanded ? `${mapped}-open` : mapped;
     const url = buildDataUrl(target);
     if (url) return url;
   }

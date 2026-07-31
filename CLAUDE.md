@@ -42,9 +42,9 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 ### Frontend modules (`src/modules/`)
 
 | `tabs` | All tab state (`useTabs` hook), tab bar, tab switcher HUD, pane tree logic |
-| `terminal` | xterm.js integration, PTY bridge, block mode, split panes, clipboard |
+| `terminal` | xterm.js integration, PTY bridge, split panes, clipboard |
 | `editor` | CodeMirror 6 file editor |
-| `explorer` | File tree sidebar |
+| `explorer` | Lightweight cwd directory navigator |
 | `source-control` | Git staging/commit panel |
 | `sftp` | SFTP browser (uses Rust libssh2) |
 | `markdown` | Rendered markdown tab |
@@ -56,7 +56,7 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 
 ### Rust backend modules (`src-tauri/src/modules/`)
 
-`pty` (PTY sessions via portable-pty), `fs` (file ops, content search, file watcher), `git` (git operations via child processes), `sftp` (SSH2/SFTP), `history` (shell history parse), `workspace`, `proc`.
+`pty` (PTY sessions via portable-pty), `fs` (directory listing, file read/write, create/delete helpers), `git` (git operations via child processes), `sftp` (SSH2/SFTP), `history` (shell history parse), `workspace`, `proc`.
 
 ### IPC pattern
 
@@ -66,7 +66,7 @@ All Rust↔frontend calls use Tauri's `invoke()` and `Channel<T>`. Tauri command
 
 Five tab kinds: `TerminalTab | EditorTab | MarkdownTab | GitDiffTab | SftpTab`.
 
-`TerminalTab` has sub-mode: `blocks: true` (block output UI). Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4`.
+Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4`.
 
 Tabs are **cold by default** — shells only spawn on first activation. This is controlled by a `booted` flag to prevent spurious shell spawns during workspace restore.
 

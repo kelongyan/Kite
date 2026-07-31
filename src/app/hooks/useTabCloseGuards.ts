@@ -17,9 +17,6 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
   const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<
     number | null
   >(null);
-  const [pendingDeleteTabs, setPendingDeleteTabs] = useState<number[] | null>(
-    null,
-  );
 
   const handleClose = useCallback(
     async (id: number) => {
@@ -64,45 +61,13 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
     setPendingTerminalCloseTab(null);
   }, []);
 
-  const confirmDeleteClose = useCallback(() => {
-    if (pendingDeleteTabs !== null) {
-      for (const id of pendingDeleteTabs) disposeTab(id);
-      setPendingDeleteTabs(null);
-    }
-  }, [pendingDeleteTabs, disposeTab]);
-
-  const cancelDeleteClose = useCallback(() => {
-    setPendingDeleteTabs(null);
-  }, []);
-
-  const handlePathDeleted = useCallback(
-    (path: string) => {
-      const dirty: number[] = [];
-      for (const t of tabs) {
-        if (t.kind !== "editor") continue;
-        if (t.path !== path && !t.path.startsWith(`${path}/`)) continue;
-        if (t.dirty) {
-          dirty.push(t.id);
-        } else {
-          disposeTab(t.id);
-        }
-      }
-      if (dirty.length > 0) setPendingDeleteTabs(dirty);
-    },
-    [tabs, disposeTab],
-  );
-
   return {
     pendingCloseTab,
     pendingTerminalCloseTab,
-    pendingDeleteTabs,
     handleClose,
     confirmClose,
     cancelClose,
     confirmTerminalClose,
     cancelTerminalClose,
-    confirmDeleteClose,
-    cancelDeleteClose,
-    handlePathDeleted,
   };
 }

@@ -88,7 +88,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 3);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
   });
 
   it("falls back to the legacy settings file only when the Kite store is empty", async () => {
@@ -121,6 +121,19 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundImageId");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundOpacity");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundBlur");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 3);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
+  });
+
+  it("removes retired explorer git decoration preference during migration", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 3],
+      ["explorerGitDecorations", true],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect("explorerGitDecorations" in prefs).toBe(false);
+    expect(storeMock.delete).toHaveBeenCalledWith("explorerGitDecorations");
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
   });
 });

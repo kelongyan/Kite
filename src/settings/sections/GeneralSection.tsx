@@ -23,7 +23,6 @@ import {
   setEditorAutoSave,
   setEditorAutoSaveDelay,
   setEditorWordWrap,
-  setExplorerGitDecorations,
   setRestoreWindowState,
   setShowHidden,
   setTerminalFontFamily,
@@ -88,9 +87,6 @@ export function GeneralSection() {
   const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
   const showHidden = usePreferencesStore((s) => s.showHidden);
-  const explorerGitDecorations = usePreferencesStore(
-    (s) => s.explorerGitDecorations,
-  );
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
@@ -216,15 +212,6 @@ export function GeneralSection() {
           <Switch
             checked={showHidden}
             onCheckedChange={(v) => void setShowHidden(v)}
-          />
-        </SettingRow>
-        <SettingRow
-          title={g.explorer.gitDecorations}
-          description={g.explorer.gitDecorationsDescription}
-        >
-          <Switch
-            checked={explorerGitDecorations}
-            onCheckedChange={(v) => void setExplorerGitDecorations(v)}
           />
         </SettingRow>
       </div>

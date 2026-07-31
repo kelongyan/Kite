@@ -257,8 +257,6 @@ pub fn run() {
         .manage(modules::secrets::SecretsState::default())
         .manage(pty::PtyState::default())
         .manage(sftp::session::SftpState::default())
-        .manage(fs::watch::FsWatchState::default())
-        .manage(fs::grep::ContentSearchState::default())
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
@@ -285,13 +283,7 @@ pub fn run() {
             fs::file::fs_canonicalize,
             fs::mutate::fs_create_file,
             fs::mutate::fs_create_dir,
-            fs::mutate::fs_rename,
             fs::mutate::fs_delete,
-            fs::mutate::fs_copy,
-            fs::watch::fs_watch_add,
-            fs::watch::fs_watch_remove,
-            fs::search::fs_search,
-            fs::grep::fs_grep_interactive,
             git::commands::git_resolve_repo,
             git::commands::git_panel_snapshot,
             git::commands::git_status,

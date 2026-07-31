@@ -109,7 +109,6 @@ export type Preferences = {
   vimMode: boolean;
   editorWordWrap: boolean;
   showHidden: boolean;
-  explorerGitDecorations: boolean;
   terminalWebglEnabled: boolean;
   terminalCursorShape: TerminalCursorShape;
   terminalCursorAnimation: TerminalCursorAnimation;
@@ -138,7 +137,6 @@ const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
 const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
-const KEY_EXPLORER_GIT_DECORATIONS = "explorerGitDecorations";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
@@ -159,6 +157,7 @@ const REMOVED_BACKGROUND_KEYS = [
   "backgroundOpacity",
   "backgroundBlur",
 ] as const;
+const REMOVED_EXPLORER_KEYS = ["explorerGitDecorations"] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -183,7 +182,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   vimMode: false,
   editorWordWrap: false,
   showHidden: false,
-  explorerGitDecorations: true,
   terminalWebglEnabled: true,
   terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
   terminalCursorAnimation: DEFAULT_TERMINAL_CURSOR_ANIMATION,
@@ -219,7 +217,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 3;
+const SETTINGS_VERSION = 4;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -230,6 +228,9 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
     },
     3: (map) => {
       for (const key of REMOVED_BACKGROUND_KEYS) map.delete(key);
+    },
+    4: (map) => {
+      for (const key of REMOVED_EXPLORER_KEYS) map.delete(key);
     },
   };
 
@@ -268,9 +269,15 @@ export async function loadPreferences(): Promise<Preferences> {
   for (const key of REMOVED_BACKGROUND_KEYS) {
     if (map.delete(key)) migrated = true;
   }
+  for (const key of REMOVED_EXPLORER_KEYS) {
+    if (map.delete(key)) migrated = true;
+  }
   if (migrated) {
     map.set(KEY_VERSION, SETTINGS_VERSION);
     for (const key of REMOVED_BACKGROUND_KEYS) {
+      await store.delete(key);
+    }
+    for (const key of REMOVED_EXPLORER_KEYS) {
       await store.delete(key);
     }
     for (const [k, v] of map) {
@@ -301,9 +308,6 @@ export async function loadPreferences(): Promise<Preferences> {
       get<boolean>(KEY_SHOW_HIDDEN) ??
       get<boolean>(LEGACY_KEY_SHOW_HIDDEN_DIRS) ??
       DEFAULT_PREFERENCES.showHidden,
-    explorerGitDecorations:
-      get<boolean>(KEY_EXPLORER_GIT_DECORATIONS) ??
-      DEFAULT_PREFERENCES.explorerGitDecorations,
     terminalWebglEnabled:
       get<boolean>(KEY_TERMINAL_WEBGL_ENABLED) ??
       DEFAULT_PREFERENCES.terminalWebglEnabled,
@@ -366,10 +370,6 @@ export async function setEditorWordWrap(value: boolean): Promise<void> {
 
 export async function setShowHidden(value: boolean): Promise<void> {
   await writePref(KEY_SHOW_HIDDEN, value);
-}
-
-export async function setExplorerGitDecorations(value: boolean): Promise<void> {
-  await writePref(KEY_EXPLORER_GIT_DECORATIONS, value);
 }
 
 export async function setTerminalWebglEnabled(value: boolean): Promise<void> {
@@ -481,7 +481,6 @@ export async function onPreferencesChange(
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",
-    [KEY_EXPLORER_GIT_DECORATIONS]: "explorerGitDecorations",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",

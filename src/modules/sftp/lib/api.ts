@@ -15,7 +15,6 @@ export type LocalDirEntry = {
   kind: "file" | "dir" | "symlink";
   size: number;
   mtime: number;
-  gitignored: boolean;
 };
 
 export const sftpApi = {
@@ -59,7 +58,6 @@ export const sftpApi = {
     invoke<LocalDirEntry[]>("fs_read_dir", {
       path,
       showHidden: true,
-      gitDecorations: false,
       workspace: currentWorkspaceEnv(),
     }),
   uploadFile: (connectionId: string, localPath: string, remotePath: string) =>

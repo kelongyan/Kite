@@ -19,9 +19,6 @@ type Props = {
   pendingTerminalCloseTab: number | null;
   onCancelTerminalClose: () => void;
   onConfirmTerminalClose: () => void;
-  pendingDeleteTabs: number[] | null;
-  onCancelDeleteClose: () => void;
-  onConfirmDeleteClose: () => void;
 };
 
 /** Confirmation dialogs for closing dirty editors and terminals with live processes. */
@@ -33,9 +30,6 @@ export function CloseDialogs({
   pendingTerminalCloseTab,
   onCancelTerminalClose,
   onConfirmTerminalClose,
-  pendingDeleteTabs,
-  onCancelDeleteClose,
-  onConfirmDeleteClose,
 }: Props) {
   const messages = useMessages();
   const dialogMessages = messages.mainShell.closeDialogs;
@@ -87,39 +81,6 @@ export function CloseDialogs({
               {cancelLabel}
             </AlertDialogCancel>
             <AlertDialogAction onClick={onConfirmTerminalClose}>
-              {dialogMessages.closeAnyway}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingDeleteTabs !== null}
-        onOpenChange={(open) => !open && onCancelDeleteClose()}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{dialogMessages.unsavedTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingDeleteTabs?.length === 1
-                ? (() => {
-                    const title = tabs.find(
-                      (t) => t.id === pendingDeleteTabs[0],
-                    )?.title;
-                    return title
-                      ? dialogMessages.deletedDirtyFile(title)
-                      : dialogMessages.deletedDirtyGeneric;
-                  })()
-                : dialogMessages.deletedDirtyMultiple(
-                    pendingDeleteTabs?.length ?? 0,
-                  )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={onCancelDeleteClose}>
-              {cancelLabel}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={onConfirmDeleteClose}>
               {dialogMessages.closeAnyway}
             </AlertDialogAction>
           </AlertDialogFooter>

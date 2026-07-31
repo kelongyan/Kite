@@ -24,7 +24,6 @@ function context(
     splitPaneRight: noop,
     splitPaneDown: noop,
     focusSearch: noop,
-    focusExplorerSearch: noop,
     toggleSidebar: noop,
     openSettings: noop,
     openKeyboardShortcuts: noop,

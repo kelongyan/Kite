@@ -63,11 +63,10 @@ channels and events.
 Backend command groups:
 
 - `pty::*`: open, write, resize, close, foreground-process checks, shell list.
-- `fs::tree`, `fs::file`, `fs::mutate`: directory, file, and mutation APIs.
-- `fs::watch`, `fs::search`, `fs::grep`: watchers, fuzzy search, interactive
-  content search.
+- `fs::tree`, `fs::file`, `fs::mutate`: directory listing, file read/write,
+  stat/canonicalize, and the create/delete helpers still used by editor/theme.
 - `git::commands`: repository resolution, status snapshots, diffs, stage,
-  discard, commit, remotes, log, and branch operations.
+  discard, commit, fetch/pull/push, and branch operations.
 - `sftp::commands`: profiles, sessions, directory operations, search,
   transfers, and cancellation.
 - `workspace::*`: authorization, current directory, WSL list and home.
@@ -123,15 +122,16 @@ state. Terminal tabs contain a binary pane tree and allow at most four panes.
 
 ### Modules
 
-- `terminal`: xterm sessions, split panes, block mode, renderer pool, OSC.
+- `terminal`: xterm sessions, split panes, renderer pool, OSC.
 - `editor`: CodeMirror editor, local media/PDF display, Git diff surfaces.
-- `explorer`: file tree, fuzzy search, keyboard navigation, mutations.
+- `explorer`: lightweight cwd directory navigator, keyboard navigation,
+  open/reveal/copy-path actions.
 - `tabs`: tab source of truth, switcher, pane-aware close behavior.
 - `source-control`: status, stage, commit, fetch, pull, and push workflow.
 - `sftp`: profile UI, local/remote panes, transfers, and sync preview.
 - `markdown`: rendered Markdown tabs using `streamdown`.
 - `workspace`: Local and WSL environment selection.
-- `theme`: built-in/custom themes, editor pairing, background images.
+- `theme`: built-in/custom themes and editor pairing.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
 - `header`, `sidebar`, `statusbar`, `i18n`: application chrome.
 

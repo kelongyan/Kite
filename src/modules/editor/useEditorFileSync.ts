@@ -1,26 +1,17 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import {
-  listenFsChanged,
-  parentDir,
-  watchAdd,
-  watchRemove,
-} from "@/modules/explorer/lib/watch";
 import type { Tab } from "@/modules/tabs";
 import type { EditorPaneHandle } from "./EditorPane";
 
 type Params = {
-  tabs: Tab[];
   tabsRef: RefObject<Tab[]>;
   editorRefs: RefObject<Map<number, EditorPaneHandle>>;
 };
 
 /**
- * Keeps open editor tabs in sync with on-disk changes: reloads on external
- * writes and fs-watch events, and maintains the watch set for the
- * directories of open editor files.
+ * Keeps open editor tabs in sync with writes routed through Kite's fs API.
  */
-export function useEditorFileSync({ tabs, tabsRef, editorRefs }: Params) {
+export function useEditorFileSync({ tabsRef, editorRefs }: Params) {
   useEffect(() => {
     type FileWrittenPayload = { path: string; source?: string };
     const unlistenPromise =
@@ -43,36 +34,4 @@ export function useEditorFileSync({ tabs, tabsRef, editorRefs }: Params) {
     };
   }, [tabsRef, editorRefs]);
 
-  const editorWatchRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const want = new Set<string>();
-    for (const t of tabs) if (t.kind === "editor") want.add(parentDir(t.path));
-    const prev = editorWatchRef.current;
-    const toAdd = [...want].filter((d) => !prev.has(d));
-    const toRemove = [...prev].filter((d) => !want.has(d));
-    watchAdd(toAdd);
-    watchRemove(toRemove);
-    editorWatchRef.current = want;
-  }, [tabs]);
-
-  useEffect(() => {
-    let alive = true;
-    let unlisten: (() => void) | undefined;
-    void listenFsChanged((paths) => {
-      const changed = new Set(paths.map((p) => p.replace(/\\/g, "/")));
-      for (const t of tabsRef.current) {
-        if (t.kind !== "editor") continue;
-        if (changed.has(t.path.replace(/\\/g, "/"))) {
-          editorRefs.current.get(t.id)?.reload();
-        }
-      }
-    }).then((un) => {
-      if (alive) unlisten = un;
-      else un();
-    });
-    return () => {
-      alive = false;
-      unlisten?.();
-    };
-  }, [tabsRef, editorRefs]);
 }

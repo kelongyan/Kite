@@ -98,10 +98,6 @@ export const zhCN = {
           title: "在当前标签中查找",
           keywords: ["查找", "终端", "编辑器", "当前"],
         },
-        searchFilesByName: {
-          title: "按名称搜索文件",
-          keywords: ["资源管理器", "工作区", "文件", "打开"],
-        },
         toggleFileExplorer: {
           title: "切换文件资源管理器",
           keywords: ["侧边栏", "文件", "资源管理器"],
@@ -161,11 +157,6 @@ export const zhCN = {
       dirtyGeneric: "此文件有未保存的更改。仍要关闭？",
       closeTerminalTitle: "关闭终端？",
       terminalProcessDescription: "有进程正在运行。关闭此标签会终止它。",
-      deletedDirtyFile: (title: string) =>
-        `"${title}" 有未保存的更改，且文件已被删除。仍要关闭？`,
-      deletedDirtyGeneric: "此文件有未保存的更改，且文件已被删除。仍要关闭？",
-      deletedDirtyMultiple: (count: number) =>
-        `${count} 个文件有未保存的更改，且这些文件已被删除。仍要全部关闭？`,
       closeAnyway: "仍要关闭",
     },
   },
@@ -173,24 +164,12 @@ export const zhCN = {
     explorer: {
       noCurrentDirectory: "没有当前目录",
       loading: "加载中...",
-      searchFiles: "搜索文件",
-      newFile: "新建文件",
-      newFolder: "新建文件夹",
       refresh: "刷新",
       open: "打开",
       openInTerminal: "在终端中打开",
       revealInFinder: "在 Finder 中显示",
       revealInFileManager: "在文件管理器中显示",
-      delete: "删除",
       copyPath: "复制路径",
-      copyRelativePath: "复制相对路径",
-      clickAgainToConfirm: "再次点击确认",
-      searchPlaceholder: "搜索文件...",
-      clearSearch: "清除搜索",
-      searching: "搜索中...",
-      noMatches: "没有匹配项",
-      partialResults: "仅显示部分结果，请缩小搜索范围。",
-      copyFailed: (error: string) => `复制失败：${error}`,
     },
     sftp: {
       title: "SFTP",
@@ -439,10 +418,7 @@ export const zhCN = {
         title: "资源管理器",
         showHiddenFiles: "显示隐藏文件",
         showHiddenFilesDescription:
-          "在文件资源管理器和搜索中包含以点开头的文件和文件夹（.env、.gitignore、.config）。",
-        gitDecorations: "Git 标记",
-        gitDecorationsDescription:
-          "为已更改文件着色，并淡化被 Git 忽略的项目。",
+          "在文件资源管理器中包含以点开头的文件和文件夹（.env、.gitignore、.config）。",
       },
       terminal: {
         title: "终端",
@@ -544,7 +520,6 @@ export const zhCN = {
         "tab.next": "下一个标签",
         "tab.prev": "上一个标签",
         "tab.selectByIndex": "跳转到标签 1-9",
-        "explorer.search": "搜索文件",
         "search.focus": "在终端中查找",
         "sidebar.toggle": "切换文件资源管理器",
         "explorer.focus": "切换文件资源管理器焦点",
