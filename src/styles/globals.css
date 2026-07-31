@@ -230,6 +230,26 @@ html[data-chrome="borderless"] #settings-root {
   color: var(--terminal-foreground) !important;
 }
 
+/*
+ * xterm repositions its helper textarea from the PTY cursor on every
+ * composition update. Agent TUIs often draw a different visual cursor, so pin
+ * both IME elements to Kite's resolved cursor while composition is active.
+ */
+.xterm[data-kite-ime-composing] .xterm-helper-textarea {
+  left: var(--kite-ime-left) !important;
+  top: var(--kite-ime-top) !important;
+  width: var(--kite-ime-width) !important;
+  height: var(--kite-ime-height) !important;
+  line-height: var(--kite-ime-line-height) !important;
+}
+
+.xterm[data-kite-ime-composing] .composition-view {
+  left: var(--kite-ime-left) !important;
+  top: var(--kite-ime-top) !important;
+  height: var(--kite-ime-height) !important;
+  line-height: var(--kite-ime-line-height) !important;
+}
+
 .cm-editor,
 .cm-scroller {
   scrollbar-width: none !important;

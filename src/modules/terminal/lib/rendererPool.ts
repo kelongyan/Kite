@@ -17,12 +17,18 @@ import {
   shouldInterceptTerminalCursorStyle,
   shouldShowTerminalCursorOverlay,
   shouldSuppressNativeCursor,
-  terminalCursorMaskColor,
   type TerminalCursorAnimation,
   type TerminalCursorShape,
   type TerminalCursorWidth,
+  terminalCursorMaskColor,
 } from "./cursorStyle";
-import { findVisibleCursorCell, syncTerminalImeAnchor } from "./imeAnchor";
+import {
+  findVisibleCursorCell,
+  type ImeCursor,
+  resolveTerminalImeAnchorCursor,
+  setTerminalImeCompositionActive,
+  syncTerminalImeAnchor,
+} from "./imeAnchor";
 import {
   terminalDeleteSequence,
   terminalLineNavigationSequence,
@@ -88,6 +94,8 @@ export type Slot = {
   unhideRaf: number | null;
   imeRaf: number | null;
   imeTimer: ReturnType<typeof setTimeout> | null;
+  imeComposing: boolean;
+  imeCompositionCursor: ImeCursor | null;
   imeDisposers: (() => void)[];
   cursorOverlay: HTMLDivElement | null;
   cursorOverlayMask: HTMLDivElement | null;
@@ -311,6 +319,8 @@ function createSlot(): Slot {
     unhideRaf: null,
     imeRaf: null,
     imeTimer: null,
+    imeComposing: false,
+    imeCompositionCursor: null,
     imeDisposers: [],
     cursorOverlay: null,
     cursorOverlayMask: null,
@@ -631,7 +641,6 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   } else {
     scheduleUnhide(slot, stale || hadWebgl);
   }
-
 }
 
 function scheduleUnhide(slot: Slot, stale: boolean): void {
@@ -675,41 +684,46 @@ function bindSlotImeAnchorSync(slot: Slot): void {
   const syncOnImeKey = (event: KeyboardEvent) => {
     if (event.isComposing || event.keyCode === 229) syncAfterXterm();
   };
-  // Guard: suppress onCursorMove/onWriteParsed-driven syncs while IME composition
-  // is active. Streaming output continuously shifts buffer.cursorX/Y to the tail
-  // of the incoming data, which would relocate the hidden textarea — and with it
-  // the OS candidate window — away from the user's actual input position.
-  // compositionstart/update paths are unaffected and keep the anchor accurate.
-  let composing = false;
+  // Freeze the TUI's logical cursor for the composition. xterm keeps writing
+  // the PTY cursor into inline styles, while the CSS pin keeps WebView2's IME
+  // anchor on this locked cell until composition ends.
   const onCompositionBegin = () => {
-    composing = true;
+    slot.imeComposing = true;
+    slot.imeCompositionCursor = resolveTerminalImeAnchorCursor(slot.term);
+    setTerminalImeCompositionActive(slot.term, true);
+    syncSlotImeAnchor(slot);
   };
   const onCompositionFinish = () => {
-    composing = false;
-    scheduleSlotImeAnchorSync(slot); // re-anchor once after composition settles
+    resetSlotImeComposition(slot);
+    scheduleSlotImeAnchorSync(slot);
   };
   const syncSoon = () => {
-    if (!composing) scheduleSlotImeAnchorSync(slot);
+    if (!slot.imeComposing) scheduleSlotImeAnchorSync(slot);
   };
-  textarea.addEventListener("compositionstart", onCompositionBegin);
+  textarea.addEventListener("compositionstart", onCompositionBegin, true);
   textarea.addEventListener("compositionend", onCompositionFinish);
-  textarea.addEventListener("compositionstart", syncNow, true);
   textarea.addEventListener("compositionstart", syncAfterXterm);
   textarea.addEventListener("compositionupdate", syncNow, true);
   textarea.addEventListener("compositionupdate", syncAfterXterm);
   textarea.addEventListener("focus", syncNow);
+  textarea.addEventListener("blur", onCompositionFinish);
   textarea.addEventListener("keydown", syncOnImeKey, true);
   const cursorMoveDisposable = slot.term.onCursorMove(syncSoon);
   const writeParsedDisposable = slot.term.onWriteParsed(syncSoon);
 
   slot.imeDisposers.push(
-    () => textarea.removeEventListener("compositionstart", onCompositionBegin),
+    () =>
+      textarea.removeEventListener(
+        "compositionstart",
+        onCompositionBegin,
+        true,
+      ),
     () => textarea.removeEventListener("compositionend", onCompositionFinish),
-    () => textarea.removeEventListener("compositionstart", syncNow, true),
     () => textarea.removeEventListener("compositionstart", syncAfterXterm),
     () => textarea.removeEventListener("compositionupdate", syncNow, true),
     () => textarea.removeEventListener("compositionupdate", syncAfterXterm),
     () => textarea.removeEventListener("focus", syncNow),
+    () => textarea.removeEventListener("blur", onCompositionFinish),
     () => textarea.removeEventListener("keydown", syncOnImeKey, true),
     () => cursorMoveDisposable.dispose(),
     () => writeParsedDisposable.dispose(),
@@ -718,7 +732,13 @@ function bindSlotImeAnchorSync(slot: Slot): void {
 
 function syncSlotImeAnchor(slot: Slot): void {
   if (slot.currentLeafId === null || slot.parked) return;
-  syncTerminalImeAnchor(slot.term);
+  syncTerminalImeAnchor(slot.term, slot.imeCompositionCursor);
+}
+
+function resetSlotImeComposition(slot: Slot): void {
+  slot.imeComposing = false;
+  slot.imeCompositionCursor = null;
+  setTerminalImeCompositionActive(slot.term, false);
 }
 
 function scheduleSlotImeAnchorSync(slot: Slot): void {
@@ -1186,6 +1206,7 @@ function detachSlotFromLeaf(slot: Slot, retain: boolean): void {
 
   cancelPendingUnhide(slot);
   cancelSlotImeAnchorSync(slot);
+  resetSlotImeComposition(slot);
   cancelSlotCursorOverlaySync(slot);
   disposeSlotCursorOverlay(slot);
   slot.host.style.visibility = "";
@@ -1263,6 +1284,7 @@ function disposeSlot(slot: Slot): void {
   cancelWebglReap(slot);
   cancelPendingUnhide(slot);
   cancelSlotImeAnchorSync(slot);
+  resetSlotImeComposition(slot);
   cancelSlotCursorOverlaySync(slot);
   if (slot.fitTimer) clearTimeout(slot.fitTimer);
   if (slot.ptyTimer) clearTimeout(slot.ptyTimer);

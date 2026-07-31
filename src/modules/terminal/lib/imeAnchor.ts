@@ -51,11 +51,12 @@ export type ImeCursorInput = {
   buffer: ImeBuffer;
   cols: number;
   rows: number;
-  preferVisibleCursor?: boolean;
+  cursorHidden?: boolean;
   requireInverse?: boolean;
 };
 
 export type ImeSyncOptions = {
+  root?: HTMLElement | null;
   compositionView?: HTMLElement | null;
   fontFamily?: string;
   fontSize?: number;
@@ -93,9 +94,26 @@ export function resolveImeAnchorCursor(input: ImeCursorInput): ImeCursor {
     cursorY: clamp(Math.trunc(input.buffer.cursorY), 0, input.rows - 1),
   };
 
-  if (!input.preferVisibleCursor) return fallback;
+  if (!input.cursorHidden) return fallback;
 
-  const visibleCursor = findVisibleCursorCell(input);
+  // Agent TUIs often hide the PTY cursor and draw their own as one isolated
+  // inverse cell. The cell can contain an existing character when editing in
+  // the middle of a prompt, so only looking for highlighted blanks is not
+  // sufficient.
+  const inverseCursor = findVisibleCursorCell({
+    ...input,
+    requireInverse: true,
+  });
+  if (inverseCursor) {
+    return { cursorX: inverseCursor.cursorX, cursorY: inverseCursor.cursorY };
+  }
+
+  // A hidden cursor may also be represented by an isolated blank cell with an
+  // explicit background color instead of SGR inverse.
+  const visibleCursor = findVisibleCursorCell({
+    ...input,
+    requireInverse: false,
+  });
   return visibleCursor
     ? { cursorX: visibleCursor.cursorX, cursorY: visibleCursor.cursorY }
     : fallback;
@@ -116,6 +134,15 @@ export function syncImeTextarea(
   textarea.style.lineHeight = `${anchor.lineHeight}px`;
   textarea.style.zIndex = "-5";
 
+  const root = options.root;
+  if (root) {
+    root.style.setProperty("--kite-ime-left", `${anchor.left}px`);
+    root.style.setProperty("--kite-ime-top", `${anchor.top}px`);
+    root.style.setProperty("--kite-ime-width", `${anchor.width}px`);
+    root.style.setProperty("--kite-ime-height", `${anchor.height}px`);
+    root.style.setProperty("--kite-ime-line-height", `${anchor.lineHeight}px`);
+  }
+
   const compositionView = options.compositionView;
   if (compositionView) {
     compositionView.style.left = `${anchor.left}px`;
@@ -131,20 +158,33 @@ export function syncImeTextarea(
   return true;
 }
 
-export function syncTerminalImeAnchor(term: Terminal): boolean {
+export function resolveTerminalImeAnchorCursor(term: Terminal): ImeCursor {
+  return resolveImeAnchorCursor({
+    buffer: term.buffer.active,
+    cols: term.cols,
+    rows: term.rows,
+    cursorHidden: isTerminalCursorHidden(term),
+  });
+}
+
+export function setTerminalImeCompositionActive(
+  term: Terminal,
+  active: boolean,
+): void {
+  term.element?.toggleAttribute("data-kite-ime-composing", active);
+}
+
+export function syncTerminalImeAnchor(
+  term: Terminal,
+  lockedCursor?: ImeCursor | null,
+): boolean {
   const textarea = term.textarea;
   const screen = term.element?.querySelector<HTMLElement>(".xterm-screen");
   if (!textarea || !screen?.isConnected) return false;
 
   const width = dimensionFromStyleOrRect(screen, "width");
   const height = dimensionFromStyleOrRect(screen, "height");
-  const buffer = term.buffer.active;
-  const cursor = resolveImeAnchorCursor({
-    buffer,
-    cols: term.cols,
-    rows: term.rows,
-    preferVisibleCursor: isTerminalCursorHidden(term),
-  });
+  const cursor = lockedCursor ?? resolveTerminalImeAnchorCursor(term);
 
   return syncImeTextarea(
     textarea,
@@ -157,6 +197,7 @@ export function syncTerminalImeAnchor(term: Terminal): boolean {
       screenHeight: height,
     },
     {
+      root: term.element,
       compositionView:
         term.element?.querySelector<HTMLElement>(".composition-view") ?? null,
       fontFamily: term.options.fontFamily,
@@ -182,8 +223,7 @@ export function findVisibleCursorCell(
       const cell = line.getCell(x, workCell);
       if (!cell) continue;
       workCell = cell;
-      if (!isCursorLikeBlankCell(cell)) continue;
-      if (input.requireInverse && !cell.isInverse()) continue;
+      if (!isCursorLikeCell(cell, input.requireInverse)) continue;
       if (
         isCursorLikeNeighbor(line, x - 1, input.requireInverse) ||
         isCursorLikeNeighbor(line, x + 1, input.requireInverse)
@@ -204,8 +244,12 @@ export function findVisibleCursorCell(
   return inverseCandidate;
 }
 
-function isCursorLikeBlankCell(cell: ImeBufferCell): boolean {
+function isCursorLikeCell(
+  cell: ImeBufferCell,
+  requireInverse = false,
+): boolean {
   if (cell.getWidth() <= 0) return false;
+  if (requireInverse) return cell.isInverse() !== 0;
   const chars = cell.getChars();
   if (chars !== "" && chars !== " " && chars !== "\u00a0") return false;
   return isHighlightedCell(cell);
@@ -218,8 +262,7 @@ function isCursorLikeNeighbor(
 ): boolean {
   if (index < 0 || index >= line.length) return false;
   const cell = line.getCell(index);
-  if (requireInverse && !cell?.isInverse()) return false;
-  return !!cell && isCursorLikeBlankCell(cell);
+  return !!cell && isCursorLikeCell(cell, requireInverse);
 }
 
 function isHighlightedCell(cell: ImeBufferCell): boolean {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import {
   computeImeAnchor,
   findVisibleCursorCell,
@@ -77,9 +76,54 @@ describe("resolveImeAnchorCursor", () => {
         buffer,
         cols: 40,
         rows: 6,
-        preferVisibleCursor: true,
+        cursorHidden: true,
       }),
     ).toEqual({ cursorX: 2, cursorY: 3 });
+  });
+
+  it("uses a non-blank inverse TUI cursor when the PTY cursor is hidden", () => {
+    const buffer = createBuffer({
+      cursorX: 35,
+      cursorY: 5,
+      lines: [
+        "Agent CLI",
+        [
+          { chars: ">" },
+          { chars: " " },
+          { chars: "中", inverse: true },
+          { chars: " " },
+        ],
+      ],
+    });
+
+    expect(
+      resolveImeAnchorCursor({
+        buffer,
+        cols: 40,
+        rows: 6,
+        cursorHidden: true,
+      }),
+    ).toEqual({ cursorX: 2, cursorY: 1 });
+  });
+
+  it("keeps a visible PTY cursor when output contains an inverse cell", () => {
+    const buffer = createBuffer({
+      cursorX: 8,
+      cursorY: 5,
+      lines: [
+        [{ chars: "x", inverse: true }, { chars: " " }],
+        "plain shell prompt",
+      ],
+    });
+
+    expect(
+      resolveImeAnchorCursor({
+        buffer,
+        cols: 40,
+        rows: 6,
+        cursorHidden: false,
+      }),
+    ).toEqual({ cursorX: 8, cursorY: 5 });
   });
 
   it("identifies an inverse blank cell as a synthetic TUI cursor", () => {
@@ -98,7 +142,6 @@ describe("resolveImeAnchorCursor", () => {
         buffer,
         cols: 40,
         rows: 3,
-        preferVisibleCursor: true,
       }),
     ).toEqual({ cursorX: 2, cursorY: 1, inverse: true });
   });
@@ -155,7 +198,7 @@ describe("resolveImeAnchorCursor", () => {
         buffer,
         cols: 40,
         rows: 6,
-        preferVisibleCursor: true,
+        cursorHidden: true,
       }),
     ).toEqual({ cursorX: 28, cursorY: 5 });
   });
@@ -209,6 +252,39 @@ describe("syncImeTextarea", () => {
     expect(compositionView.style.lineHeight).toBe("16px");
     expect(compositionView.style.fontFamily).toBe("JetBrains Mono");
     expect(compositionView.style.fontSize).toBe("13px");
+  });
+
+  it("publishes a pinned anchor for the active composition CSS", () => {
+    const properties = new Map<string, string>();
+    const root = {
+      style: {
+        setProperty: (name: string, value: string) => {
+          properties.set(name, value);
+        },
+      },
+    } as HTMLElement;
+    const textarea = { style: {} } as HTMLTextAreaElement;
+
+    syncImeTextarea(
+      textarea,
+      {
+        cols: 80,
+        rows: 24,
+        cursorX: 2,
+        cursorY: 1,
+        screenWidth: 800,
+        screenHeight: 384,
+      },
+      { root },
+    );
+
+    expect(Object.fromEntries(properties)).toEqual({
+      "--kite-ime-left": "20px",
+      "--kite-ime-top": "16px",
+      "--kite-ime-width": "10px",
+      "--kite-ime-height": "16px",
+      "--kite-ime-line-height": "16px",
+    });
   });
 });
 
