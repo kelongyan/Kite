@@ -432,7 +432,6 @@ html *::-webkit-scrollbar {
   background: var(--terminal-background);
   pointer-events: none;
   contain: strict;
-  will-change: transform;
 }
 
 .kite-terminal-cursor-overlay {
@@ -447,7 +446,7 @@ html *::-webkit-scrollbar {
 }
 
 .kite-terminal-cursor-overlay-motion {
-  transition: transform 80ms var(--ease-soft);
+  transition: transform 64ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .kite-terminal-cursor-overlay-visual {
@@ -456,6 +455,12 @@ html *::-webkit-scrollbar {
   background: var(--terminal-cursor);
   pointer-events: none;
   will-change: opacity, transform;
+}
+
+.kite-terminal-cursor-overlay-motion .kite-terminal-cursor-overlay-visual {
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 .kite-terminal-cursor-overlay-smooth {

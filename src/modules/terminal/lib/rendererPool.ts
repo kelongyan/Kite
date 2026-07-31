@@ -114,6 +114,7 @@ export type Slot = {
   cursorOverlayMask: HTMLDivElement | null;
   cursorOverlayRaf: number | null;
   cursorOverlayHiddenTimer: ReturnType<typeof setTimeout> | null;
+  cursorOverlayMotionTimer: ReturnType<typeof setTimeout> | null;
   cursorDisposers: (() => void)[];
   cursorMotionIntentUntil: number;
   cursorMotionSuppressUntil: number;
@@ -374,6 +375,7 @@ function createSlot(): Slot {
     cursorOverlayMask: null,
     cursorOverlayRaf: null,
     cursorOverlayHiddenTimer: null,
+    cursorOverlayMotionTimer: null,
     cursorDisposers: [],
     cursorMotionIntentUntil: 0,
     cursorMotionSuppressUntil: 0,
@@ -984,6 +986,7 @@ function syncSlotCursorOverlay(slot: Slot): void {
   if (animateMotion) {
     slot.cursorMotionTransitionUntil =
       now + TERMINAL_CURSOR_MOTION_TRANSITION_MS;
+    scheduleSlotCursorOverlayMotionEnd(slot);
   }
   const useMotionClass =
     animateMotion ||
@@ -1005,7 +1008,6 @@ function syncSlotCursorOverlay(slot: Slot): void {
         })
       : null,
     visualCursor.maskColor,
-    useMotionClass,
   );
   const overlay = ensureSlotCursorOverlay(slot, screen);
   const visual = ensureSlotCursorOverlayVisual(slot, overlay);
@@ -1150,26 +1152,20 @@ function syncSlotCursorOverlayMask(
   screen: HTMLElement,
   box: TerminalCursorOverlayBox | null,
   color: string | null,
-  animateMotion: boolean,
 ): void {
   if (!box || !color) {
     hideSlotCursorOverlayMask(slot);
     return;
   }
   let mask = slot.cursorOverlayMask;
-  const wasVisible = mask?.style.display === "block";
   if (!mask) {
     mask = document.createElement("div");
     mask.setAttribute("aria-hidden", "true");
     slot.cursorOverlayMask = mask;
   }
-  const className = [
-    "kite-terminal-cursor-overlay-mask",
-    animateMotion && wasVisible ? "kite-terminal-cursor-overlay-motion" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  if (mask.className !== className) mask.className = className;
+  if (mask.className !== "kite-terminal-cursor-overlay-mask") {
+    mask.className = "kite-terminal-cursor-overlay-mask";
+  }
   if (mask.parentElement !== screen) screen.appendChild(mask);
   setOverlayStyle(mask.style, "background", color);
   setOverlayStyle(mask.style, "display", "block");
@@ -1190,6 +1186,7 @@ function hideSlotCursorOverlayMask(slot: Slot): void {
 
 function hideSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlayHiddenGrace(slot);
+  cancelSlotCursorOverlayMotionEnd(slot);
   if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
   slot.cursorOverlayLastGrid = null;
   hideSlotCursorOverlayMask(slot);
@@ -1198,6 +1195,7 @@ function hideSlotCursorOverlay(slot: Slot): void {
 function disposeSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlaySync(slot);
   cancelSlotCursorOverlayHiddenGrace(slot);
+  cancelSlotCursorOverlayMotionEnd(slot);
   slot.cursorOverlay?.remove();
   slot.cursorOverlay = null;
   slot.cursorOverlayVisual = null;
@@ -1234,6 +1232,21 @@ function cancelSlotCursorOverlayHiddenGrace(slot: Slot): void {
   slot.cursorOverlayHiddenTimer = null;
 }
 
+function scheduleSlotCursorOverlayMotionEnd(slot: Slot): void {
+  cancelSlotCursorOverlayMotionEnd(slot);
+  slot.cursorOverlayMotionTimer = setTimeout(() => {
+    slot.cursorOverlayMotionTimer = null;
+    slot.cursorMotionTransitionUntil = 0;
+    scheduleSlotCursorOverlaySync(slot);
+  }, TERMINAL_CURSOR_MOTION_TRANSITION_MS);
+}
+
+function cancelSlotCursorOverlayMotionEnd(slot: Slot): void {
+  if (slot.cursorOverlayMotionTimer === null) return;
+  clearTimeout(slot.cursorOverlayMotionTimer);
+  slot.cursorOverlayMotionTimer = null;
+}
+
 function cursorNow(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
@@ -1249,6 +1262,7 @@ function suppressSlotCursorMotion(slot: Slot): void {
 
 function resetSlotCursorMotion(slot: Slot): void {
   cancelSlotCursorOverlayHiddenGrace(slot);
+  cancelSlotCursorOverlayMotionEnd(slot);
   slot.cursorOverlayLastGrid = null;
   slot.cursorMotionIntentUntil = 0;
   slot.cursorMotionSuppressUntil =
