@@ -6,8 +6,6 @@
   DeleteRegKey HKCU "Software\Classes\Directory\shell\OpenInKite"
   DeleteRegKey HKCU "Software\Classes\Directory\Background\shell\OpenInKite"
   DeleteRegKey HKCU "Software\Classes\Drive\shell\OpenInKite"
-  Delete "$DESKTOP\Kite.lnk"
-  Delete "$SMPROGRAMS\Kite.lnk"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL

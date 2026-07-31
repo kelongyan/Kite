@@ -28,6 +28,13 @@
 - PTY / shell 集成中的 `KITE_BLOCKS` 分支已删除。
 - 相关文案、测试和后台支持代码已清空。
 
+2026-07-30，Git 图谱已彻底移除：
+
+- 前端 `git-history` 模块、提交图谱入口和历史提交文件 diff tab 已删除。
+- 命令面板、标签新建菜单和 Source Control 面板不再提供 Git 图谱入口。
+- 后端 `git_log`、`git_commit_files`、`git_commit_file_diff`、`git_remote_url` IPC 链路已清空。
+- 保留 Source Control 的状态、暂存、提交、fetch、pull、push、分支切换和当前工作区 diff。
+
 ## 结论先行
 
 建议新版产品边界:
@@ -55,7 +62,7 @@ Kite 当前不是单纯终端，而是一个桌面开发工作台。现有主功
 - 文件: 左侧文件树、模糊搜索、内容搜索、文件创建、重命名、删除、复制、拖拽移动、文件监听、隐藏文件和 Git ignore 标记。
 - 编辑器: CodeMirror 编辑、语言高亮、Vim 模式、自动保存、媒体/PDF 预览、Git diff 视图。
 - Markdown: 渲染预览和原文切换。
-- Git: 状态面板、暂存、取消暂存、丢弃、提交、fetch、pull、push、分支列表/切换、提交历史图、单文件 diff。
+- Git: 状态面板、暂存、取消暂存、丢弃、提交、fetch、pull、push、分支列表/切换、当前工作区单文件 diff。
 - SFTP: 连接配置、SSH config 模板、凭据存储、主机指纹确认、本地/远程双栏、上传下载、批量传输、冲突处理、同步预览。
 - 个性化: 应用主题、自定义主题、背景图、编辑器主题、终端字体、字号、字重、字距、回滚行数、WebGL 开关、快捷键自定义、窗口状态恢复、缩放、专注模式。
 
@@ -71,7 +78,6 @@ Kite 当前不是单纯终端，而是一个桌面开发工作台。现有主功
 | source-control | 6 | 2620 | 保留，Git 工作流的图形化补充 |
 | editor | 20 | 2362 | 保留，轻编辑和预览能力 |
 | theme | 28 | 2305 | 符合自定义目标，但可以收缩 |
-| git-history | 7 | 1448 | 保留，Git 配套历史视图 |
 | command-palette | 14 | 1153 | 符合快捷目标，建议保留核心 |
 | markdown | 5 | 192 | 保留，轻量预览能力 |
 
@@ -109,7 +115,7 @@ Tauri command 数量:
 - 文件树和搜索绑定 `notify`、`ignore`、`nucleo-matcher`、`grep-regex`、`grep-searcher`。
 - 编辑器绑定 CodeMirror、UIW CodeMirror、Vim、多个语言包和编辑器主题。
 - Markdown 绑定 `streamdown`。
-- Git UI 绑定 Rust Git 命令、source-control 面板、git-history、git-diff tab 和部分 explorer Git decoration。
+- Git UI 绑定 Rust Git 命令、source-control 面板、git-diff tab 和部分 explorer Git decoration。
 
 ## 优先删除建议
 
@@ -137,20 +143,19 @@ Tauri command 数量:
 - `src-tauri/Cargo.toml`
 - `src-tauri/src/lib.rs`
 
-### P1: 保留内置 Git UI 和 Git History
+### P1: 保留内置 Git UI，删除 Git 图谱
 
-建议: 保留，作为 git CLI 的图形化补充，不要删除。
+建议: 保留 Source Control 主流程，删除 Git 图谱和历史提交浏览。
 
 原因:
 
-- Git 是高频需求，图形化面板能显著降低 staging、commit、diff 和历史查询的摩擦。
-- 当前实现已经覆盖状态、暂存、提交、拉取、推送、历史图、分支切换和文件 diff，实际价值很高。
-- 如果要继续瘦身，优先动别的 IDE 能力，不要先砍这块。
+- Git 是高频需求，图形化面板能显著降低 staging、commit、diff、fetch、pull 和 push 的摩擦。
+- 提交历史图属于低频增强，入口和后端命令链路独立，删除后不影响当前改动的提交工作流。
+- 当前极简边界保留“正在改什么”和“如何提交同步”，不保留“历史提交浏览”。
 
 主要影响文件:
 
 - `src/modules/source-control/**`
-- `src/modules/git-history/**`
 - `src/modules/editor/GitDiffPane.tsx`
 - `src/modules/editor/GitDiffStack.tsx`
 - `src-tauri/src/modules/git/**`
@@ -163,7 +168,7 @@ Tauri command 数量:
 
 注意:
 
-- 如果后面还想进一步简化，建议只收拢 Git decoration 和少量低频入口，不要删除主流程。
+- 后续如果还想进一步简化，建议只收拢 Git decoration 和少量低频入口，不要删除 Source Control 主流程。
 
 ### P1: 保留内置编辑器和 Markdown 预览
 
@@ -387,7 +392,7 @@ Tauri command 数量:
 | --- | --- | --- | --- | --- |
 | SFTP | 保留 | 高 | 无 | 保留为按需工作区 |
 | Git UI | 保留 | 高 | 无 | 保留为图形化补充 |
-| Git History | 保留 | 中高 | 无 | 和 Git UI 一起留着 |
+| Git 图谱 | 删除 | 中 | 失去提交历史图 | 已删除，保留 Source Control |
 | 编辑器 | 保留 | 高 | 无 | 保留为轻编辑和查看 |
 | Markdown | 保留 | 中 | 无 | 保留为轻量预览 |
 | Explorer | 收缩 | 很高 | 失去完整文件管理 | 降级目录导航 |

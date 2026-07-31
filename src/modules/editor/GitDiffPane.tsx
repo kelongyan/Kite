@@ -9,11 +9,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMessages } from "@/modules/i18n";
 import { buildSharedExtensions, languageCompartment } from "./lib/extensions";
 import {
-  fetchCommitDiff,
   fetchWorkingDiff,
   getCachedDiff,
   workingDiffKey,
-  commitDiffKey,
 } from "./lib/diffCache";
 import { resolveLanguage, resolveLanguageSync } from "./lib/languageResolver";
 import { useEditorThemeExt } from "./lib/useEditorThemeExt";
@@ -26,17 +24,8 @@ type WorkingSource = {
   originalPath: string | null;
 };
 
-type CommitSource = {
-  kind: "commit";
-  repoRoot: string;
-  sha: string;
-  path: string;
-  originalPath: string | null;
-};
-
 type Props = {
-  source: WorkingSource | CommitSource;
-  chipLabel?: string;
+  source: WorkingSource;
   active: boolean;
 };
 
@@ -102,18 +91,20 @@ function countDiffLines(patch: string): { added: number; removed: number } {
 type LoadState =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "loaded"; originalContent: string; modifiedContent: string; isBinary: boolean; fallbackPatch: string }
+  | {
+      kind: "loaded";
+      originalContent: string;
+      modifiedContent: string;
+      isBinary: boolean;
+      fallbackPatch: string;
+    }
   | { kind: "error"; message: string };
 
-function cacheKey(source: WorkingSource | CommitSource): string {
-  return source.kind === "working"
-    ? workingDiffKey(source.repoRoot, source.path, source.mode)
-    : commitDiffKey(source.repoRoot, source.sha, source.path);
+function cacheKey(source: WorkingSource): string {
+  return workingDiffKey(source.repoRoot, source.path, source.mode);
 }
 
-function loadStateFromCache(
-  source: WorkingSource | CommitSource,
-): LoadState {
+function loadStateFromCache(source: WorkingSource): LoadState {
   const hit = getCachedDiff(cacheKey(source));
   if (!hit) return { kind: "idle" };
   return {
@@ -125,7 +116,7 @@ function loadStateFromCache(
   };
 }
 
-export function GitDiffPane({ source, chipLabel, active }: Props) {
+export function GitDiffPane({ source, active }: Props) {
   const messages = useMessages().workspace.editor;
   const cmRef = useRef<ReactCodeMirrorRef>(null);
   const themeExt = useEditorThemeExt();
@@ -142,20 +133,12 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
     }
     let cancelled = false;
     setState({ kind: "loading" });
-    const promise =
-      source.kind === "working"
-        ? fetchWorkingDiff(
-            source.repoRoot,
-            source.path,
-            source.mode,
-            source.originalPath,
-          )
-        : fetchCommitDiff(
-            source.repoRoot,
-            source.sha,
-            source.path,
-            source.originalPath,
-          );
+    const promise = fetchWorkingDiff(
+      source.repoRoot,
+      source.path,
+      source.mode,
+      source.originalPath,
+    );
     promise
       .then((res) => {
         if (cancelled) return;
@@ -184,7 +167,7 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
 
   const path = source.path;
   const repoRoot = source.repoRoot;
-  const mode = source.kind === "working" ? source.mode : "+";
+  const mode = source.mode;
   const loaded = state.kind === "loaded" ? state : null;
   const originalContent = loaded?.originalContent ?? "";
   const modifiedContent = loaded?.modifiedContent ?? "";
@@ -239,7 +222,8 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
   }, [useFallback, path, initialLang, state.kind]);
 
   const stats = useMemo(
-    () => (useFallback ? countDiffLines(fallbackPatch) : { added: 0, removed: 0 }),
+    () =>
+      useFallback ? countDiffLines(fallbackPatch) : { added: 0, removed: 0 },
     [useFallback, fallbackPatch],
   );
 
@@ -251,7 +235,7 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
             variant="outline"
             className="text-[10px] uppercase tracking-wide"
           >
-            {chipLabel ?? mode}
+            {mode}
           </Badge>
           {isBinary ? (
             <Badge variant="secondary" className="text-[10px]">

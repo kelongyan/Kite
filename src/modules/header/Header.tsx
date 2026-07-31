@@ -10,12 +10,7 @@ import {
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import {
   SearchInline,
   type SearchInlineHandle,
@@ -29,7 +24,6 @@ type Props = {
   onNew: () => void;
   onNewEditor: () => void;
   onNewSftp: () => void;
-  onNewGitGraph: () => void;
   onClose: (id: number) => void;
   /** Promote a preview (transient) tab to persistent. */
   onPin: (id: number) => void;
@@ -54,7 +48,6 @@ export function Header({
   onNew,
   onNewEditor,
   onNewSftp,
-  onNewGitGraph,
   onClose,
   onPin,
   onRename,
@@ -123,9 +116,7 @@ export function Header({
           <HugeiconsIcon icon={CommandIcon} size={14} strokeWidth={1.75} />
         </Button>
 
-        {!IS_MAC && (
-          <span className="mx-1 h-full w-px shrink-0 bg-border/70" />
-        )}
+        {!IS_MAC && <span className="mx-1 h-full w-px shrink-0 bg-border/70" />}
       </div>
 
       {!IS_MAC && <span className="mx-1 h-full w-px shrink-0 bg-border/70" />}
@@ -143,7 +134,6 @@ export function Header({
           onNew={onNew}
           onNewEditor={onNewEditor}
           onNewSftp={onNewSftp}
-          onNewGitGraph={onNewGitGraph}
           onClose={onClose}
           onPin={onPin}
           onRename={onRename}

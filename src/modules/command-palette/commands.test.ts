@@ -19,7 +19,6 @@ function context(
     openNewTab: noop,
     openNewEditor: noop,
     openSftp: noop,
-    openGitGraph: noop,
     toggleSourceControl: noop,
     closeActiveTabOrPane: noop,
     splitPaneRight: noop,
@@ -39,9 +38,7 @@ describe("createCommandItems", () => {
     const items = createCommandItems(context(), messages);
 
     const settings = items.find((item) => item.id === "settings.open");
-    const splitRight = items.find(
-      (item) => item.id === "pane.splitRight",
-    );
+    const splitRight = items.find((item) => item.id === "pane.splitRight");
 
     expect(settings?.title).toBe("打开设置");
     expect(settings?.keywords).toContain("偏好");

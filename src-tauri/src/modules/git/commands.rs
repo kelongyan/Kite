@@ -2,9 +2,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::modules::git::operations;
 use crate::modules::git::types::{
-    DiscardEntry, GitBranchListResult, GitCommitFileChange, GitCommitResult,
-    GitDiffContentResult, GitLogEntry, GitPanelSnapshot, GitPushResult,
-    GitRepoInfo, GitStatusSnapshot,
+    DiscardEntry, GitBranchListResult, GitCommitResult, GitDiffContentResult, GitPanelSnapshot,
+    GitPushResult, GitRepoInfo, GitStatusSnapshot,
 };
 use crate::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
 
@@ -175,81 +174,6 @@ pub async fn git_push(
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
         operations::push(r, &repo_root, &workspace).map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_log(
-    repo_root: String,
-    limit: Option<u32>,
-    before_sha: Option<String>,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<Vec<GitLogEntry>, String> {
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::log(
-            r,
-            &repo_root,
-            limit.unwrap_or(30),
-            before_sha.as_deref(),
-            &workspace,
-        )
-        .map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_commit_files(
-    repo_root: String,
-    sha: String,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<Vec<GitCommitFileChange>, String> {
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::commit_files(r, &repo_root, &sha, &workspace).map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_commit_file_diff(
-    repo_root: String,
-    sha: String,
-    path: String,
-    original_path: Option<String>,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<GitDiffContentResult, String> {
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::commit_file_diff(
-            r,
-            &repo_root,
-            &sha,
-            &path,
-            original_path.as_deref(),
-            &workspace,
-        )
-        .map_err(Into::into)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn git_remote_url(
-    repo_root: String,
-    name: Option<String>,
-    workspace: Option<WorkspaceEnv>,
-    app: AppHandle,
-) -> Result<Option<String>, String> {
-    let remote = name.unwrap_or_else(|| "origin".to_string());
-    let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
-        operations::remote_url(r, &repo_root, &remote, &workspace).map_err(Into::into)
     })
     .await
 }

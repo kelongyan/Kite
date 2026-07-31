@@ -17,7 +17,6 @@ export const zhCN = {
     },
     search: {
       search: "搜索",
-      gitSearch: "Git 搜索",
       clearSearch: "清除搜索",
     },
     tabs: {
@@ -31,7 +30,6 @@ export const zhCN = {
         terminal: "终端",
         editor: "编辑器",
         sftp: "SFTP",
-        gitGraph: "Git 图谱",
       },
       editorLanguage: {
         autoDetect: "自动检测",
@@ -91,10 +89,6 @@ export const zhCN = {
         splitPaneDown: {
           title: "向下拆分窗格",
           keywords: ["终端", "窗格", "拆分", "下方", "行"],
-        },
-        openGitGraph: {
-          title: "打开 Git 图谱",
-          keywords: ["git", "图谱", "历史", "日志", "提交"],
         },
         toggleSourceControl: {
           title: "切换源代码管理",
@@ -318,7 +312,6 @@ export const zhCN = {
       alreadyUpToDate: "已经是最新",
       pullCommits: (count: number) => `拉取 ${count} 个提交（fast-forward）`,
       refreshSourceControl: "刷新源代码管理",
-      commitGraph: "提交图谱",
       loadingRepository: "正在加载仓库",
       noRepository: "没有仓库",
       noRepositoryBody: "当前工作区不在 Git 仓库中。",
@@ -376,31 +369,6 @@ export const zhCN = {
       pushedTo: (upstream: string) => `已推送到 ${upstream}`,
       pushCompleted: "推送完成",
       unstagedFiles: (count: number) => `${count} 个未暂存文件`,
-    },
-    gitHistory: {
-      unknownError: "未知错误",
-      loadingCommits: "正在加载提交...",
-      couldNotLoadHistory: "无法加载历史",
-      retry: "重试",
-      noCommitsYet: "还没有提交",
-      branchHasNoCommits: "此分支还没有提交。",
-      sha: "SHA",
-      subject: "主题",
-      author: "作者",
-      date: "日期",
-      changes: "更改",
-      loadingMore: "正在加载更多...",
-      endOfHistory: "历史已到底",
-      failedToLoadMore: "加载更多失败",
-      noSubject: "（无主题）",
-      unknown: "未知",
-      filesChanged: (count: number) => `${count} 个文件已更改`,
-      copied: "已复制",
-      copySha: "复制 SHA",
-      loadingFiles: "正在加载文件...",
-      noFileChanges: "没有文件更改。",
-      files: "文件",
-      binary: "二进制",
     },
     editor: {
       newFileTitle: "新建文件",

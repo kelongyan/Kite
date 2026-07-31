@@ -1,7 +1,6 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { EditorStack, GitDiffStack } from "@/modules/editor";
-import { GitHistoryStack } from "@/modules/git-history";
 import { MarkdownStack } from "@/modules/markdown";
 import { SftpTransferStack } from "@/modules/sftp";
 import type { Tab } from "@/modules/tabs";
@@ -9,7 +8,6 @@ import { TerminalStack } from "@/modules/terminal";
 
 type TerminalStackProps = ComponentProps<typeof TerminalStack>;
 type EditorStackProps = ComponentProps<typeof EditorStack>;
-type GitHistoryStackProps = ComponentProps<typeof GitHistoryStack>;
 
 type Props = {
   tabs: Tab[];
@@ -23,8 +21,6 @@ type Props = {
   registerEditorHandle: EditorStackProps["registerHandle"];
   onEditorDirtyChange: EditorStackProps["onDirtyChange"];
   onEditorCloseTab: EditorStackProps["onCloseTab"];
-  onOpenCommitFile: GitHistoryStackProps["onOpenCommitFile"];
-  onGitHistorySearchHandle: GitHistoryStackProps["onSearchHandle"];
   onSetMarkdownView: EditorStackProps["onSetMarkdownView"];
 };
 
@@ -45,16 +41,13 @@ export function WorkspaceSurface({
   registerEditorHandle,
   onEditorDirtyChange,
   onEditorCloseTab,
-  onOpenCommitFile,
-  onGitHistorySearchHandle,
   onSetMarkdownView,
 }: Props) {
   const kind = activeTab?.kind;
   const isTerminalTab = kind === "terminal";
   const isEditorTab = kind === "editor";
   const isMarkdownTab = kind === "markdown";
-  const isGitDiffTab = kind === "git-diff" || kind === "git-commit-file";
-  const isGitHistoryTab = kind === "git-history";
+  const isGitDiffTab = kind === "git-diff";
   const isSftpTab = kind === "sftp";
 
   return (
@@ -113,20 +106,6 @@ export function WorkspaceSurface({
         aria-hidden={!isGitDiffTab}
       >
         <GitDiffStack tabs={tabs} activeId={activeId} />
-      </div>
-      <div
-        className={cn(
-          "absolute inset-0",
-          !isGitHistoryTab && "invisible pointer-events-none",
-        )}
-        aria-hidden={!isGitHistoryTab}
-      >
-        <GitHistoryStack
-          tabs={tabs}
-          activeId={activeId}
-          onOpenCommitFile={onOpenCommitFile}
-          onSearchHandle={onGitHistorySearchHandle}
-        />
       </div>
       <div
         className={cn(

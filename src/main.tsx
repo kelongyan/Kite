@@ -33,10 +33,15 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 // shadow-only frame before React paints. Use setTimeout — rAF is throttled
 // while the window is hidden and would never fire.
 const showWindow = () => {
-  getCurrentWindow()
-    .show()
-    .catch((e) => console.error("window.show failed:", e));
+  return getCurrentWindow().show();
 };
-setTimeout(showWindow, 50);
-// Safety net: if the first show somehow fails to take effect, force again.
-setTimeout(showWindow, 500);
+setTimeout(() => {
+  void showWindow().catch((error) => {
+    console.error("window.show failed, retrying:", error);
+    setTimeout(() => {
+      void showWindow().catch((retryError) =>
+        console.error("window.show retry failed:", retryError),
+      );
+    }, 450);
+  });
+}, 50);

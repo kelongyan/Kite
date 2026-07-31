@@ -46,7 +46,6 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 | `editor` | CodeMirror 6 file editor |
 | `explorer` | File tree sidebar |
 | `source-control` | Git staging/commit panel |
-| `git-history` | Git log viewer |
 | `sftp` | SFTP browser (uses Rust libssh2) |
 | `markdown` | Rendered markdown tab |
 | `settings` | Preferences Zustand store and types (UI lives in `src/settings/`) |
@@ -65,7 +64,7 @@ All Rust↔frontend calls use Tauri's `invoke()` and `Channel<T>`. Tauri command
 
 ### Tab system
 
-Seven tab kinds: `TerminalTab | EditorTab | MarkdownTab | GitDiffTab | GitHistoryTab | GitCommitFileDiffTab | SftpTab`.
+Five tab kinds: `TerminalTab | EditorTab | MarkdownTab | GitDiffTab | SftpTab`.
 
 `TerminalTab` has sub-mode: `blocks: true` (block output UI). Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4`.
 

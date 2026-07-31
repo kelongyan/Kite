@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { native } from "@/lib/native";
 import type { SidebarViewId } from "@/modules/sidebar";
 import type { Tab } from "@/modules/tabs";
 import { useSourceControl } from "./useSourceControl";
@@ -22,10 +21,6 @@ type Params = {
   home: string | null;
   sidebarView: SidebarViewId;
   cycleSidebarView: (view: SidebarViewId) => void;
-  openCommitHistoryTab: (args: {
-    repoRoot: string;
-    branch: string | null;
-  }) => void;
 };
 
 /**
@@ -43,7 +38,6 @@ export function useSourceControlContext({
   home,
   sidebarView,
   cycleSidebarView,
-  openCommitHistoryTab,
 }: Params) {
   const workspaceFallbackPath = launchCwdResolved
     ? (launchCwd ?? home ?? null)
@@ -54,18 +48,10 @@ export function useSourceControlContext({
     }
     if (activeTab?.kind === "editor") return dirname(activeTab.path);
     if (activeTab?.kind === "git-diff") return activeTab.repoRoot;
-    if (activeTab?.kind === "git-commit-file") return activeTab.repoRoot;
-    if (activeTab?.kind === "git-history") return activeTab.repoRoot;
     return explorerRoot ?? workspaceFallbackPath;
   })();
   const hasOpenGitTab = useMemo(
-    () =>
-      tabs.some(
-        (t) =>
-          t.kind === "git-diff" ||
-          t.kind === "git-history" ||
-          t.kind === "git-commit-file",
-      ),
+    () => tabs.some((t) => t.kind === "git-diff"),
     [tabs],
   );
   const sourceControlActive = hasOpenGitTab || sidebarView === "source-control";
@@ -82,30 +68,5 @@ export function useSourceControlContext({
     cycleSidebarView("source-control");
   }, [cycleSidebarView]);
 
-  const openGitGraphFromContext = useCallback(async () => {
-    const known = sourceControl.hasRepo ? sourceControl.repo : null;
-    if (known) {
-      openCommitHistoryTab({
-        repoRoot: known.repoRoot,
-        branch: sourceControl.status?.branch ?? null,
-      });
-      return;
-    }
-    if (!sourceControlContextPath) return;
-    try {
-      const repo = await native.gitResolveRepo(sourceControlContextPath);
-      if (!repo) return;
-      openCommitHistoryTab({ repoRoot: repo.repoRoot, branch: repo.branch });
-    } catch {
-      /* noop */
-    }
-  }, [
-    openCommitHistoryTab,
-    sourceControl.hasRepo,
-    sourceControl.repo,
-    sourceControl.status?.branch,
-    sourceControlContextPath,
-  ]);
-
-  return { sourceControl, toggleSourceControl, openGitGraphFromContext };
+  return { sourceControl, toggleSourceControl };
 }

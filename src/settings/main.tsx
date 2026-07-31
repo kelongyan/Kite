@@ -1,9 +1,9 @@
 import "../styles/globals.css";
 
+import { USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
+import { ThemeProvider } from "@/modules/theme";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "@/modules/theme";
-import { USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { SettingsApp } from "./SettingsApp";
 
 if (USE_CUSTOM_WINDOW_CONTROLS) {
@@ -19,9 +19,15 @@ ReactDOM.createRoot(
 );
 
 const showWindow = () => {
-  getCurrentWindow()
-    .show()
-    .catch((e) => console.error("settings show failed:", e));
+  return getCurrentWindow().show();
 };
-setTimeout(showWindow, 50);
-setTimeout(showWindow, 500);
+setTimeout(() => {
+  void showWindow().catch((error) => {
+    console.error("settings show failed, retrying:", error);
+    setTimeout(() => {
+      void showWindow().catch((retryError) =>
+        console.error("settings show retry failed:", retryError),
+      );
+    }, 450);
+  });
+}, 50);

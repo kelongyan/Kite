@@ -1,7 +1,4 @@
-import {
-  native,
-  type GitDiffContentResult,
-} from "@/lib/native";
+import { native, type GitDiffContentResult } from "@/lib/native";
 import { currentWorkspaceScopeKey } from "@/modules/workspace";
 
 const DIFF_CACHE_LIMIT = 6;
@@ -46,14 +43,6 @@ export function workingDiffKey(
   return `${currentWorkspaceScopeKey()}|${repoRoot}|w|${mode}|${path}`;
 }
 
-export function commitDiffKey(
-  repoRoot: string,
-  sha: string,
-  path: string,
-): string {
-  return `${currentWorkspaceScopeKey()}|${repoRoot}|c|${sha}|${path}`;
-}
-
 export async function fetchWorkingDiff(
   repoRoot: string,
   path: string,
@@ -67,30 +56,6 @@ export async function fetchWorkingDiff(
   if (pending) return pending;
   const p = native
     .gitDiffContent(repoRoot, path, mode === "+", originalPath)
-    .then((res) => {
-      touch(key, res);
-      return res;
-    })
-    .finally(() => {
-      inflight.delete(key);
-    });
-  inflight.set(key, p);
-  return p;
-}
-
-export async function fetchCommitDiff(
-  repoRoot: string,
-  sha: string,
-  path: string,
-  originalPath: string | null,
-): Promise<GitDiffContentResult> {
-  const key = commitDiffKey(repoRoot, sha, path);
-  const cached = getCachedDiff(key);
-  if (cached) return cached;
-  const pending = inflight.get(key);
-  if (pending) return pending;
-  const p = native
-    .gitCommitFileDiff(repoRoot, sha, path, originalPath)
     .then((res) => {
       touch(key, res);
       return res;

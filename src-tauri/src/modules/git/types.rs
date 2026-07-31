@@ -75,33 +75,6 @@ pub struct GitCommitResult {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitCommitFileChange {
-    pub path: String,
-    pub original_path: Option<String>,
-    pub status: String,
-    pub status_label: String,
-    pub added: u32,
-    pub removed: u32,
-    pub is_binary: bool,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitLogEntry {
-    pub sha: String,
-    pub short_sha: String,
-    pub author: String,
-    pub author_email: String,
-    pub timestamp_secs: i64,
-    pub parents: Vec<String>,
-    pub subject: String,
-    pub files_changed: u32,
-    pub insertions: u32,
-    pub deletions: u32,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GitPushResult {
     pub remote: Option<String>,
     pub branch: Option<String>,

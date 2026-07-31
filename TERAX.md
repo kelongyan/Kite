@@ -116,8 +116,6 @@ Current tab kinds are:
 - `editor`
 - `markdown`
 - `git-diff`
-- `git-history`
-- `git-commit-file`
 - `sftp`
 
 Mounted, booted tabs remain alive while inactive so PTYs and editors keep their
@@ -130,7 +128,6 @@ state. Terminal tabs contain a binary pane tree and allow at most four panes.
 - `explorer`: file tree, fuzzy search, keyboard navigation, mutations.
 - `tabs`: tab source of truth, switcher, pane-aware close behavior.
 - `source-control`: status, stage, commit, fetch, pull, and push workflow.
-- `git-history`: commit graph and per-commit file diffs.
 - `sftp`: profile UI, local/remote panes, transfers, and sync preview.
 - `markdown`: rendered Markdown tabs using `streamdown`.
 - `workspace`: Local and WSL environment selection.

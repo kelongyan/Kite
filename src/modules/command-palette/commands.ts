@@ -39,7 +39,6 @@ export type CommandPaletteActionContext = {
   openNewTab: () => void;
   openNewEditor: () => void;
   openSftp: () => void;
-  openGitGraph: () => void;
   toggleSourceControl: () => void;
   closeActiveTabOrPane: () => void;
   splitPaneRight: () => void;
@@ -80,10 +79,7 @@ export function createCommandItems(
     const localized = messages.commands[key];
     return {
       title: localized.title,
-      keywords: unique([
-        localized.title,
-        ...localized.keywords,
-      ]),
+      keywords: unique([localized.title, ...localized.keywords]),
     };
   };
 
@@ -163,12 +159,6 @@ export function createCommandItems(
       shortcutId: "pane.splitDown",
       disabledReason: splitDisabled,
       run: ctx.splitPaneDown,
-    },
-    {
-      id: "git.graph",
-      ...item("openGitGraph", "Git"),
-      icon: SourceCodeIcon,
-      run: ctx.openGitGraph,
     },
     {
       id: "git.source",

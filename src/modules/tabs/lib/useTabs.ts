@@ -48,7 +48,6 @@ export type EditorTab = TabBase & {
   overrideLanguage?: string | null;
 };
 
-
 export type MarkdownTab = TabBase & {
   id: number;
   kind: "markdown";
@@ -66,25 +65,6 @@ export type GitDiffTab = TabBase & {
   originalPath: string | null;
 };
 
-export type GitHistoryTab = TabBase & {
-  id: number;
-  kind: "git-history";
-  title: string;
-  repoRoot: string;
-};
-
-export type GitCommitFileDiffTab = TabBase & {
-  id: number;
-  kind: "git-commit-file";
-  title: string;
-  repoRoot: string;
-  sha: string;
-  shortSha: string;
-  subject: string;
-  path: string;
-  originalPath: string | null;
-};
-
 type SftpTab = TabBase & {
   id: number;
   kind: "sftp";
@@ -92,14 +72,7 @@ type SftpTab = TabBase & {
   localPath?: string;
 };
 
-export type Tab =
-  | TerminalTab
-  | EditorTab
-  | MarkdownTab
-  | GitDiffTab
-  | GitHistoryTab
-  | GitCommitFileDiffTab
-  | SftpTab;
+export type Tab = TerminalTab | EditorTab | MarkdownTab | GitDiffTab | SftpTab;
 
 export type TabPatch = Partial<{
   title: string;
@@ -117,10 +90,7 @@ function basename(path: string): string {
   return parts.length ? parts[parts.length - 1] : path;
 }
 
-export function nextActiveTab(
-  tabs: Tab[],
-  closingId: number,
-): number | null {
+export function nextActiveTab(tabs: Tab[], closingId: number): number | null {
   if (tabs.length <= 1) return null;
   const idx = tabs.findIndex((t) => t.id === closingId);
   if (idx === -1) return null;
@@ -162,7 +132,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   const [activeId, setActiveId] = useState(1);
   // Gates warming until boot resolves the restore, so no shell spawns before it.
   const [booted, setBooted] = useState(false);
-  const nextIdRef = useRef(3);  const tabsRef = useRef(tabs);
+  const nextIdRef = useRef(3);
+  const tabsRef = useRef(tabs);
   const activeIdRef = useRef(activeId);
 
   useEffect(() => {
@@ -470,97 +441,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     [],
   );
 
-  const openCommitHistoryTab = useCallback(
-    (input: { repoRoot: string; branch?: string | null }) => {
-      const curr = tabsRef.current;
-      const existing = curr.find(
-        (t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
-      );
-      const title = input.branch ? `History · ${input.branch}` : "Git History";
-      if (existing) {
-        const nextTabs = curr.map((t) =>
-          t.id === existing.id ? { ...t, title } : t,
-        );
-        tabsRef.current = nextTabs;
-        setTabs(nextTabs);
-        setActiveId(existing.id);
-        return existing.id;
-      }
-      const id = nextIdRef.current++;
-      const nextTabs = [
-        ...curr,
-        {
-          id,
-          kind: "git-history",
-          title,
-          repoRoot: input.repoRoot,
-        } satisfies GitHistoryTab,
-      ];
-      tabsRef.current = nextTabs;
-      setTabs(nextTabs);
-      setActiveId(id);
-      return id;
-    },
-    [],
-  );
-
-  const openCommitFileDiffTab = useCallback(
-    (input: {
-      repoRoot: string;
-      sha: string;
-      shortSha: string;
-      subject: string;
-      path: string;
-      originalPath: string | null;
-    }) => {
-      const curr = tabsRef.current;
-      const existing = curr.find(
-        (t) =>
-          t.kind === "git-commit-file" &&
-          t.repoRoot === input.repoRoot &&
-          t.sha === input.sha &&
-          t.path === input.path,
-      );
-      const title = `${basename(input.path)} @ ${input.shortSha}`;
-      if (existing) {
-        const nextTabs = curr.map((t) =>
-          t.id === existing.id
-            ? {
-                ...t,
-                title,
-                subject: input.subject,
-                originalPath: input.originalPath,
-              }
-            : t,
-        );
-        tabsRef.current = nextTabs;
-        setTabs(nextTabs);
-        setActiveId(existing.id);
-        return existing.id;
-      }
-      const id = nextIdRef.current++;
-      const nextTabs = [
-        ...curr,
-        {
-          id,
-          kind: "git-commit-file",
-          title,
-          repoRoot: input.repoRoot,
-          sha: input.sha,
-          shortSha: input.shortSha,
-          subject: input.subject,
-          path: input.path,
-          originalPath: input.originalPath,
-        } satisfies GitCommitFileDiffTab,
-      ];
-      tabsRef.current = nextTabs;
-      setTabs(nextTabs);
-      setActiveId(id);
-      return id;
-    },
-    [],
-  );
-
   const closeTab = useCallback((id: number) => {
     let toDispose: number[] = [];
     setTabs((curr) => {
@@ -808,8 +688,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     newSftpTab,
     setMarkdownView,
     openGitDiffTab,
-    openCommitHistoryTab,
-    openCommitFileDiffTab,
     closeTab,
     updateTab,
     selectByIndex,

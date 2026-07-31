@@ -1,6 +1,14 @@
 pub mod modules;
 
 use modules::{fs, git, pty, sftp, workspace};
+#[cfg(any(
+    test,
+    all(
+        not(debug_assertions),
+        not(any(target_os = "android", target_os = "ios"))
+    )
+))]
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
@@ -30,6 +38,75 @@ fn parse_launch_dir() -> Option<String> {
         return Some(crate::modules::fs::to_canon(&canon));
     }
     None
+}
+
+#[cfg(any(
+    test,
+    all(
+        not(debug_assertions),
+        not(any(target_os = "android", target_os = "ios"))
+    )
+))]
+fn resolve_secondary_executable(args: &[String], cwd: &str) -> Option<PathBuf> {
+    let path = PathBuf::from(args.first()?);
+    Some(if path.is_absolute() {
+        path
+    } else {
+        Path::new(cwd).join(path)
+    })
+}
+
+#[cfg(any(
+    test,
+    all(
+        not(debug_assertions),
+        not(any(target_os = "android", target_os = "ios"))
+    )
+))]
+fn secondary_matches_current_executable(args: &[String], cwd: &str) -> bool {
+    let Some(secondary) = resolve_secondary_executable(args, cwd) else {
+        return false;
+    };
+    let Ok(current) = std::env::current_exe() else {
+        return false;
+    };
+    match (
+        std::fs::canonicalize(&secondary),
+        std::fs::canonicalize(&current),
+    ) {
+        (Ok(secondary), Ok(current)) => secondary == current,
+        _ => secondary == current,
+    }
+}
+
+fn log_launch_context(app: &tauri::AppHandle) {
+    let exe = std::env::current_exe()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|error| format!("<unavailable: {error}>"));
+    let cwd = std::env::current_dir()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|error| format!("<unavailable: {error}>"));
+    let args = std::env::args_os()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+
+    #[cfg(target_os = "windows")]
+    let parent = modules::proc::parent_process()
+        .map(|(pid, name)| format!("{name} ({pid})"))
+        .unwrap_or_else(|| "<unavailable>".to_string());
+    #[cfg(not(target_os = "windows"))]
+    let parent = "<not-recorded>";
+
+    log::info!(
+        "process started pid={} profile={} identifier={:?} exe={exe:?} cwd={cwd:?} parent={parent} args={args:?}",
+        std::process::id(),
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
+        app.config().identifier,
+    );
 }
 
 #[tauri::command]
@@ -118,20 +195,24 @@ pub fn run() {
     let cli_dir = parse_launch_dir();
     workspace::init_launch_cwd(cli_dir.as_deref());
 
-    let mut builder = tauri::Builder::default();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }));
-    }
+    let builder = tauri::Builder::default();
+    #[cfg(all(
+        not(debug_assertions),
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        if !secondary_matches_current_executable(&args, &cwd) {
+            log::warn!("ignored second instance cwd={cwd:?} args={args:?}");
+            return;
+        }
+        log::info!("accepted second instance cwd={cwd:?} args={args:?}");
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
     #[cfg(target_os = "linux")]
-    {
-        builder = builder.plugin(tauri_plugin_clipboard_manager::init());
-    }
+    let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
     builder
         // Skip restoring VISIBLE/MAXIMIZED/FULLSCREEN — frontend calls
         // window.show() after first paint so the user never sees a
@@ -154,6 +235,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
+            log_launch_context(_app.handle());
             // macOS skips parent() for the settings window, so tie its lifecycle
             // to the main window here instead. Other platforms keep parent().
             #[cfg(target_os = "macos")]
@@ -221,10 +303,6 @@ pub fn run() {
             git::commands::git_fetch,
             git::commands::git_pull_ff_only,
             git::commands::git_push,
-            git::commands::git_log,
-            git::commands::git_commit_files,
-            git::commands::git_commit_file_diff,
-            git::commands::git_remote_url,
             git::commands::git_list_branches,
             git::commands::git_checkout_branch,
             sftp::commands::sftp_profile_list,
@@ -252,4 +330,42 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_secondary_executable, secondary_matches_current_executable};
+    use std::path::PathBuf;
+
+    #[test]
+    fn resolves_secondary_executable_against_reported_cwd() {
+        let args = vec!["target/debug/kite".to_string()];
+        assert_eq!(
+            resolve_secondary_executable(&args, "workspace"),
+            Some(PathBuf::from("workspace").join("target/debug/kite"))
+        );
+    }
+
+    #[test]
+    fn accepts_the_current_executable() {
+        let current = std::env::current_exe().expect("test executable path");
+        let args = vec![current.display().to_string()];
+        assert!(secondary_matches_current_executable(&args, "ignored"));
+    }
+
+    #[test]
+    fn rejects_missing_secondary_executable() {
+        assert!(!secondary_matches_current_executable(&[], "workspace"));
+    }
+
+    #[test]
+    fn rejects_a_different_executable_path() {
+        let current = std::env::current_exe().expect("test executable path");
+        let args = vec![current
+            .parent()
+            .expect("test executable parent")
+            .display()
+            .to_string()];
+        assert!(!secondary_matches_current_executable(&args, "ignored"));
+    }
 }

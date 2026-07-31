@@ -18,7 +18,6 @@ import {
   type EditorPaneHandle,
 } from "@/modules/editor";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
-import type { GitHistorySearchHandle } from "@/modules/git-history";
 import {
   Header,
   type SearchInlineHandle,
@@ -85,8 +84,6 @@ export default function App() {
     setMarkdownView,
     setOverrideLanguage,
     openGitDiffTab,
-    openCommitHistoryTab,
-    openCommitFileDiffTab,
     closeTab,
     updateTab,
     selectByIndex,
@@ -118,8 +115,6 @@ export default function App() {
   const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
   const [activeEditorHandle, setActiveEditorHandle] =
     useState<EditorPaneHandle | null>(null);
-  const [gitHistoryHandle, setGitHistoryHandle] =
-    useState<GitHistorySearchHandle | null>(null);
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
   const explorerRef = useRef<FileExplorerHandle>(null);
@@ -139,19 +134,14 @@ export default function App() {
 
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
   const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
-  const {
-    home,
-    homeResolved,
-    launchCwd,
-    launchCwdResolved,
-    switchWorkspace,
-  } = useWorkspaceSwitcher({
-    tabsRef,
-    workspaceEnv,
-    setWorkspaceEnv,
-    resetWorkspace,
-    clearWorkspaceState,
-  });
+  const { home, homeResolved, launchCwd, launchCwdResolved, switchWorkspace } =
+    useWorkspaceSwitcher({
+      tabsRef,
+      workspaceEnv,
+      setWorkspaceEnv,
+      resetWorkspace,
+      clearWorkspaceState,
+    });
 
   const handleWorkspaceChange = useCallback(
     async (env: WorkspaceEnv) => {
@@ -187,7 +177,6 @@ export default function App() {
   const activeTab = tabs.find((t) => t.id === activeId);
   const isTerminalTab = activeTab?.kind === "terminal";
   const isEditorTab = activeTab?.kind === "editor";
-  const isGitHistoryTab = activeTab?.kind === "git-history";
 
   useEditorFileSync({ tabs, tabsRef, editorRefs });
   useThemeFileEditing({ tabsRef, openFileTab });
@@ -365,30 +354,23 @@ export default function App() {
       const rel = activeTab.path.replace(/^[\\/]+/, "");
       return `${root}/${rel}`;
     }
-    if (activeTab?.kind === "git-commit-file") {
-      const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
-      const rel = activeTab.path.replace(/^[\\/]+/, "");
-      return `${root}/${rel}`;
-    }
     return null;
   })();
   const explorerActiveFilePath =
     activeTab?.kind === "editor" || activeTab?.kind === "markdown"
       ? activeTab.path
       : null;
-  const { sourceControl, toggleSourceControl, openGitGraphFromContext } =
-    useSourceControlContext({
-      activeTab,
-      tabs,
-      activeTerminalLeafCwd,
-      explorerRoot,
-      launchCwd,
-      launchCwdResolved,
-      home,
-      sidebarView,
-      cycleSidebarView,
-      openCommitHistoryTab,
-    });
+  const { sourceControl, toggleSourceControl } = useSourceControlContext({
+    activeTab,
+    tabs,
+    activeTerminalLeafCwd,
+    explorerRoot,
+    launchCwd,
+    launchCwdResolved,
+    home,
+    sidebarView,
+    cycleSidebarView,
+  });
   const explorerGitDecorations = usePreferencesStore(
     (s) => s.explorerGitDecorations,
   );
@@ -425,10 +407,7 @@ export default function App() {
       "tab.close": handleCloseTabOrPane,
       "tab.next": () => stepSwitcher(1),
       "tab.prev": () => stepSwitcher(-1),
-      "tab.selectByIndex": (e) =>
-        selectByIndex(
-          parseInt(e.key, 10) - 1,
-        ),
+      "tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
       "pane.splitRight": () => splitActivePaneInActiveTab("row"),
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
@@ -577,21 +556,13 @@ export default function App() {
         handle: activeEditorHandle,
         focus: () => activeEditorHandle.focus(),
       };
-    if (isGitHistoryTab && gitHistoryHandle)
-      return {
-        kind: "git-history",
-        handle: gitHistoryHandle,
-        focus: () => {},
-      };
     return null;
   }, [
     isTerminalTab,
     isEditorTab,
-    isGitHistoryTab,
     activeLeafId,
     activeSearchAddon,
     activeEditorHandle,
-    gitHistoryHandle,
   ]);
 
   const commandPaletteItems = useMemo(
@@ -607,7 +578,6 @@ export default function App() {
               openNewTab,
               openNewEditor: () => setNewEditorOpen(true),
               openSftp: openNewSftpTab,
-              openGitGraph: openGitGraphFromContext,
               toggleSourceControl,
               closeActiveTabOrPane: handleCloseTabOrPane,
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
@@ -634,7 +604,6 @@ export default function App() {
       splitActivePaneInActiveTab,
       toggleSidebar,
       toggleSourceControl,
-      openGitGraphFromContext,
       messages,
     ],
   );
@@ -651,7 +620,6 @@ export default function App() {
               onNew={openNewTab}
               onNewEditor={() => setNewEditorOpen(true)}
               onNewSftp={openNewSftpTab}
-              onNewGitGraph={openGitGraphFromContext}
               onClose={handleClose}
               onPin={pinTab}
               onRename={handleRenameTab}
@@ -710,7 +678,6 @@ export default function App() {
                         open
                         sourceControl={sourceControl}
                         onOpenDiff={openGitDiffTab}
-                        onOpenGitGraph={openGitGraphFromContext}
                         onOpenFile={handleOpenFile}
                         onNavigateToPath={cdInNewTab}
                       />
@@ -727,11 +694,11 @@ export default function App() {
               <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="relative min-h-0 flex-1">
-                  <WorkspaceSurface
-                    tabs={tabs}
-                    activeId={activeId}
-                    activeTab={activeTab}
-                    registerTerminalHandle={registerTerminalHandle}
+                    <WorkspaceSurface
+                      tabs={tabs}
+                      activeId={activeId}
+                      activeTab={activeTab}
+                      registerTerminalHandle={registerTerminalHandle}
                       onSearchReady={handleSearchReady}
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
@@ -739,8 +706,6 @@ export default function App() {
                       registerEditorHandle={registerEditorHandle}
                       onEditorDirtyChange={handleEditorDirty}
                       onEditorCloseTab={handleClose}
-                      onOpenCommitFile={openCommitFileDiffTab}
-                      onGitHistorySearchHandle={setGitHistoryHandle}
                       onSetMarkdownView={setMarkdownView}
                     />
                   </div>

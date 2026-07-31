@@ -49,29 +49,6 @@ export type GitDiffContentResult = {
 
 export type GitCommitResult = { commitSha: string; summary: string };
 
-export type GitCommitFileChange = {
-  path: string;
-  originalPath: string | null;
-  status: string;
-  statusLabel: string;
-  added: number;
-  removed: number;
-  isBinary: boolean;
-};
-
-export type GitLogEntry = {
-  sha: string;
-  shortSha: string;
-  author: string;
-  authorEmail: string;
-  timestampSecs: number;
-  parents: string[];
-  subject: string;
-  filesChanged: number;
-  insertions: number;
-  deletions: number;
-};
-
 export type GitPushResult = {
   remote: string | null;
   branch: string | null;
@@ -132,11 +109,19 @@ export const native = {
     });
   },
 
-  async gitStage(repoRoot: string, paths: string[], workspace?: WorkspaceEnv): Promise<void> {
+  async gitStage(
+    repoRoot: string,
+    paths: string[],
+    workspace?: WorkspaceEnv,
+  ): Promise<void> {
     await invoke("git_stage", { repoRoot, paths, workspace });
   },
 
-  async gitUnstage(repoRoot: string, paths: string[], workspace?: WorkspaceEnv): Promise<void> {
+  async gitUnstage(
+    repoRoot: string,
+    paths: string[],
+    workspace?: WorkspaceEnv,
+  ): Promise<void> {
     await invoke("git_unstage", { repoRoot, paths, workspace });
   },
 
@@ -153,14 +138,21 @@ export const native = {
     message: string,
     workspace?: WorkspaceEnv,
   ): Promise<GitCommitResult> {
-    return invoke<GitCommitResult>("git_commit", { repoRoot, message, workspace });
+    return invoke<GitCommitResult>("git_commit", {
+      repoRoot,
+      message,
+      workspace,
+    });
   },
 
   async gitFetch(repoRoot: string, workspace?: WorkspaceEnv): Promise<void> {
     await invoke("git_fetch", { repoRoot, workspace });
   },
 
-  async gitPullFfOnly(repoRoot: string, workspace?: WorkspaceEnv): Promise<void> {
+  async gitPullFfOnly(
+    repoRoot: string,
+    workspace?: WorkspaceEnv,
+  ): Promise<void> {
     await invoke("git_pull_ff_only", { repoRoot, workspace });
   },
 
@@ -168,56 +160,21 @@ export const native = {
     return invoke<string>("fs_canonicalize", { path });
   },
 
-  async gitPush(repoRoot: string, workspace?: WorkspaceEnv): Promise<GitPushResult> {
+  async gitPush(
+    repoRoot: string,
+    workspace?: WorkspaceEnv,
+  ): Promise<GitPushResult> {
     return invoke<GitPushResult>("git_push", { repoRoot, workspace });
-  },
-
-  async gitLog(
-    repoRoot: string,
-    limit?: number,
-    beforeSha?: string,
-    workspace?: WorkspaceEnv,
-  ): Promise<GitLogEntry[]> {
-    return invoke<GitLogEntry[]>("git_log", { repoRoot, limit, beforeSha, workspace });
-  },
-
-  async gitCommitFiles(
-    repoRoot: string,
-    sha: string,
-    workspace?: WorkspaceEnv,
-  ): Promise<GitCommitFileChange[]> {
-    return invoke<GitCommitFileChange[]>("git_commit_files", { repoRoot, sha, workspace });
-  },
-
-  async gitCommitFileDiff(
-    repoRoot: string,
-    sha: string,
-    path: string,
-    originalPath?: string | null,
-    workspace?: WorkspaceEnv,
-  ): Promise<GitDiffContentResult> {
-    return invoke<GitDiffContentResult>("git_commit_file_diff", {
-      repoRoot,
-      sha,
-      path,
-      originalPath,
-      workspace,
-    });
-  },
-
-  async gitRemoteUrl(
-    repoRoot: string,
-    name?: string,
-    workspace?: WorkspaceEnv,
-  ): Promise<string | null> {
-    return invoke<string | null>("git_remote_url", { repoRoot, name, workspace });
   },
 
   async gitListBranches(
     repoRoot: string,
     workspace?: WorkspaceEnv,
   ): Promise<GitBranchListResult> {
-    return invoke<GitBranchListResult>("git_list_branches", { repoRoot, workspace });
+    return invoke<GitBranchListResult>("git_list_branches", {
+      repoRoot,
+      workspace,
+    });
   },
 
   async gitCheckoutBranch(
