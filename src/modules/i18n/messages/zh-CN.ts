@@ -15,10 +15,6 @@ export const zhCN = {
       toggleSidebar: "切换侧边栏",
       commandPalette: "命令面板",
     },
-    search: {
-      search: "搜索",
-      clearSearch: "清除搜索",
-    },
     tabs: {
       unsavedChanges: "未保存的更改",
       closeTab: "关闭标签",
@@ -50,7 +46,6 @@ export const zhCN = {
         Tabs: "标签",
         Panes: "窗格",
         Git: "Git",
-        Search: "搜索",
         View: "视图",
       },
       commands: {
@@ -94,10 +89,6 @@ export const zhCN = {
           title: "切换源代码管理",
           keywords: ["git", "源代码管理", "更改", "暂存", "diff"],
         },
-        findInCurrentTab: {
-          title: "在当前标签中查找",
-          keywords: ["查找", "终端", "编辑器", "当前"],
-        },
         toggleFileExplorer: {
           title: "切换文件资源管理器",
           keywords: ["侧边栏", "文件", "资源管理器"],
@@ -108,7 +99,6 @@ export const zhCN = {
         paneLimit: "窗格已达上限",
         lastTab: "最后一个标签",
         noWorkspaceRoot: "没有工作区根目录",
-        noSearchableView: "当前视图不可搜索",
       },
       headings: {
         themes: "主题",
@@ -501,7 +491,6 @@ export const zhCN = {
         Tabs: "标签",
         Panes: "窗格",
         Terminal: "终端",
-        Search: "搜索",
         View: "视图",
         Editor: "编辑器",
       },
@@ -520,7 +509,6 @@ export const zhCN = {
         "tab.next": "下一个标签",
         "tab.prev": "上一个标签",
         "tab.selectByIndex": "跳转到标签 1-9",
-        "search.focus": "在终端中查找",
         "sidebar.toggle": "切换文件资源管理器",
         "explorer.focus": "切换文件资源管理器焦点",
         "view.zoomIn": "放大",

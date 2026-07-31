@@ -13,7 +13,6 @@ function context(
   return {
     tabs: [],
     activeId: 0,
-    searchTarget: null,
     explorerRoot: "F:/repo",
     home: "C:/Users/Administrator",
     openNewTab: noop,
@@ -23,7 +22,6 @@ function context(
     closeActiveTabOrPane: noop,
     splitPaneRight: noop,
     splitPaneDown: noop,
-    focusSearch: noop,
     toggleSidebar: noop,
     openSettings: noop,
     openKeyboardShortcuts: noop,

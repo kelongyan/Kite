@@ -3,7 +3,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import type { SearchAddon } from "@xterm/addon-search";
 import { Fragment } from "react";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { leafIds, type PaneNode } from "./lib/panes";
@@ -11,7 +10,6 @@ import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 
 type LeafBundle = {
   setRef: (h: TerminalPaneHandle | null) => void;
-  onSearchReady: (leafId: number, addon: SearchAddon) => void;
   onCwd: (leafId: number, cwd: string) => void;
   onExit: (leafId: number, code: number) => void;
 };
@@ -54,7 +52,6 @@ export function PaneTreeView(props: Props) {
           focused={focused}
           initialCwd={node.cwd}
           ref={b.setRef}
-          onSearchReady={b.onSearchReady}
           onCwd={b.onCwd}
           onExit={b.onExit}
         />

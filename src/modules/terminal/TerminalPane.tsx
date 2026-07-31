@@ -1,5 +1,4 @@
 import { useTheme } from "@/modules/theme";
-import type { SearchAddon } from "@xterm/addon-search";
 import {
   forwardRef,
   memo,
@@ -27,7 +26,6 @@ type Props = {
   /** This leaf is the active pane within its tab — receives auto-focus. */
   focused?: boolean;
   initialCwd?: string;
-  onSearchReady?: (leafId: number, addon: SearchAddon) => void;
   onExit?: (leafId: number, code: number) => void;
   onCwd?: (leafId: number, cwd: string) => void;
 };
@@ -39,7 +37,6 @@ export const TerminalPane = memo(
       visible,
       focused = true,
       initialCwd,
-      onSearchReady,
       onExit,
       onCwd,
     },
@@ -60,7 +57,6 @@ export const TerminalPane = memo(
       focused,
       initialCwd,
       themeMode: resolvedMode,
-      onSearchReady: (a) => onSearchReady?.(leafId, a),
       onExit: (c) => onExit?.(leafId, c),
       onCwd: (c) => onCwd?.(leafId, c),
     });

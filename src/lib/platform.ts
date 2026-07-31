@@ -20,7 +20,7 @@ export const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 /** KeyBinding property name for the platform's primary modifier. */
 export const MOD_PROP: "meta" | "ctrl" = IS_MAC ? "meta" : "ctrl";
 
-export const KEY_SEP = IS_MAC ? "" : "+";
+const KEY_SEP = IS_MAC ? "" : "+";
 
 export function fmtShortcut(...parts: string[]): string {
   return parts.join(KEY_SEP);

@@ -3,7 +3,6 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
-import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -67,7 +66,6 @@ export type Slot = {
   readonly id: number;
   readonly term: Terminal;
   readonly fitAddon: FitAddon;
-  readonly searchAddon: SearchAddon;
   readonly serializeAddon: SerializeAddon;
   readonly host: HTMLDivElement;
   webglAddon: WebglAddon | null;
@@ -278,10 +276,8 @@ function terminalThemeForCursorAnimation(
 function createSlot(): Slot {
   const term = new Terminal(termOptions());
   const fitAddon = new FitAddon();
-  const searchAddon = new SearchAddon();
   const serializeAddon = new SerializeAddon();
   term.loadAddon(fitAddon);
-  term.loadAddon(searchAddon);
   term.loadAddon(serializeAddon);
   term.loadAddon(
     new WebLinksAddon((_e, uri) => openUrl(uri).catch(console.error)),
@@ -297,7 +293,6 @@ function createSlot(): Slot {
     id: slots.length,
     term,
     fitAddon,
-    searchAddon,
     serializeAddon,
     host,
     webglAddon: null,
@@ -493,11 +488,9 @@ export type AcquireParams = {
   altScreen: boolean;
   drainRing: (write: (bytes: Uint8Array) => void) => void;
   shellExited: boolean;
-  searchQuery: string | null;
   cols: number;
   rows: number;
   registerOsc: (term: Terminal) => (() => void)[];
-  onSearchReady: (addon: SearchAddon) => void;
 };
 
 export function acquireSlot(params: AcquireParams): Slot {
@@ -619,12 +612,6 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     adapter?.resolveLeaf(p.leafId)?.resizePty(slot.lastCols, slot.lastRows);
   }
 
-  if (!fast && p.searchQuery) {
-    try {
-      slot.searchAddon.findNext(p.searchQuery);
-    } catch {}
-  }
-
   applyCursorRenderingOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
 
   if (!fast && p.altScreen && !p.shellExited) {
@@ -645,7 +632,6 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     scheduleUnhide(slot, stale || hadWebgl);
   }
 
-  p.onSearchReady(slot.searchAddon);
 }
 
 function scheduleUnhide(slot: Slot, stale: boolean): void {
@@ -1103,7 +1089,6 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   }
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
-  p.onSearchReady(slot.searchAddon);
 }
 
 function setupResizeObserver(slot: Slot, p: AcquireParams): void {

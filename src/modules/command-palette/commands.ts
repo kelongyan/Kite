@@ -1,4 +1,3 @@
-import type { SearchTarget } from "@/modules/header";
 import { zhCN, type Messages } from "@/modules/i18n/messages/zh-CN";
 import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
@@ -9,7 +8,6 @@ import {
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
   PaintBoardIcon,
-  Search01Icon,
   ServerStack01Icon,
   Settings01Icon,
   SidebarLeftIcon,
@@ -26,14 +24,12 @@ export const COMMAND_GROUPS = [
   "Tabs",
   "Panes",
   "Git",
-  "Search",
   "View",
 ] as const;
 
 export type CommandPaletteActionContext = {
   tabs: Tab[];
   activeId: number;
-  searchTarget: SearchTarget;
   explorerRoot: string | null;
   home: string | null;
   openNewTab: () => void;
@@ -43,7 +39,6 @@ export type CommandPaletteActionContext = {
   closeActiveTabOrPane: () => void;
   splitPaneRight: () => void;
   splitPaneDown: () => void;
-  focusSearch: () => void;
   toggleSidebar: () => void;
   openSettings: () => void;
   openKeyboardShortcuts: () => void;
@@ -165,16 +160,6 @@ export function createCommandItems(
       icon: SourceCodeIcon,
       shortcutId: "pane.source",
       run: ctx.toggleSourceControl,
-    },
-    {
-      id: "search.focus",
-      ...item("findInCurrentTab", "Search"),
-      icon: Search01Icon,
-      shortcutId: "search.focus",
-      disabledReason: ctx.searchTarget
-        ? undefined
-        : messages.disabled.noSearchableView,
-      run: ctx.focusSearch,
     },
     {
       id: "sidebar.toggle",

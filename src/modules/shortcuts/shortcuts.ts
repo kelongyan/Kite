@@ -18,7 +18,6 @@ export type ShortcutId =
   | "pane.focusPrev"
   | "pane.source"
   | "terminal.clear"
-  | "search.focus"
   | "explorer.focus"
   | "view.zoomIn"
   | "view.zoomOut"
@@ -34,7 +33,6 @@ export type ShortcutGroup =
   | "Tabs"
   | "Panes"
   | "Terminal"
-  | "Search"
   | "View"
   | "Editor";
 
@@ -145,12 +143,6 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "1" }],
   },
   {
-    id: "search.focus",
-    label: "Find in terminal",
-    group: "Search",
-    defaultBindings: [{ [MOD_PROP]: true, key: "f" }],
-  },
-  {
     id: "sidebar.toggle",
     label: "Toggle file explorer",
     group: "View",
@@ -225,7 +217,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "Panes",
   "Terminal",
   "View",
-  "Search",
   "Editor",
 ];
 

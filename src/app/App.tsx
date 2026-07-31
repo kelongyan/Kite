@@ -18,11 +18,7 @@ import {
   type EditorPaneHandle,
 } from "@/modules/editor";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
-import {
-  Header,
-  type SearchInlineHandle,
-  type SearchTarget,
-} from "@/modules/header";
+import { Header } from "@/modules/header";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { isMarkdownPath } from "@/lib/utils";
 import {
@@ -59,7 +55,6 @@ import {
 } from "@/modules/terminal";
 import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
-import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
 import { WorkspaceSurface } from "./components/WorkspaceSurface";
@@ -106,14 +101,8 @@ export default function App() {
   }, [tabs, activeId]);
   const activeLeafId = activeTerminalTab?.activeLeafId ?? null;
 
-  const searchAddons = useRef<Map<number, SearchAddon>>(new Map());
-  const [activeSearchAddon, setActiveSearchAddon] =
-    useState<SearchAddon | null>(null);
-  const searchInlineRef = useRef<SearchInlineHandle | null>(null);
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
-  const [activeEditorHandle, setActiveEditorHandle] =
-    useState<EditorPaneHandle | null>(null);
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
   const explorerRef = useRef<FileExplorerHandle>(null);
@@ -124,11 +113,8 @@ export default function App() {
 
   const clearWorkspaceState = useCallback(() => {
     for (const id of liveLeavesRef.current) disposeSession(id);
-    searchAddons.current.clear();
     terminalRefs.current.clear();
     editorRefs.current.clear();
-    setActiveSearchAddon(null);
-    setActiveEditorHandle(null);
   }, []);
 
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
@@ -174,8 +160,6 @@ export default function App() {
     setCommandPaletteOpen(true);
   }, []);
   const activeTab = tabs.find((t) => t.id === activeId);
-  const isTerminalTab = activeTab?.kind === "terminal";
-  const isEditorTab = activeTab?.kind === "editor";
 
   useEditorFileSync({ tabsRef, editorRefs });
   useThemeFileEditing({ tabsRef, openFileTab });
@@ -188,28 +172,10 @@ export default function App() {
 
   useWindowTitle(activeTab, explorerRoot);
 
-  useEffect(() => {
-    setActiveSearchAddon(
-      activeLeafId !== null
-        ? (searchAddons.current.get(activeLeafId) ?? null)
-        : null,
-    );
-    setActiveEditorHandle(editorRefs.current.get(activeId) ?? null);
-  }, [activeId, activeLeafId]);
-
-  const handleSearchReady = useCallback(
-    (leafId: number, addon: SearchAddon) => {
-      searchAddons.current.set(leafId, addon);
-      if (leafId === activeLeafId) setActiveSearchAddon(addon);
-    },
-    [activeLeafId],
-  );
-
   const disposeTab = useCallback(
     (id: number) => {
-      // Terminal-leaf-keyed maps (terminalRefs/searchAddons) are pruned by
-      // the effect below as the pane tree changes; only the tab-id-keyed
-      // handles need explicit cleanup here.
+      // Terminal-leaf-keyed maps are pruned by the effect below as the pane
+      // tree changes; only the tab-id-keyed handles need explicit cleanup here.
       editorRefs.current.delete(id);
       closeTab(id);
     },
@@ -239,8 +205,6 @@ export default function App() {
     liveLeavesRef.current = live;
     for (const k of [...terminalRefs.current.keys()])
       if (!live.has(k)) terminalRefs.current.delete(k);
-    for (const k of [...searchAddons.current.keys()])
-      if (!live.has(k)) searchAddons.current.delete(k);
   }, [tabs]);
 
   // Most-recently-used tab ids, most recent first, pruned to live tabs. Drives
@@ -386,7 +350,6 @@ export default function App() {
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
-      "search.focus": () => searchInlineRef.current?.focus(),
       "settings.open": () => void openSettingsWindow(),
       "sidebar.toggle": toggleSidebar,
       "explorer.focus": toggleExplorerFocus,
@@ -462,9 +425,8 @@ export default function App() {
       } else {
         editorRefs.current.delete(id);
       }
-      if (id === activeId) setActiveEditorHandle(h);
     },
-    [activeId],
+    [],
   );
 
   const authorizedCwds = useRef(new Set<string>());
@@ -513,28 +475,6 @@ export default function App() {
     [updateTab],
   );
 
-  const searchTarget = useMemo<SearchTarget>(() => {
-    if (isTerminalTab && activeLeafId !== null && activeSearchAddon)
-      return {
-        kind: "terminal",
-        addon: activeSearchAddon,
-        focus: () => terminalRefs.current.get(activeLeafId)?.focus(),
-      };
-    if (isEditorTab && activeEditorHandle)
-      return {
-        kind: "editor",
-        handle: activeEditorHandle,
-        focus: () => activeEditorHandle.focus(),
-      };
-    return null;
-  }, [
-    isTerminalTab,
-    isEditorTab,
-    activeLeafId,
-    activeSearchAddon,
-    activeEditorHandle,
-  ]);
-
   const commandPaletteItems = useMemo(
     () =>
       commandPaletteOpen
@@ -542,7 +482,6 @@ export default function App() {
             {
               tabs,
               activeId,
-              searchTarget,
               explorerRoot,
               home,
               openNewTab,
@@ -552,7 +491,6 @@ export default function App() {
               closeActiveTabOrPane: handleCloseTabOrPane,
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
               splitPaneDown: () => splitActivePaneInActiveTab("col"),
-              focusSearch: () => searchInlineRef.current?.focus(),
               toggleSidebar,
               openSettings: () => void openSettingsWindow(),
               openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
@@ -564,7 +502,6 @@ export default function App() {
       commandPaletteOpen,
       tabs,
       activeId,
-      searchTarget,
       explorerRoot,
       home,
       openNewTab,
@@ -596,8 +533,6 @@ export default function App() {
               onToggleSidebar={toggleSidebar}
               onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}
-              searchTarget={searchTarget}
-              searchRef={searchInlineRef}
               onOverrideLanguage={setOverrideLanguage}
             />
           )}
@@ -663,7 +598,6 @@ export default function App() {
                       activeId={activeId}
                       activeTab={activeTab}
                       registerTerminalHandle={registerTerminalHandle}
-                      onSearchReady={handleSearchReady}
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
                       onFocusLeaf={handleFocusLeaf}

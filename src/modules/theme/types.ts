@@ -64,7 +64,20 @@ export type Theme = {
 
 export const DEFAULT_THEME_ID = "kite-default";
 const LEGACY_DEFAULT_THEME_ID = "terax-default";
+const RETIRED_BUILTIN_THEME_IDS = new Set([
+  "caffeine",
+  "everforest",
+  "gruvbox",
+  "kanagawa",
+  "kanagawa-dragon",
+  "rose-pine",
+  "sage",
+  "solarized",
+  "tide",
+]);
 
 export function normalizeThemeId(id: string): string {
-  return id === LEGACY_DEFAULT_THEME_ID ? DEFAULT_THEME_ID : id;
+  return id === LEGACY_DEFAULT_THEME_ID || RETIRED_BUILTIN_THEME_IDS.has(id)
+    ? DEFAULT_THEME_ID
+    : id;
 }

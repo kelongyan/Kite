@@ -158,6 +158,7 @@ const REMOVED_BACKGROUND_KEYS = [
   "backgroundBlur",
 ] as const;
 const REMOVED_EXPLORER_KEYS = ["explorerGitDecorations"] as const;
+const REMOVED_SHORTCUT_IDS = ["search.focus"] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -217,7 +218,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 4;
+const SETTINGS_VERSION = 6;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -232,7 +233,33 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
     4: (map) => {
       for (const key of REMOVED_EXPLORER_KEYS) map.delete(key);
     },
+    5: (map) => {
+      removeRetiredShortcuts(map);
+    },
+    6: (map) => {
+      const themeId = map.get(KEY_THEME_ID);
+      if (typeof themeId === "string") {
+        map.set(KEY_THEME_ID, normalizeThemeId(themeId));
+      }
+    },
   };
+
+function removeRetiredShortcuts(map: Map<string, unknown>): boolean {
+  const shortcuts = map.get(KEY_SHORTCUTS);
+  if (!shortcuts || typeof shortcuts !== "object" || Array.isArray(shortcuts)) {
+    return false;
+  }
+  const next = { ...(shortcuts as Record<string, unknown>) };
+  let removed = false;
+  for (const id of REMOVED_SHORTCUT_IDS) {
+    if (id in next) {
+      delete next[id];
+      removed = true;
+    }
+  }
+  if (removed) map.set(KEY_SHORTCUTS, next);
+  return removed;
+}
 
 // LazyStore.onChange only fires within the writing process. The settings
 // page lives in a separate webview, so writes there never reach the main
@@ -272,6 +299,7 @@ export async function loadPreferences(): Promise<Preferences> {
   for (const key of REMOVED_EXPLORER_KEYS) {
     if (map.delete(key)) migrated = true;
   }
+  if (removeRetiredShortcuts(map)) migrated = true;
   if (migrated) {
     map.set(KEY_VERSION, SETTINGS_VERSION);
     for (const key of REMOVED_BACKGROUND_KEYS) {

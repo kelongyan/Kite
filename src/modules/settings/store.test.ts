@@ -88,7 +88,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
   });
 
   it("falls back to the legacy settings file only when the Kite store is empty", async () => {
@@ -121,7 +121,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundImageId");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundOpacity");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundBlur");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
   });
 
   it("removes retired explorer git decoration preference during migration", async () => {
@@ -134,6 +134,32 @@ describe("loadPreferences", () => {
 
     expect("explorerGitDecorations" in prefs).toBe(false);
     expect(storeMock.delete).toHaveBeenCalledWith("explorerGitDecorations");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 4);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+  });
+
+  it("removes the retired header search shortcut during migration", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 4],
+      ["shortcuts", { "search.focus": [{ ctrl: true, key: "f" }] }],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect("search.focus" in prefs.shortcuts).toBe(false);
+    expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+  });
+
+  it("normalizes retired builtin app themes during migration", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 5],
+      ["themeId", "kanagawa"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.themeId).toBe("kite-default");
+    expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
   });
 });

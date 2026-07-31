@@ -10,12 +10,7 @@ import {
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type RefObject, useEffect, useRef, useState } from "react";
-import {
-  SearchInline,
-  type SearchInlineHandle,
-  type SearchTarget,
-} from "./SearchInline";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   tabs: Tab[];
@@ -35,8 +30,6 @@ type Props = {
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
-  searchTarget: SearchTarget;
-  searchRef: RefObject<SearchInlineHandle | null>;
 };
 
 const COMPACT_WIDTH = 720;
@@ -56,8 +49,6 @@ export function Header({
   onToggleSidebar,
   onOpenCommandPalette,
   onOpenSettings,
-  searchTarget,
-  searchRef,
 }: Props) {
   const messages = useMessages();
   const shellMessages = messages.mainShell;
@@ -143,8 +134,6 @@ export function Header({
         />
         <div data-tauri-drag-region className="h-full min-w-2 flex-1" />
       </div>
-
-      <SearchInline ref={searchRef} target={searchTarget} compact={compact} />
 
       {IS_MAC && settingsButton}
 

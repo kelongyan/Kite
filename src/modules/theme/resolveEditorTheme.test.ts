@@ -11,21 +11,26 @@ const custom: Theme = {
 
 describe("resolveEditorThemeId", () => {
   it("returns an explicit pref unchanged, ignoring app theme", () => {
-    expect(resolveEditorThemeId("nord", "kanagawa", [], "dark")).toBe("nord");
-    expect(resolveEditorThemeId("nord", "kanagawa", [], "light")).toBe("nord");
+    expect(resolveEditorThemeId("nord", "catppuccin", [], "dark")).toBe(
+      "nord",
+    );
+    expect(resolveEditorThemeId("nord", "catppuccin", [], "light")).toBe(
+      "nord",
+    );
   });
 
   it("auto follows the builtin app theme pairing per mode", () => {
-    expect(resolveEditorThemeId("auto", "kanagawa", [], "dark")).toBe("kanagawa");
-    expect(resolveEditorThemeId("auto", "kanagawa", [], "light")).toBe(
-      "kanagawa-lotus",
+    expect(resolveEditorThemeId("auto", "catppuccin", [], "dark")).toBe(
+      "catppuccin-mocha",
+    );
+    expect(resolveEditorThemeId("auto", "catppuccin", [], "light")).toBe(
+      "catppuccin-latte",
     );
   });
 
   it("auto falls back to the other mode when a pairing is missing", () => {
-    // Dragon only declares a dark pairing.
-    expect(resolveEditorThemeId("auto", "kanagawa-dragon", [], "light")).toBe(
-      "kanagawa-dragon",
+    expect(resolveEditorThemeId("auto", "tokyo-night", [], "light")).toBe(
+      "tokyo-night",
     );
   });
 
