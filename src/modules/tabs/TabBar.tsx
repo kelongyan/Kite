@@ -41,7 +41,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { labelFor } from "./lib/tabLabel";
+import {
+  isTerminalLabelResolving,
+  labelFor,
+} from "./lib/tabLabel";
 import type { EditorTab, Tab } from "./lib/useTabs";
 
 type Props = {
@@ -59,6 +62,8 @@ type Props = {
   /** Move a dragged tab to a new position (insertion gap index 0..tabs.length). */
   onReorder: (fromId: number, toGapIndex: number) => void;
   onOverrideLanguage?: (id: number, lang: string | null) => void;
+  home?: string | null;
+  homeResolved?: boolean;
   compact?: boolean;
 };
 
@@ -74,6 +79,8 @@ export function TabBar({
   onRename,
   onReorder,
   onOverrideLanguage,
+  home,
+  homeResolved,
   compact,
 }: Props) {
   const messages = useMessages().mainShell.tabs;
@@ -218,6 +225,11 @@ export function TabBar({
               const isPreview = t.kind === "editor" && (t as EditorTab).preview;
               const isActive = t.id === activeId;
               const isNew = !firstRender && !seen.has(t.id);
+              const tabLabelOptions = { home, homeResolved };
+              const terminalStarting = isTerminalLabelResolving(
+                t,
+                tabLabelOptions,
+              );
 
               const srcIndex = tabs.findIndex((x) => x.id === draggingId);
               const showGap = (gap: number) =>
@@ -240,9 +252,9 @@ export function TabBar({
                         compact ? "px-1.5" : "px-2",
                       )}
                     >
-                      <TabIcon tab={t} />
+                      <TabIcon tab={t} starting={terminalStarting} />
                       <TabRenameInput
-                        initial={labelFor(t)}
+                        initial={labelFor(t, tabLabelOptions)}
                         onCommit={(value) => {
                           onRename(t.id, value);
                           setEditingId(null);
@@ -321,6 +333,7 @@ export function TabBar({
                   className={cn(
                     "group relative z-[1] h-7 shrink-0 justify-between gap-1.5 rounded-md bg-transparent text-xs transition-colors data-active:bg-transparent dark:data-active:bg-transparent",
                     isNew && "kite-tab-in",
+                    terminalStarting && "kite-tab-terminal-resolving",
                     isActive
                       ? "text-foreground dark:text-foreground"
                       : "text-muted-foreground hover:text-foreground/80 dark:text-muted-foreground",
@@ -435,13 +448,16 @@ export function TabBar({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : (
-                      <TabIcon tab={t} />
+                      <TabIcon tab={t} starting={terminalStarting} />
                     )}
                     {/* Preview tabs use italic to signal the transient state,
                         matching the visual convention from VSCode. */}
-                    <span className={cn("truncate", isPreview && "italic")}>
-                      {labelFor(t)}
-                    </span>
+                    <TabLabel
+                      tab={t}
+                      home={home}
+                      homeResolved={homeResolved}
+                      preview={isPreview}
+                    />
                     {t.kind === "editor" && t.dirty ? (
                       <span
                         aria-label={messages.unsavedChanges}
@@ -585,7 +601,54 @@ function DropIndicator() {
   );
 }
 
-export function TabIcon({ tab }: { tab: Tab }) {
+function TabLabel({
+  tab,
+  home,
+  homeResolved,
+  preview,
+}: {
+  tab: Tab;
+  home?: string | null;
+  homeResolved?: boolean;
+  preview?: boolean;
+}) {
+  const options = { home, homeResolved };
+  const label = labelFor(tab, options);
+  const resolving = isTerminalLabelResolving(tab, options);
+  const [settled, setSettled] = useState(false);
+  const wasResolving = useRef(resolving);
+
+  useEffect(() => {
+    const hadBeenResolving = wasResolving.current;
+    wasResolving.current = resolving;
+    if (!hadBeenResolving || resolving) return;
+    setSettled(true);
+    const id = window.setTimeout(() => setSettled(false), 160);
+    return () => window.clearTimeout(id);
+  }, [resolving]);
+
+  return (
+    <span className={cn("truncate", preview && "italic")}>
+      <span
+        className={cn(
+          "kite-tab-label-text inline-block max-w-full truncate align-bottom",
+          resolving && "kite-tab-label-text-loading",
+          settled && "kite-tab-label-text-settled",
+        )}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
+export function TabIcon({
+  tab,
+  starting,
+}: {
+  tab: Tab;
+  starting?: boolean;
+}) {
   if (tab.kind === "editor" || tab.kind === "markdown") {
     const url =
       tab.kind === "editor" && tab.overrideLanguage
@@ -630,7 +693,7 @@ export function TabIcon({ tab }: { tab: Tab }) {
       icon={ComputerTerminal02Icon}
       size={14}
       strokeWidth={2}
-      className="shrink-0"
+      className={cn("shrink-0", starting && "kite-terminal-tab-icon-starting")}
     />
   );
 }

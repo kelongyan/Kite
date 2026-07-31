@@ -170,7 +170,7 @@ export default function App() {
     launchCwd ?? home,
   );
 
-  useWindowTitle(activeTab, explorerRoot);
+  useWindowTitle(activeTab, explorerRoot, home, homeResolved);
 
   const disposeTab = useCallback(
     (id: number) => {
@@ -534,6 +534,8 @@ export default function App() {
               onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}
               onOverrideLanguage={setOverrideLanguage}
+              home={home}
+              homeResolved={homeResolved}
             />
           )}
 
@@ -625,7 +627,12 @@ export default function App() {
           <Toaster position="bottom-right" />
 
           {switcherState && (
-            <TabSwitcherHud tabs={tabs} state={switcherState} />
+            <TabSwitcherHud
+              tabs={tabs}
+              state={switcherState}
+              home={home}
+              homeResolved={homeResolved}
+            />
           )}
 
           <CommandPalette

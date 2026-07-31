@@ -30,6 +30,8 @@ type Props = {
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
+  home?: string | null;
+  homeResolved?: boolean;
 };
 
 const COMPACT_WIDTH = 720;
@@ -49,6 +51,8 @@ export function Header({
   onToggleSidebar,
   onOpenCommandPalette,
   onOpenSettings,
+  home,
+  homeResolved,
 }: Props) {
   const messages = useMessages();
   const shellMessages = messages.mainShell;
@@ -130,6 +134,8 @@ export function Header({
           onRename={onRename}
           onReorder={onReorder}
           onOverrideLanguage={onOverrideLanguage}
+          home={home}
+          homeResolved={homeResolved}
           compact={compact}
         />
         <div data-tauri-drag-region className="h-full min-w-2 flex-1" />

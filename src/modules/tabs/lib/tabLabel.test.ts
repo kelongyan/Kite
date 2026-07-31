@@ -24,9 +24,53 @@ describe("labelFor (terminal tabs)", () => {
     expect(labelFor(terminalTab({ title: "private" }))).toBe("private");
   });
 
+  it("maps the legacy shell placeholder to Terminal", () => {
+    expect(labelFor(terminalTab())).toBe("Terminal");
+  });
+
+  it("uses Home for the workspace home directory", () => {
+    expect(
+      labelFor(terminalTab({ cwd: "C:/Users/Administrator" }), {
+        home: "C:/Users/Administrator",
+      }),
+    ).toBe("Home");
+  });
+
+  it("stays neutral while home is still resolving", () => {
+    expect(
+      labelFor(terminalTab({ cwd: "C:/Users/Administrator" }), {
+        homeResolved: false,
+      }),
+    ).toBe("Terminal");
+  });
+
+  it("matches Windows home paths across separators and drive casing", () => {
+    expect(
+      labelFor(terminalTab({ cwd: "c:\\Users\\Administrator\\" }), {
+        home: "C:/Users/Administrator",
+      }),
+    ).toBe("Home");
+  });
+
+  it("keeps root directory labels", () => {
+    expect(labelFor(terminalTab({ cwd: "/" }))).toBe("/");
+  });
+
   it("prefers a custom title over the cwd-derived name", () => {
     expect(
       labelFor(terminalTab({ cwd: "/Users/me/projects/kite", customTitle: "Server" })),
+    ).toBe("Server");
+  });
+
+  it("prefers a custom title over the home label", () => {
+    expect(
+      labelFor(
+        terminalTab({
+          cwd: "C:/Users/Administrator",
+          customTitle: "Server",
+        }),
+        { home: "C:/Users/Administrator" },
+      ),
     ).toBe("Server");
   });
 

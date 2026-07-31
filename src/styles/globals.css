@@ -397,6 +397,90 @@ html *::-webkit-scrollbar {
   animation: kite-tab-in var(--dur-base) var(--ease-premium);
 }
 
+.kite-tab-label-text {
+  transition:
+    opacity 160ms var(--ease-soft),
+    transform 180ms var(--ease-premium),
+    filter 180ms var(--ease-soft);
+  will-change: opacity, transform;
+}
+
+.kite-tab-label-text-loading {
+  opacity: 0.68;
+  filter: saturate(0.88);
+  transform: translateY(1px);
+}
+
+@keyframes kite-tab-label-settle {
+  from {
+    opacity: 0.74;
+    filter: saturate(0.9);
+    transform: translateY(1px) scale(0.985);
+  }
+  70% {
+    opacity: 1;
+    filter: saturate(1.03);
+    transform: translateY(0) scale(1.01);
+  }
+  to {
+    opacity: 1;
+    filter: saturate(1);
+    transform: translateY(0);
+  }
+}
+
+.kite-tab-label-text-settled {
+  animation: kite-tab-label-settle 210ms var(--ease-premium);
+}
+
+.kite-tab-terminal-resolving {
+  overflow: hidden;
+}
+
+.kite-tab-terminal-resolving::after {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 2px;
+  left: 0.5rem;
+  height: 1px;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--color-primary) 28%, transparent),
+    transparent
+  );
+  opacity: 0.75;
+  transform: translateX(-55%);
+  animation: kite-tab-terminal-resolving-line 1.6s var(--ease-premium) infinite;
+}
+
+@keyframes kite-tab-terminal-resolving-line {
+  from {
+    transform: translateX(-55%);
+  }
+  to {
+    transform: translateX(55%);
+  }
+}
+
+@keyframes kite-terminal-tab-icon-starting {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+}
+
+.kite-terminal-tab-icon-starting {
+  filter: saturate(0.9);
+  animation: kite-terminal-tab-icon-starting 1.4s var(--ease-soft) infinite;
+}
+
 @keyframes kite-terminal-cursor-smooth {
   0%,
   100% {
@@ -525,6 +609,11 @@ html *::-webkit-scrollbar {
   .kite-reveal {
     transition: none;
   }
+  .kite-tab-label-text,
+  .kite-tab-label-text-loading,
+  .kite-tab-label-text-settled,
+  .kite-tab-terminal-resolving::after,
+  .kite-terminal-tab-icon-starting,
   .kite-terminal-cursor-preview-blink,
   .kite-terminal-cursor-preview-smooth,
   .kite-terminal-cursor-preview-expand,
@@ -532,7 +621,14 @@ html *::-webkit-scrollbar {
   .kite-terminal-cursor-overlay-expand {
     animation: none;
     opacity: 1;
+    filter: none;
     transform: none;
+  }
+  .kite-tab-terminal-resolving::after {
+    display: none;
+  }
+  .kite-tab-label-text {
+    transition: none;
   }
   .kite-terminal-cursor-overlay-motion {
     transition: none;
