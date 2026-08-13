@@ -83,6 +83,14 @@
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "installerHooks": "./installer-hooks.nsh"
+      },
+      "wix": {
+        "fragmentPaths": [
+          "./wix/shell-context-menu.wxs"
+        ],
+        "componentRefs": [
+          "KiteShellContextMenu"
+        ]
       }
     },
     "category": "DeveloperTool",

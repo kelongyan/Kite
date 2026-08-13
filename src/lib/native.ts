@@ -69,7 +69,7 @@ export type GitBranchListResult = { branches: GitBranchEntry[] };
 
 export const native = {
   async workspaceAuthorize(dir: string): Promise<void> {
-    await invoke("workspace_authorize", { dir }).catch(() => {});
+    await invoke("workspace_authorize", { path: dir });
   },
 
   async gitResolveRepo(

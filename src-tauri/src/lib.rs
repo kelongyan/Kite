@@ -1,13 +1,6 @@
 pub mod modules;
 
 use modules::{fs, git, pty, sftp, workspace};
-#[cfg(any(
-    test,
-    all(
-        not(debug_assertions),
-        not(any(target_os = "android", target_os = "ios"))
-    )
-))]
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -25,17 +18,33 @@ fn get_launch_dir(state: State<'_, LaunchDir>) -> Option<String> {
 }
 
 fn parse_launch_dir() -> Option<String> {
-    for arg in std::env::args().skip(1) {
-        if arg.starts_with('-') {
+    parse_launch_dir_from_paths(
+        std::env::args_os().skip(1).map(PathBuf::from),
+        std::env::current_dir().ok().as_deref(),
+    )
+}
+
+fn parse_launch_dir_from_paths<I>(args: I, cwd: Option<&Path>) -> Option<String>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    for arg in args {
+        if arg.to_string_lossy().starts_with('-') {
             continue;
         }
-        let Ok(canon) = std::fs::canonicalize(&arg) else {
+        let candidate = if arg.is_absolute() {
+            arg
+        } else if let Some(cwd) = cwd {
+            cwd.join(arg)
+        } else {
+            arg
+        };
+        let Ok(canon) = std::fs::canonicalize(&candidate) else {
             continue;
         };
-        if !canon.is_dir() {
-            continue;
+        if canon.is_dir() {
+            return Some(crate::modules::fs::to_canon(&canon));
         }
-        return Some(crate::modules::fs::to_canon(&canon));
     }
     None
 }
@@ -206,6 +215,15 @@ pub fn run() {
             return;
         }
         log::info!("accepted second instance cwd={cwd:?} args={args:?}");
+        let launch_dir = parse_launch_dir_from_paths(
+            args.iter().skip(1).map(|arg| PathBuf::from(arg.as_str())),
+            Some(Path::new(&cwd)),
+        );
+        if let Some(ref dir) = launch_dir {
+            let registry = app.state::<workspace::WorkspaceRegistry>();
+            let _ = registry.authorize(dir);
+            let _ = app.emit("kite:open-launch-dir", dir);
+        }
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
             let _ = window.set_focus();
@@ -326,8 +344,27 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_secondary_executable, secondary_matches_current_executable};
+    use super::{
+        parse_launch_dir_from_paths, resolve_secondary_executable,
+        secondary_matches_current_executable,
+    };
+    use std::fs;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn tempdir(label: &str) -> PathBuf {
+        let mut dir = std::env::temp_dir();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        dir.push(format!(
+            "kite-launch-{label}-{nanos}-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create temp launch dir");
+        fs::canonicalize(dir).expect("canonicalize temp launch dir")
+    }
 
     #[test]
     fn resolves_secondary_executable_against_reported_cwd() {
@@ -359,5 +396,28 @@ mod tests {
             .display()
             .to_string()];
         assert!(!secondary_matches_current_executable(&args, "ignored"));
+    }
+
+    #[test]
+    fn parses_first_usable_launch_directory() {
+        let dir = tempdir("direct");
+        let file = dir.join("note.txt");
+        fs::write(&file, "not a directory").expect("write file");
+
+        let parsed =
+            parse_launch_dir_from_paths([PathBuf::from("--flag"), file, dir.clone()], None);
+
+        assert_eq!(parsed, Some(crate::modules::fs::to_canon(&dir)));
+    }
+
+    #[test]
+    fn resolves_relative_launch_directory_against_cwd() {
+        let cwd = tempdir("cwd");
+        let project = cwd.join("project");
+        fs::create_dir_all(&project).expect("create project");
+
+        let parsed = parse_launch_dir_from_paths([PathBuf::from("project")], Some(&cwd));
+
+        assert_eq!(parsed, Some(crate::modules::fs::to_canon(&project)));
     }
 }

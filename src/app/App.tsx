@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { getLaunchDir } from "@/lib/launchDir";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { native } from "@/lib/native";
 import { CommandPalette, createCommandItems } from "@/modules/command-palette";
@@ -119,14 +120,20 @@ export default function App() {
 
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
   const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
-  const { home, homeResolved, launchCwd, launchCwdResolved, switchWorkspace } =
-    useWorkspaceSwitcher({
-      tabsRef,
-      workspaceEnv,
-      setWorkspaceEnv,
-      resetWorkspace,
-      clearWorkspaceState,
-    });
+  const {
+    home,
+    homeResolved,
+    launchCwd,
+    launchCwdResolved,
+    switchWorkspace,
+    openLocalWorkspace,
+  } = useWorkspaceSwitcher({
+    tabsRef,
+    workspaceEnv,
+    setWorkspaceEnv,
+    resetWorkspace,
+    clearWorkspaceState,
+  });
 
   const handleWorkspaceChange = useCallback(
     async (env: WorkspaceEnv) => {
@@ -134,6 +141,26 @@ export default function App() {
     },
     [switchWorkspace],
   );
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+
+    void listen<string>("kite:open-launch-dir", (event) => {
+      void openLocalWorkspace(event.payload);
+    }).then((dispose) => {
+      if (disposed) {
+        dispose();
+      } else {
+        unlisten = dispose;
+      }
+    });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [openLocalWorkspace]);
 
   useEffect(() => {
     if (launchCwdResolved && (launchCwd !== null || homeResolved)) {

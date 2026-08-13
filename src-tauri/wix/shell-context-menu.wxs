@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="KiteShellContextMenu" Guid="10924b19-d8c1-4bf9-a736-54382794f05a">
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\OpenInKite">
+          <RegistryValue Type="string" Value="Open with Kite" KeyPath="yes" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLDIR]kite.exe" />
+        </RegistryKey>
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Classes\Directory\shell\OpenInKite\command"
+          Type="string"
+          Value="&quot;[INSTALLDIR]kite.exe&quot; &quot;%1&quot;" />
+
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\OpenInKite">
+          <RegistryValue Type="string" Value="Open with Kite" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLDIR]kite.exe" />
+        </RegistryKey>
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Classes\Directory\Background\shell\OpenInKite\command"
+          Type="string"
+          Value="&quot;[INSTALLDIR]kite.exe&quot; &quot;%V&quot;" />
+
+        <RegistryKey Root="HKCU" Key="Software\Classes\Drive\shell\OpenInKite">
+          <RegistryValue Type="string" Value="Open with Kite" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLDIR]kite.exe" />
+        </RegistryKey>
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Classes\Drive\shell\OpenInKite\command"
+          Type="string"
+          Value="&quot;[INSTALLDIR]kite.exe&quot; &quot;%1&quot;" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

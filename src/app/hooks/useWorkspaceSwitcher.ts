@@ -66,6 +66,58 @@ export function useWorkspaceSwitcher({
     }
   }, []);
 
+  const authorizeHomeOnly = useCallback(async (nextHome: string) => {
+    setHome(nextHome);
+    try {
+      await native.workspaceAuthorize(nextHome);
+    } catch {
+      // Non-fatal — git panel will surface "not authorized" if needed.
+    }
+  }, []);
+
+  const openLocalWorkspace = useCallback(
+    async (dir: string): Promise<boolean> => {
+      if (dir.length === 0) {
+        return false;
+      }
+
+      const dirty = tabsRef.current.some((t) => t.kind === "editor" && t.dirty);
+      if (dirty) {
+        window.alert(messages.saveOrCloseUnsavedEditors);
+        return false;
+      }
+
+      const normalized = dir.replace(/\\/g, "/");
+      let nextHome: string;
+      try {
+        nextHome = await resolveEnvHome(LOCAL_WORKSPACE);
+      } catch (e) {
+        window.alert(String(e));
+        return false;
+      }
+
+      clearWorkspaceState();
+      setWorkspaceEnv(LOCAL_WORKSPACE);
+      await authorizeHomeOnly(nextHome);
+      setLaunchCwd(normalized);
+      try {
+        await native.workspaceAuthorize(normalized);
+      } catch {
+        // Rust already validated Explorer-launched directories; keep opening.
+      }
+      resetWorkspace(normalized);
+      return true;
+    },
+    [
+      tabsRef,
+      messages.saveOrCloseUnsavedEditors,
+      clearWorkspaceState,
+      setWorkspaceEnv,
+      authorizeHomeOnly,
+      resetWorkspace,
+    ],
+  );
+
   const switchWorkspace = useCallback(
     async (env: WorkspaceEnv): Promise<boolean> => {
       if (
@@ -112,5 +164,6 @@ export function useWorkspaceSwitcher({
     launchCwd,
     launchCwdResolved,
     switchWorkspace,
+    openLocalWorkspace,
   };
 }
