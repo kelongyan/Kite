@@ -1,10 +1,12 @@
+# Version updates disabled at maintainer request. Restore a positive
+# open-pull-requests-limit on each ecosystem to re-enable.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 3
     groups:
@@ -23,7 +25,7 @@ updates:
     directory: "/src-tauri"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 3
     groups:
@@ -38,6 +40,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns:
