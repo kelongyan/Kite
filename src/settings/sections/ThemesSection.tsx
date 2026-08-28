@@ -1,23 +1,6 @@
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
-import { usePreferencesStore } from "@/modules/settings/preferences";
-import {
-  EDITOR_THEME_AUTO,
-  EDITOR_THEME_LABELS,
-  EDITOR_THEME_MODE,
-  EDITOR_THEMES,
-  setEditorTheme,
-  type EditorThemePref,
-} from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
 import {
   deleteCustomTheme,
@@ -25,11 +8,7 @@ import {
 } from "@/modules/theme/customThemes";
 import { listBuiltinThemes } from "@/modules/theme/themes";
 import { validateTheme } from "@/modules/theme/validateTheme";
-import { deleteThemeFile, emitThemeEdit } from "@/modules/theme/themeFiles";
 import { DEFAULT_THEME_ID } from "@/modules/theme/types";
-import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useMemo, useRef, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
@@ -49,18 +28,6 @@ export function ThemesSection() {
 
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const onCreateTheme = () => {
-    void emitThemeEdit({ action: "create" });
-    void getCurrentWindow().hide();
-  };
-
-  const onEditTheme = (id: string) => {
-    void emitThemeEdit({ action: "edit", id });
-    void getCurrentWindow().hide();
-  };
-
-  const editorThemePref = usePreferencesStore((s) => s.editorTheme);
 
   const handleThemeFiles = async (files: FileList | null) => {
     setImportError(null);
@@ -92,7 +59,6 @@ export function ThemesSection() {
   const onRemoveCustomTheme = async (id: string) => {
     if (themeId === id) setThemeId(DEFAULT_THEME_ID);
     await deleteCustomTheme(id);
-    void deleteThemeFile(id);
   };
 
   return (
@@ -119,15 +85,6 @@ export function ThemesSection() {
             <Label>{themeMessages.theme.title}</Label>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-[11px]"
-              onClick={onCreateTheme}
-            >
-              <HugeiconsIcon icon={PlusSignIcon} size={11} strokeWidth={2} />
-              {themeMessages.theme.create}
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -212,18 +169,6 @@ export function ThemesSection() {
                   <span className="ml-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/theme:opacity-100 group-focus-within/theme:opacity-100">
                     <button
                       type="button"
-                      aria-label={themeMessages.theme.editTheme(t.name)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                      onClick={() => onEditTheme(t.id)}
-                    >
-                      <HugeiconsIcon
-                        icon={Edit02Icon}
-                        size={12}
-                        strokeWidth={1.75}
-                      />
-                    </button>
-                    <button
-                      type="button"
                       aria-label={themeMessages.theme.removeTheme(t.name)}
                       className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       onClick={() => void onRemoveCustomTheme(t.id)}
@@ -237,46 +182,6 @@ export function ThemesSection() {
           })}
         </div>
       </section>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-col">
-            <Label>{themeMessages.editorTheme.title}</Label>
-            <span className="text-[11px] text-muted-foreground">
-              {themeMessages.editorTheme.description}
-            </span>
-          </div>
-          <Select
-            value={editorThemePref}
-            onValueChange={(v) => void setEditorTheme(v as EditorThemePref)}
-          >
-            <SelectTrigger size="sm" className="h-8 w-44 text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EDITOR_THEME_AUTO} className="text-[12px]">
-                {themeMessages.editorTheme.auto}
-              </SelectItem>
-              <SelectSeparator />
-              {[...EDITOR_THEMES]
-                .sort(
-                  (a, b) =>
-                    (EDITOR_THEME_MODE[a] === resolvedMode ? 0 : 1) -
-                    (EDITOR_THEME_MODE[b] === resolvedMode ? 0 : 1),
-                )
-                .map((id) => (
-                  <SelectItem
-                    key={id}
-                    value={id}
-                    disabled={EDITOR_THEME_MODE[id] !== resolvedMode}
-                    className="text-[12px]"
-                  >
-                    {EDITOR_THEME_LABELS[id]}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
     </div>
   );
 }

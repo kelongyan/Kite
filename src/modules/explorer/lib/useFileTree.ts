@@ -18,7 +18,7 @@ type ChildrenState =
 
 type TreeState = Record<string, ChildrenState>;
 
-export function joinPath(parent: string, name: string): string {
+function joinPath(parent: string, name: string): string {
   if (parent.endsWith("/")) return `${parent}${name}`;
   return `${parent}/${name}`;
 }

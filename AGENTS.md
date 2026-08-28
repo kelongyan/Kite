@@ -36,8 +36,8 @@ cargo clippy --all-targets --locked -- -D warnings
 - **React 19 Strict Mode** mounts effects twice in dev — an initial PTY may open and close before the real session starts.
 - **`SPAWN_LOCK`** serializes `openpty + spawn_command` on Windows. Removing it stalls concurrent ConPTY sessions.
 - **Path separators**: frontend uses forward slashes; `homeDir()` on Windows returns backslashes — normalize at the frontend boundary.
-- **Tauri commands are `snake_case`** (`pty_open`, `fs_read_file`, `git_status`, etc.).
-- **Tabs stay mounted when hidden** — PTYs and editors keep state. Do not assume unmount-on-switch.
+- **Tauri commands are `snake_case`** (`pty_open`, `fs_read_dir`, `workspace_authorize`, etc.).
+- **Tabs stay mounted when hidden** — PTYs keep state. Do not assume unmount-on-switch.
 - **`src-tauri/tests/`** are integration tests that need Tauri runtime context.
 - **`tsc --noEmit`** for type-checking (separate from Vite's bundler).
 - **`pnpm analyze:eager`** traces heavy dependencies in the eager graph — useful for bundle regression checks.
@@ -47,8 +47,8 @@ cargo clippy --all-targets --locked -- -D warnings
 
 | Path | Purpose |
 |------|---------|
-| `src/modules/<area>/` | Feature modules (terminal, editor, explorer, tabs, etc.) |
-| `src-tauri/src/modules/` | Rust backend (pty, fs, git, sftp, history, workspace) |
+| `src/modules/<area>/` | Feature modules (terminal, explorer, tabs, theme, etc.) |
+| `src-tauri/src/modules/` | Rust backend (pty, fs, workspace, proc) |
 | `src/styles/globals.css` | Tailwind v4 config and theme CSS variables |
 | `src/components/ui/` | shadcn/ui components (linted, covered by dead-code scans) |
 | `scripts/eager-graph.mjs` | Eager import tracer for bundle analysis |

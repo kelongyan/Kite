@@ -16,7 +16,6 @@ export type EntryRowProps = {
   depth: number;
   actions: RowActions;
   isSelected: boolean;
-  onOpenFile: (path: string, pin?: boolean) => void;
   onSelectPath: (path: string) => void;
 };
 
@@ -29,7 +28,6 @@ function EntryRowImpl(props: EntryRowProps) {
     depth,
     actions,
     isSelected,
-    onOpenFile,
     onSelectPath,
   } = props;
 
@@ -39,7 +37,6 @@ function EntryRowImpl(props: EntryRowProps) {
   const handleClick = () => {
     onSelectPath(path);
     if (isDir) actions.toggle(path);
-    else onOpenFile(path);
   };
 
   return (

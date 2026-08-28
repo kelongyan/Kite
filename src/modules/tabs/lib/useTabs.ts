@@ -1,4 +1,3 @@
-import { isMarkdownPath } from "@/lib/utils";
 import {
   findLeafCwd,
   hasLeaf,
@@ -18,12 +17,9 @@ import { TERMINAL_DEFAULT_TITLE } from "./tabLabel";
 // Matches the renderer slot pool size — over this we'd evict an active leaf.
 export const MAX_PANES_PER_TAB = 4;
 
-type TabBase = {
+export type TerminalTab = {
   /** Restored from disk, not yet activated: rendered as a placeholder, not mounted. */
   cold?: boolean;
-};
-
-export type TerminalTab = TabBase & {
   id: number;
   kind: "terminal";
   title: string;
@@ -34,62 +30,14 @@ export type TerminalTab = TabBase & {
   customTitle?: string;
 };
 
-export type EditorTab = TabBase & {
-  id: number;
-  kind: "editor";
-  title: string;
-  path: string;
-  dirty: boolean;
-  /**
-   * True while the tab is in the transient "preview" state — opened by a
-   * single-click in the explorer and not yet pinned by the user. A preview tab
-   * is replaced by the next single-click rather than accumulating.
-   */
-  preview: boolean;
-  overrideLanguage?: string | null;
-};
-
-export type MarkdownTab = TabBase & {
-  id: number;
-  kind: "markdown";
-  title: string;
-  path: string;
-};
-
-export type GitDiffTab = TabBase & {
-  id: number;
-  kind: "git-diff";
-  title: string;
-  path: string;
-  repoRoot: string;
-  mode: "-" | "+";
-  originalPath: string | null;
-};
-
-type SftpTab = TabBase & {
-  id: number;
-  kind: "sftp";
-  title: string;
-  localPath?: string;
-};
-
-export type Tab = TerminalTab | EditorTab | MarkdownTab | GitDiffTab | SftpTab;
+export type Tab = TerminalTab;
 
 export type TabPatch = Partial<{
   title: string;
   cwd: string;
-  path: string;
-  dirty: boolean;
-  url: string;
   /** Empty string resets a terminal tab to its cwd-derived name. */
   customTitle: string;
-  overrideLanguage: string | null;
 }>;
-
-function basename(path: string): string {
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : path;
-}
 
 export function nextActiveTab(tabs: Tab[], closingId: number): number | null {
   if (tabs.length <= 1) return null;
@@ -203,245 +151,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     return tabId;
   }, []);
 
-  /**
-   * Opens a file in an editor tab.
-   *
-   * - `pin = true` (default) — opens or activates a **persistent** tab.
-   *   If the path is currently in the preview slot it is promoted in-place.
-   *   Use this for programmatic opens such as the New File dialog.
-   * - `pin = false` — VSCode-style **preview** tab. A single shared slot is
-   *   reused: if a persistent tab for the path already exists it is activated;
-   *   otherwise the current preview slot is replaced with the new path.
-   */
-  const openFileTab = useCallback((path: string, pin = true) => {
-    let targetId: number | null = null;
-    setTabs((curr) => {
-      if (pin) {
-        // Persistent open: find any existing editor tab, pin it if needed.
-        const existing = curr.find(
-          (t) => t.kind === "editor" && t.path === path,
-        );
-        if (existing) {
-          targetId = existing.id;
-          if ((existing as EditorTab).preview) {
-            return curr.map((t) =>
-              t.id === existing.id ? { ...t, preview: false } : t,
-            );
-          }
-          return curr;
-        }
-        const id = nextIdRef.current++;
-        targetId = id;
-        return [
-          ...curr,
-          {
-            id,
-            kind: "editor",
-            title: basename(path),
-            path,
-            dirty: false,
-            preview: false,
-          } satisfies EditorTab,
-        ];
-      } else {
-        // Preview open: persistent tab for this path takes priority.
-        const persistent = curr.find(
-          (t) =>
-            t.kind === "editor" && t.path === path && !(t as EditorTab).preview,
-        );
-        if (persistent) {
-          targetId = persistent.id;
-          return curr;
-        }
-        // Reuse the slot if it already shows the same path.
-        const existingPreview = curr.find(
-          (t) =>
-            t.kind === "editor" && t.path === path && (t as EditorTab).preview,
-        );
-        if (existingPreview) {
-          targetId = existingPreview.id;
-          return curr;
-        }
-        // Replace the current preview slot, or append a new one.
-        const previewIdx = curr.findIndex(
-          (t) => t.kind === "editor" && (t as EditorTab).preview,
-        );
-        const id = nextIdRef.current++;
-        targetId = id;
-        const tab: EditorTab = {
-          id,
-          kind: "editor",
-          title: basename(path),
-          path,
-          dirty: false,
-          preview: true,
-        };
-        if (previewIdx === -1) return [...curr, tab];
-        const next = [...curr];
-        next[previewIdx] = tab;
-        return next;
-      }
-    });
-    if (targetId !== null) setActiveId(targetId);
-    return targetId as number | null;
-  }, []);
-
-  /**
-   * Promotes a preview tab to a persistent one. Called on double-click of the
-   * tab title in the tab bar. Dirty edits also auto-promote (see `updateTab`).
-   */
-  const pinTab = useCallback((id: number) => {
-    setTabs((curr) =>
-      curr.map((t) =>
-        t.id === id && t.kind === "editor" ? { ...t, preview: false } : t,
-      ),
-    );
-  }, []);
-
-  const newMarkdownTab = useCallback((path: string) => {
-    let targetId: number | null = null;
-    setTabs((curr) => {
-      const existing = curr.find(
-        (t) => t.kind === "markdown" && t.path === path,
-      );
-      if (existing) {
-        targetId = existing.id;
-        return curr;
-      }
-      const id = nextIdRef.current++;
-      targetId = id;
-      return [
-        ...curr,
-        {
-          id,
-          kind: "markdown",
-          title: basename(path),
-          path,
-        },
-      ];
-    });
-    if (targetId !== null) setActiveId(targetId);
-    return targetId;
-  }, []);
-
-  const newSftpTab = useCallback((localPath?: string) => {
-    const id = nextIdRef.current++;
-    setTabs((t) => [
-      ...t,
-      {
-        id,
-        kind: "sftp",
-        title: "SFTP",
-        localPath,
-      },
-    ]);
-    setActiveId(id);
-    return id;
-  }, []);
-
-  const setOverrideLanguage = useCallback((id: number, lang: string | null) => {
-    setTabs((curr) =>
-      curr.map((t) => {
-        if (t.id !== id || t.kind !== "editor") return t;
-        return {
-          ...t,
-          overrideLanguage: lang,
-        };
-      }),
-    );
-  }, []);
-
-  const setMarkdownView = useCallback(
-    (id: number, mode: "rendered" | "raw") => {
-      setTabs((curr) =>
-        curr.map((t) => {
-          if (
-            t.id !== id ||
-            !isMarkdownPath((t as { path?: string }).path ?? "")
-          )
-            return t;
-          if (mode === "raw" && t.kind === "markdown") {
-            return {
-              ...t,
-              kind: "editor" as const,
-              dirty: false,
-              preview: false,
-              overrideLanguage:
-                (t as { overrideLanguage?: string | null }).overrideLanguage ??
-                null,
-            };
-          }
-          if (mode === "rendered" && t.kind === "editor") {
-            if (t.dirty) return t;
-            return {
-              id: t.id,
-              kind: "markdown" as const,
-              cold: t.cold,
-              title: t.title,
-              path: t.path,
-              overrideLanguage: t.overrideLanguage ?? null,
-            };
-          }
-          return t;
-        }),
-      );
-    },
-    [],
-  );
-
-  const openGitDiffTab = useCallback(
-    (input: {
-      path: string;
-      repoRoot: string;
-      mode: "-" | "+";
-      originalPath?: string | null;
-      title?: string;
-    }) => {
-      const curr = tabsRef.current;
-      const existing = curr.find(
-        (t) =>
-          t.kind === "git-diff" &&
-          t.repoRoot === input.repoRoot &&
-          t.path === input.path &&
-          t.mode === input.mode,
-      );
-      const computedTitle =
-        input.title ?? `${basename(input.path)} (${input.mode})`;
-      const originalPath = input.originalPath ?? null;
-
-      if (existing) {
-        const nextTabs = curr.map((t) =>
-          t.id === existing.id
-            ? { ...t, title: computedTitle, originalPath }
-            : t,
-        );
-        tabsRef.current = nextTabs;
-        setTabs(nextTabs);
-        setActiveId(existing.id);
-        return existing.id;
-      }
-
-      const id = nextIdRef.current++;
-      const nextTabs = [
-        ...curr,
-        {
-          id,
-          kind: "git-diff",
-          title: computedTitle,
-          path: input.path,
-          repoRoot: input.repoRoot,
-          mode: input.mode,
-          originalPath,
-        } satisfies GitDiffTab,
-      ];
-      tabsRef.current = nextTabs;
-      setTabs(nextTabs);
-      setActiveId(id);
-      return id;
-    },
-    [],
-  );
-
   const closeTab = useCallback((id: number) => {
     let toDispose: number[] = [];
     setTabs((curr) => {
@@ -462,36 +171,13 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setTabs((t) =>
       t.map((x) => {
         if (x.id !== id) return x;
-        if (x.kind === "terminal") {
-          return {
-            ...x,
-            ...(patch.title !== undefined && { title: patch.title }),
-            ...(patch.cwd !== undefined && { cwd: patch.cwd }),
-            ...(patch.customTitle !== undefined && {
-              customTitle:
-                patch.customTitle === "" ? undefined : patch.customTitle,
-            }),
-          };
-        }
-        if (x.kind === "markdown") {
-          return {
-            ...x,
-            ...(patch.title !== undefined && { title: patch.title }),
-          };
-        }
-        // editor tab: auto-promote from preview the moment the file becomes dirty.
-        const autoPin =
-          patch.dirty === true && (x as EditorTab).preview
-            ? { preview: false }
-            : {};
         return {
           ...x,
-          ...autoPin,
           ...(patch.title !== undefined && { title: patch.title }),
-          ...(patch.dirty !== undefined && { dirty: patch.dirty }),
-          ...(patch.path !== undefined && { path: patch.path }),
-          ...(patch.overrideLanguage !== undefined && {
-            overrideLanguage: patch.overrideLanguage,
+          ...(patch.cwd !== undefined && { cwd: patch.cwd }),
+          ...(patch.customTitle !== undefined && {
+            customTitle:
+              patch.customTitle === "" ? undefined : patch.customTitle,
           }),
         };
       }),
@@ -650,9 +336,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     const leafId = nextIdRef.current++;
     let toDispose: number[] = [];
     setTabs((curr) => {
-      toDispose = curr.flatMap((t) =>
-        t.kind === "terminal" ? leafIds(t.paneTree) : [],
-      );
+      toDispose = curr.flatMap((t) => leafIds(t.paneTree));
       return [
         {
           id: tabId,
@@ -681,14 +365,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     reorderTab,
     reorderTabByGap,
     markBooted,
-    setOverrideLanguage,
     newTab,
-    openFileTab,
-    pinTab,
-    newMarkdownTab,
-    newSftpTab,
-    setMarkdownView,
-    openGitDiffTab,
     closeTab,
     updateTab,
     selectByIndex,

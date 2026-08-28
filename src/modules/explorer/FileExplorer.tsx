@@ -34,8 +34,6 @@ export type FileExplorerHandle = {
 
 type Props = {
   rootPath: string | null;
-  activeFilePath?: string | null;
-  onOpenFile: (path: string, pin?: boolean) => void;
   onRevealInTerminal?: (path: string) => void;
 };
 
@@ -124,7 +122,7 @@ function buildRows(
 
 export const FileExplorer = memo(
   forwardRef<FileExplorerHandle, Props>(function FileExplorer(
-    { rootPath, activeFilePath, onOpenFile, onRevealInTerminal },
+    { rootPath, onRevealInTerminal },
     ref,
   ) {
     const messages = useMessages().workspace.explorer;
@@ -193,20 +191,6 @@ export const FileExplorer = memo(
       },
       [entryIndexByPath, virtualizer],
     );
-
-    const lastSyncedActivePathRef = useRef<string | null>(null);
-    useEffect(() => {
-      if (
-        !activeFilePath ||
-        activeFilePath === lastSyncedActivePathRef.current
-      ) {
-        return;
-      }
-      if (!entryIndexByPath.has(activeFilePath)) return;
-      lastSyncedActivePathRef.current = activeFilePath;
-      setSelectedPath(activeFilePath);
-      requestAnimationFrame(() => scrollEntryIntoView(activeFilePath));
-    }, [activeFilePath, entryIndexByPath, scrollEntryIntoView]);
 
     useImperativeHandle(
       ref,
@@ -314,7 +298,6 @@ export const FileExplorer = memo(
           const row = rows[idx];
           if (row.kind !== "entry") break;
           if (row.isDir) tree.toggle(row.path);
-          else onOpenFile(row.path);
           break;
         }
       }
@@ -335,7 +318,6 @@ export const FileExplorer = memo(
           depth={row.depth}
           actions={rowActions}
           isSelected={selectedPath === row.path}
-          onOpenFile={onOpenFile}
           onSelectPath={setSelectedPath}
         />
       );
@@ -439,14 +421,6 @@ export const FileExplorer = memo(
           <ContextMenuContent key={menuNonce} className={COMPACT_CONTENT}>
             {menuTarget ? (
               <>
-                {!menuTarget.isDir && (
-                  <ContextMenuItem
-                    className={COMPACT_ITEM}
-                    onSelect={() => onOpenFile(menuTarget.path, true)}
-                  >
-                    {messages.open}
-                  </ContextMenuItem>
-                )}
                 {menuTarget.isDir && onRevealInTerminal && (
                   <ContextMenuItem
                     className={COMPACT_ITEM}

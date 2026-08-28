@@ -110,7 +110,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
   });
 
   it("falls back to the legacy settings file only when the Kite store is empty", async () => {
@@ -143,7 +143,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundImageId");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundOpacity");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundBlur");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
   });
 
   it("removes retired explorer git decoration preference during migration", async () => {
@@ -156,7 +156,7 @@ describe("loadPreferences", () => {
 
     expect("explorerGitDecorations" in prefs).toBe(false);
     expect(storeMock.delete).toHaveBeenCalledWith("explorerGitDecorations");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
   });
 
   it("removes the retired header search shortcut during migration", async () => {
@@ -169,7 +169,7 @@ describe("loadPreferences", () => {
 
     expect("search.focus" in prefs.shortcuts).toBe(false);
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
   });
 
   it("normalizes retired builtin app themes during migration", async () => {
@@ -182,6 +182,30 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 6);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
+  });
+
+  it("removes retired editor preferences and shortcuts during migration", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 6],
+      ["editorTheme", "tokyo-night"],
+      ["vimMode", true],
+      ["editorWordWrap", true],
+      ["editorAutoSave", true],
+      ["editorAutoSaveDelay", 1000],
+      ["shortcuts", { "tab.newEditor": [{ ctrl: true, key: "e" }] }],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect("editorTheme" in prefs).toBe(false);
+    expect("vimMode" in prefs).toBe(false);
+    expect(storeMock.delete).toHaveBeenCalledWith("editorTheme");
+    expect(storeMock.delete).toHaveBeenCalledWith("vimMode");
+    expect(storeMock.delete).toHaveBeenCalledWith("editorWordWrap");
+    expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSave");
+    expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSaveDelay");
+    expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 7);
   });
 });

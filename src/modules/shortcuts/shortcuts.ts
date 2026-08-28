@@ -7,7 +7,6 @@ import { IS_MAC, MOD_PROP } from "@/lib/platform";
 export type ShortcutId =
   | "commandPalette.open"
   | "tab.new"
-  | "tab.newEditor"
   | "tab.close"
   | "tab.next"
   | "tab.prev"
@@ -16,7 +15,6 @@ export type ShortcutId =
   | "pane.splitDown"
   | "pane.focusNext"
   | "pane.focusPrev"
-  | "pane.source"
   | "terminal.clear"
   | "explorer.focus"
   | "view.zoomIn"
@@ -24,17 +22,14 @@ export type ShortcutId =
   | "view.zoomReset"
   | "view.zenMode"
   | "settings.open"
-  | "sidebar.toggle"
-  | "editor.undo"
-  | "editor.redo";
+  | "sidebar.toggle";
 
 export type ShortcutGroup =
   | "General"
   | "Tabs"
   | "Panes"
   | "Terminal"
-  | "View"
-  | "Editor";
+  | "View";
 
 export type KeyBinding = {
   key: string;
@@ -72,12 +67,6 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "t" }],
   },
   {
-    id: "tab.newEditor",
-    label: "New editor tab",
-    group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "e" }],
-  },
-  {
     id: "tab.close",
     label: "Close tab or pane",
     group: "Tabs",
@@ -106,12 +95,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Focus previous pane",
     group: "Panes",
     defaultBindings: [{ [MOD_PROP]: true, key: "[" }],
-  },  
-  {
-    id: "pane.source",
-    label: "Toggle source panel",
-    group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, key: "g" }],
   },
   {
     id: "terminal.clear",
@@ -192,23 +175,6 @@ export const SHORTCUTS: Shortcut[] = [
     group: "View",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "z" }],
   },
-  // Editor entries are display-only: CodeMirror's historyKeymap binds these
-  // keys natively. We register them here so the shortcuts dialog can surface
-  // them — they don't have App-level handlers, so `useGlobalShortcuts` falls
-  // through without `preventDefault`, leaving CodeMirror to handle the event.
-  // Also excluded from the customization UI in ShortcutsSection.
-  {
-    id: "editor.undo",
-    label: "Undo",
-    group: "Editor",
-    defaultBindings: [{ [MOD_PROP]: true, key: "z" }],
-  },
-  {
-    id: "editor.redo",
-    label: "Redo",
-    group: "Editor",
-    defaultBindings: [{ [MOD_PROP]: true, key: "y" }],
-  },
 ];
 
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
@@ -217,7 +183,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "Panes",
   "Terminal",
   "View",
-  "Editor",
 ];
 
 /**

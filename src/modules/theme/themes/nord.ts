@@ -11,7 +11,6 @@ export const nord: Theme = {
   id: "nord",
   name: "Nord",
   description: "Arctic, north-bluish palette.",
-  editorTheme: { dark: "nord", light: "xcode-light" },
   variants: {
     dark: {
       colors: {

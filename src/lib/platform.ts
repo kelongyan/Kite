@@ -16,12 +16,5 @@ export const IS_WINDOWS = PLATFORM === "windows";
  * overlay title bar. */
 export const USE_CUSTOM_WINDOW_CONTROLS = !IS_MAC && PLATFORM !== "";
 
-export const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 /** KeyBinding property name for the platform's primary modifier. */
 export const MOD_PROP: "meta" | "ctrl" = IS_MAC ? "meta" : "ctrl";
-
-const KEY_SEP = IS_MAC ? "" : "+";
-
-export function fmtShortcut(...parts: string[]): string {
-  return parts.join(KEY_SEP);
-}

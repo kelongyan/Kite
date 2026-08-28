@@ -1,4 +1,3 @@
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,9 +19,6 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
   setDefaultWorkspaceEnv,
-  setEditorAutoSave,
-  setEditorAutoSaveDelay,
-  setEditorWordWrap,
   setRestoreWindowState,
   setShowHidden,
   setTerminalFontFamily,
@@ -32,7 +28,6 @@ import {
   setTerminalScrollback,
   setTerminalShell,
   setTerminalWebglEnabled,
-  setVimMode,
   setZoomLevel,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
@@ -72,9 +67,6 @@ const SHELL_AUTO = "auto";
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.05;
-const AUTO_SAVE_STEP = 100;
-const AUTO_SAVE_MIN = 100;
-const AUTO_SAVE_MAX = 60000;
 
 export function GeneralSection() {
   const messages = useMessages();
@@ -82,10 +74,6 @@ export function GeneralSection() {
   const { mode, setMode } = useTheme();
 
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
-  const vimMode = usePreferencesStore((s) => s.vimMode);
-  const editorWordWrap = usePreferencesStore((s) => s.editorWordWrap);
-  const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
-  const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
@@ -164,43 +152,6 @@ export function GeneralSection() {
             onValueChange={(v) => void setZoomLevel(v[0] ?? 1)}
           />
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label>{g.editor.title}</Label>
-        <SettingRow
-          title={g.editor.vimMode}
-          description={g.editor.vimModeDescription}
-        >
-          <Switch
-            checked={vimMode}
-            onCheckedChange={(v) => void setVimMode(v)}
-          />
-        </SettingRow>
-        <SettingRow
-          title={g.editor.wordWrap}
-          description={g.editor.wordWrapDescription}
-        >
-          <Switch
-            checked={editorWordWrap}
-            onCheckedChange={(v) => void setEditorWordWrap(v)}
-          />
-        </SettingRow>
-        <SettingRow
-          title={g.editor.autoSave}
-          description={g.editor.autoSaveDescription}
-        >
-          <Switch
-            checked={editorAutoSave}
-            onCheckedChange={(v) => void setEditorAutoSave(v)}
-          />
-        </SettingRow>
-        {editorAutoSave && (
-          <AutoSaveDelayInput
-            value={editorAutoSaveDelay}
-            onChange={(v) => void setEditorAutoSaveDelay(v)}
-          />
-        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -487,62 +438,6 @@ function FontFamilyInput({
           }}
           className="h-8 w-[360px] rounded-md border border-border bg-background px-2.5 text-[12px] outline-none focus:border-foreground/40"
         />
-      </div>
-    </SettingRow>
-  );
-}
-
-function AutoSaveDelayInput({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  const messages = useMessages();
-  const editorMessages = messages.settings.general.editor;
-  const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
-
-  const commit = () => {
-    const n = Number(draft);
-    if (!Number.isFinite(n)) {
-      setDraft(String(value));
-      return;
-    }
-    const clamped = Math.min(
-      AUTO_SAVE_MAX,
-      Math.max(AUTO_SAVE_MIN, Math.round(n)),
-    );
-    setDraft(String(clamped));
-    if (clamped !== value) onChange(clamped);
-  };
-
-  return (
-    <SettingRow
-      title={editorMessages.autoSaveDelay}
-      description={editorMessages.autoSaveDelayDescription}
-    >
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          min={AUTO_SAVE_MIN}
-          max={AUTO_SAVE_MAX}
-          step={AUTO_SAVE_STEP}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.currentTarget.blur();
-            }
-          }}
-          className="h-8 w-20 rounded-md border border-border bg-background px-2.5 text-right text-[12px] md:text-[12px] tabular-nums outline-none focus:border-foreground/40 focus-visible:ring-0 focus-visible:border-foreground/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        <span className="text-[11px] text-muted-foreground">ms</span>
       </div>
     </SettingRow>
   );

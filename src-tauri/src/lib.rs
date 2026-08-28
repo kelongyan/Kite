@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{fs, git, pty, sftp, workspace};
+use modules::{fs, pty, workspace};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -245,7 +245,6 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)
@@ -272,9 +271,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .manage(modules::secrets::SecretsState::default())
         .manage(pty::PtyState::default())
-        .manage(sftp::session::SftpState::default())
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
@@ -295,42 +292,6 @@ pub fn run() {
             pty::pty_list_shells,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
-            fs::file::fs_read_file,
-            fs::file::fs_write_file,
-            fs::file::fs_stat,
-            fs::file::fs_canonicalize,
-            fs::mutate::fs_create_file,
-            fs::mutate::fs_create_dir,
-            fs::mutate::fs_delete,
-            git::commands::git_resolve_repo,
-            git::commands::git_panel_snapshot,
-            git::commands::git_status,
-            git::commands::git_diff_content,
-            git::commands::git_stage,
-            git::commands::git_unstage,
-            git::commands::git_discard,
-            git::commands::git_commit,
-            git::commands::git_fetch,
-            git::commands::git_pull_ff_only,
-            git::commands::git_push,
-            git::commands::git_list_branches,
-            git::commands::git_checkout_branch,
-            sftp::commands::sftp_profile_list,
-            sftp::commands::sftp_profile_save,
-            sftp::commands::sftp_profile_delete,
-            sftp::commands::sftp_connect,
-            sftp::commands::sftp_disconnect,
-            sftp::commands::sftp_read_dir,
-            sftp::commands::sftp_search,
-            sftp::commands::sftp_create_dir,
-            sftp::commands::sftp_rename,
-            sftp::commands::sftp_delete,
-            sftp::commands::sftp_upload_file,
-            sftp::commands::sftp_download_file,
-            sftp::commands::sftp_upload_entries,
-            sftp::commands::sftp_download_entries,
-            sftp::commands::sftp_cancel_transfer,
-            sftp::ssh_config::sftp_ssh_config_templates,
             workspace::wsl_list_distros,
             workspace::wsl_home,
             workspace::workspace_authorize,

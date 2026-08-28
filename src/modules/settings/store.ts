@@ -19,100 +19,10 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
 
-export const EDITOR_THEMES = [
-  "kanagawa",
-  "kanagawa-lotus",
-  "kanagawa-dragon",
-  "tokyo-night",
-  "catppuccin-mocha",
-  "catppuccin-latte",
-  "rose-pine",
-  "rose-pine-dawn",
-  "everforest",
-  "everforest-light",
-  "dracula",
-  "solarized-dark",
-  "solarized-light",
-  "nord",
-  "gruvbox-dark",
-  "atomone",
-  "aura",
-  "copilot",
-  "github-dark",
-  "github-light",
-  "xcode-dark",
-  "xcode-light",
-] as const;
-
-export type EditorThemeId = (typeof EDITOR_THEMES)[number];
-
-/** "auto" follows the active app theme's editorTheme pairing (resolved live). */
-export const EDITOR_THEME_AUTO = "auto" as const;
-export type EditorThemePref = typeof EDITOR_THEME_AUTO | EditorThemeId;
-
-export function isEditorThemeId(v: unknown): v is EditorThemeId {
-  return (
-    typeof v === "string" && (EDITOR_THEMES as readonly string[]).includes(v)
-  );
-}
-
-export const EDITOR_THEME_MODE: Record<EditorThemeId, "light" | "dark"> = {
-  kanagawa: "dark",
-  "kanagawa-lotus": "light",
-  "kanagawa-dragon": "dark",
-  "tokyo-night": "dark",
-  "catppuccin-mocha": "dark",
-  "catppuccin-latte": "light",
-  "rose-pine": "dark",
-  "rose-pine-dawn": "light",
-  everforest: "dark",
-  "everforest-light": "light",
-  dracula: "dark",
-  "solarized-dark": "dark",
-  "solarized-light": "light",
-  nord: "dark",
-  "gruvbox-dark": "dark",
-  atomone: "dark",
-  aura: "dark",
-  copilot: "dark",
-  "github-dark": "dark",
-  "github-light": "light",
-  "xcode-dark": "dark",
-  "xcode-light": "light",
-};
-
-export const EDITOR_THEME_LABELS: Record<EditorThemeId, string> = {
-  kanagawa: "Kanagawa Wave",
-  "kanagawa-lotus": "Kanagawa Lotus",
-  "kanagawa-dragon": "Kanagawa Dragon",
-  "tokyo-night": "Tokyo Night",
-  "catppuccin-mocha": "Catppuccin Mocha",
-  "catppuccin-latte": "Catppuccin Latte",
-  "rose-pine": "Rosé Pine",
-  "rose-pine-dawn": "Rosé Pine Dawn",
-  everforest: "Everforest Dark",
-  "everforest-light": "Everforest Light",
-  dracula: "Dracula",
-  "solarized-dark": "Solarized Dark",
-  "solarized-light": "Solarized Light",
-  nord: "Nord",
-  "gruvbox-dark": "Gruvbox Dark",
-  atomone: "Atom One",
-  aura: "Aura",
-  copilot: "Copilot",
-  "github-dark": "GitHub Dark",
-  "github-light": "GitHub Light",
-  "xcode-dark": "Xcode Dark",
-  "xcode-light": "Xcode Light",
-};
-
 export type Preferences = {
   theme: ThemePref;
   themeId: string;
-  editorTheme: EditorThemePref;
   restoreWindowState: boolean;
-  vimMode: boolean;
-  editorWordWrap: boolean;
   showHidden: boolean;
   terminalWebglEnabled: boolean;
   terminalCursorShape: TerminalCursorShape;
@@ -129,18 +39,13 @@ export type Preferences = {
   zoomLevel: number;
   defaultWorkspaceEnv: string;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
-  editorAutoSave: boolean;
-  editorAutoSaveDelay: number;
 };
 
 const STORE_PATH = "kite-settings.json";
 const LEGACY_STORE_PATH = "terax-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
-const KEY_EDITOR_THEME = "editorTheme";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
-const KEY_VIM_MODE = "vimMode";
-const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
 const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
@@ -156,8 +61,6 @@ const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_SHORTCUTS = "shortcuts";
-const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
-const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
 const KEY_VERSION = "_version";
 const REMOVED_BACKGROUND_KEYS = [
   "backgroundKind",
@@ -166,7 +69,20 @@ const REMOVED_BACKGROUND_KEYS = [
   "backgroundBlur",
 ] as const;
 const REMOVED_EXPLORER_KEYS = ["explorerGitDecorations"] as const;
-const REMOVED_SHORTCUT_IDS = ["search.focus"] as const;
+const REMOVED_EDITOR_KEYS = [
+  "editorTheme",
+  "vimMode",
+  "editorWordWrap",
+  "editorAutoSave",
+  "editorAutoSaveDelay",
+] as const;
+const REMOVED_SHORTCUT_IDS = [
+  "search.focus",
+  "tab.newEditor",
+  "pane.source",
+  "editor.undo",
+  "editor.redo",
+] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -186,10 +102,7 @@ export const TERMINAL_SCROLLBACK_PRESETS = [
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   themeId: DEFAULT_THEME_ID,
-  editorTheme: EDITOR_THEME_AUTO,
   restoreWindowState: true,
-  vimMode: false,
-  editorWordWrap: false,
   showHidden: false,
   terminalWebglEnabled: true,
   terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
@@ -207,8 +120,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   zoomLevel: 1.0,
   defaultWorkspaceEnv: "local",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
-  editorAutoSave: false,
-  editorAutoSaveDelay: 1000,
 };
 
 export function normalizeTerminalFontFamily(value: string | undefined): string {
@@ -228,7 +139,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 6;
+const SETTINGS_VERSION = 7;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -251,6 +162,10 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
       if (typeof themeId === "string") {
         map.set(KEY_THEME_ID, normalizeThemeId(themeId));
       }
+    },
+    7: (map) => {
+      for (const key of REMOVED_EDITOR_KEYS) map.delete(key);
+      removeRetiredShortcuts(map);
     },
   };
 
@@ -309,6 +224,9 @@ export async function loadPreferences(): Promise<Preferences> {
   for (const key of REMOVED_EXPLORER_KEYS) {
     if (map.delete(key)) migrated = true;
   }
+  for (const key of REMOVED_EDITOR_KEYS) {
+    if (map.delete(key)) migrated = true;
+  }
   if (removeRetiredShortcuts(map)) migrated = true;
   if (migrated) {
     map.set(KEY_VERSION, SETTINGS_VERSION);
@@ -316,6 +234,9 @@ export async function loadPreferences(): Promise<Preferences> {
       await store.delete(key);
     }
     for (const key of REMOVED_EXPLORER_KEYS) {
+      await store.delete(key);
+    }
+    for (const key of REMOVED_EDITOR_KEYS) {
       await store.delete(key);
     }
     for (const [k, v] of map) {
@@ -330,18 +251,9 @@ export async function loadPreferences(): Promise<Preferences> {
     themeId: normalizeThemeId(
       get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
     ),
-    editorTheme: ((): EditorThemePref => {
-      const stored = get<string>(KEY_EDITOR_THEME);
-      if (stored === EDITOR_THEME_AUTO || isEditorThemeId(stored))
-        return stored;
-      return DEFAULT_PREFERENCES.editorTheme;
-    })(),
     restoreWindowState:
       get<boolean>(KEY_RESTORE_WINDOW) ??
       DEFAULT_PREFERENCES.restoreWindowState,
-    vimMode: get<boolean>(KEY_VIM_MODE) ?? DEFAULT_PREFERENCES.vimMode,
-    editorWordWrap:
-      get<boolean>(KEY_EDITOR_WORD_WRAP) ?? DEFAULT_PREFERENCES.editorWordWrap,
     showHidden:
       get<boolean>(KEY_SHOW_HIDDEN) ??
       get<boolean>(LEGACY_KEY_SHOW_HIDDEN_DIRS) ??
@@ -385,12 +297,6 @@ export async function loadPreferences(): Promise<Preferences> {
     shortcuts:
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
-    editorAutoSave:
-      get<boolean>(KEY_EDITOR_AUTO_SAVE) ?? DEFAULT_PREFERENCES.editorAutoSave,
-    editorAutoSaveDelay: clampAutoSaveDelay(
-      get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
-        DEFAULT_PREFERENCES.editorAutoSaveDelay,
-    ),
   };
 }
 
@@ -400,14 +306,6 @@ export async function setTheme(value: ThemePref): Promise<void> {
 
 export async function setThemeId(value: string): Promise<void> {
   await writePref(KEY_THEME_ID, normalizeThemeId(value));
-}
-
-export async function setVimMode(value: boolean): Promise<void> {
-  await writePref(KEY_VIM_MODE, value);
-}
-
-export async function setEditorWordWrap(value: boolean): Promise<void> {
-  await writePref(KEY_EDITOR_WORD_WRAP, value);
 }
 
 export async function setShowHidden(value: boolean): Promise<void> {
@@ -483,25 +381,8 @@ export async function setZoomLevel(value: number): Promise<void> {
   await writePref(KEY_ZOOM_LEVEL, value);
 }
 
-function clampAutoSaveDelay(v: number): number {
-  if (!Number.isFinite(v)) return 1000;
-  return Math.min(60000, Math.max(100, Math.round(v)));
-}
-
-export async function setEditorAutoSave(value: boolean): Promise<void> {
-  await writePref(KEY_EDITOR_AUTO_SAVE, value);
-}
-
-export async function setEditorTheme(value: EditorThemePref): Promise<void> {
-  await writePref(KEY_EDITOR_THEME, value);
-}
-
 export async function setRestoreWindowState(value: boolean): Promise<void> {
   await writePref(KEY_RESTORE_WINDOW, value);
-}
-
-export async function setEditorAutoSaveDelay(value: number): Promise<void> {
-  await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
 }
 
 export async function setDefaultWorkspaceEnv(value: string): Promise<void> {
@@ -527,10 +408,7 @@ export async function onPreferencesChange(
   const map: Record<string, PrefKey> = {
     [KEY_THEME]: "theme",
     [KEY_THEME_ID]: "themeId",
-    [KEY_EDITOR_THEME]: "editorTheme",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
-    [KEY_VIM_MODE]: "vimMode",
-    [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION]:
@@ -545,8 +423,6 @@ export async function onPreferencesChange(
     [KEY_ZOOM_LEVEL]: "zoomLevel",
     [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",
     [KEY_SHORTCUTS]: "shortcuts",
-    [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",
-    [KEY_EDITOR_AUTO_SAVE_DELAY]: "editorAutoSaveDelay",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

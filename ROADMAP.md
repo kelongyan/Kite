@@ -1,8 +1,8 @@
 # Roadmap
 
-Kite is a fast, lightweight, terminal-first desktop environment. It combines
-a native PTY backend with multi-tab terminals, split panes, a code editor, a
-file explorer, Git workflows, and SFTP. It has no telemetry.
+Kite is a fast, lightweight, terminal-first desktop terminal emulator. It
+combines a native PTY backend with multi-tab terminals, split panes, and a
+lightweight file explorer. It has no telemetry.
 
 For day-to-day work, use [GitHub Issues](https://github.com/kelongyan/Kite/issues)
 and the project board. This document describes product direction rather than a
@@ -32,22 +32,10 @@ release commitment.
 - [x] Search, web links, true color, and configurable cursor rendering
 - [x] Local and WSL workspace environments
 
-### Editor And Files
+### Files And Themes
 
-- [x] CodeMirror 6 editor with language modes and Vim support
-- [x] Application and editor theme pairing
-- [x] Local image, video, audio, and PDF display
-- [x] File tree, fuzzy search, keyboard navigation, and file mutations
-- [x] Live filesystem updates
-- [x] Markdown rendering
-
-### Git And SFTP
-
-- [x] Git status, staging, discard, commit, fetch, pull, and push
-- [x] Commit graph, branch checkout, and per-file diffs
-- [x] SFTP profiles with secure credential storage
-- [x] Host-key verification and SSH config templates
-- [x] Multi-item transfers, cancellation, conflict handling, and sync preview
+- [x] Lightweight cwd file explorer with keyboard navigation
+- [x] Application theme system with custom theme import
 
 ### Platform
 
@@ -56,22 +44,26 @@ release commitment.
 - [x] Windows child-process cleanup through Job Objects
 - [x] Manual GitHub releases
 
+## Removed Scope
+
+The code editor, Markdown preview, Git source-control panel, and SFTP client
+were removed to keep Kite a simple terminal tool. They are not planned to
+return.
+
 ## Next Priorities
 
 - [ ] Expand PTY and shell-integration coverage across operating systems
-- [ ] Add live-server SFTP smoke tests and stronger transfer recovery checks
 - [ ] Continue bundle and startup-memory profiling
 - [ ] Improve keyboard and screen-reader behavior in dense workspace controls
 - [ ] Automate release notes, versioning, tagging, and artifact verification
-- [ ] Improve failure diagnostics without adding a heavyweight IDE runtime
 
 ## Wanted Contributions
 
 - Cross-platform PTY, shell, and rendering bug fixes
-- Security tests for workspace authorization, filesystem operations, and SFTP
+- Security tests for workspace authorization and the IPC surface
 - Focused bundle or memory improvements backed by measurements
 - Accessibility fixes for keyboard-heavy workflows
-- Terminal, editor, and application themes
+- Terminal and application themes
 - Documentation and reproducible platform setup notes
 
 Discuss substantial changes in an issue before implementation.

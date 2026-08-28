@@ -56,10 +56,6 @@ export type Theme = {
     light?: ThemeVariant;
     dark?: ThemeVariant;
   };
-  editorTheme?: {
-    light?: string;
-    dark?: string;
-  };
 };
 
 export const DEFAULT_THEME_ID = "kite-default";

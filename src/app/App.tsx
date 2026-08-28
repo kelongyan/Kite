@@ -13,30 +13,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { native } from "@/lib/native";
 import { CommandPalette, createCommandItems } from "@/modules/command-palette";
 import { useMessages } from "@/modules/i18n";
-import {
-  NewEditorDialog,
-  useEditorFileSync,
-  type EditorPaneHandle,
-} from "@/modules/editor";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import { Header } from "@/modules/header";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
-import { isMarkdownPath } from "@/lib/utils";
 import {
   useGlobalShortcuts,
   type ShortcutHandlers,
   type ShortcutId,
 } from "@/modules/shortcuts";
 import {
-  SidebarRail,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   useSidebarPanel,
 } from "@/modules/sidebar";
-import {
-  SourceControlPanel,
-  useSourceControlContext,
-} from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
 import {
   TabSwitcherHud,
@@ -54,7 +43,7 @@ import {
   type TerminalPaneHandle,
   useTerminalFileDrop,
 } from "@/modules/terminal";
-import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
+import { ThemeProvider } from "@/modules/theme";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
@@ -72,13 +61,6 @@ export default function App() {
     reorderTabByGap,
     markBooted,
     newTab,
-    openFileTab,
-    pinTab,
-    newMarkdownTab,
-    newSftpTab,
-    setMarkdownView,
-    setOverrideLanguage,
-    openGitDiffTab,
     closeTab,
     updateTab,
     selectByIndex,
@@ -103,7 +85,6 @@ export default function App() {
   const activeLeafId = activeTerminalTab?.activeLeafId ?? null;
 
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
-  const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
   const explorerRef = useRef<FileExplorerHandle>(null);
@@ -115,7 +96,6 @@ export default function App() {
   const clearWorkspaceState = useCallback(() => {
     for (const id of liveLeavesRef.current) disposeSession(id);
     terminalRefs.current.clear();
-    editorRefs.current.clear();
   }, []);
 
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
@@ -128,7 +108,6 @@ export default function App() {
     switchWorkspace,
     openLocalWorkspace,
   } = useWorkspaceSwitcher({
-    tabsRef,
     workspaceEnv,
     setWorkspaceEnv,
     resetWorkspace,
@@ -171,25 +150,18 @@ export default function App() {
   const {
     sidebarRef,
     sidebarWidthRef,
-    sidebarView,
     initialSidebarCollapsed,
-    persistSidebarView,
     persistSidebarCollapsed,
     toggleSidebar,
-    cycleSidebarView,
     persistSidebarWidth,
     toggleExplorerFocus,
   } = useSidebarPanel(explorerRef);
 
-  const [newEditorOpen, setNewEditorOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
   const activeTab = tabs.find((t) => t.id === activeId);
-
-  useEditorFileSync({ tabsRef, editorRefs });
-  useThemeFileEditing({ tabsRef, openFileTab });
 
   const { explorerRoot, inheritedCwdForNewTab } = useWorkspaceCwd(
     activeTab,
@@ -199,32 +171,17 @@ export default function App() {
 
   useWindowTitle(activeTab, explorerRoot, home, homeResolved);
 
-  const disposeTab = useCallback(
-    (id: number) => {
-      // Terminal-leaf-keyed maps are pruned by the effect below as the pane
-      // tree changes; only the tab-id-keyed handles need explicit cleanup here.
-      editorRefs.current.delete(id);
-      closeTab(id);
-    },
-    [closeTab],
-  );
-
   const {
-    pendingCloseTab,
     pendingTerminalCloseTab,
     handleClose,
-    confirmClose,
-    cancelClose,
     confirmTerminalClose,
     cancelTerminalClose,
-  } = useTabCloseGuards({ tabs, disposeTab });
+  } = useTabCloseGuards({ tabs, disposeTab: closeTab });
 
   useEffect(() => {
     const live = new Set<number>();
     for (const t of tabs) {
-      if (t.kind === "terminal") {
-        for (const id of leafIds(t.paneTree)) live.add(id);
-      }
+      for (const id of leafIds(t.paneTree)) live.add(id);
     }
     for (const id of liveLeavesRef.current) {
       if (!live.has(id)) disposeSession(id);
@@ -293,52 +250,12 @@ export default function App() {
     [newTab],
   );
 
-  const handleOpenFile = useCallback(
-    (path: string, pin?: boolean) => {
-      // Markdown opens in its rendered view by default; a per-tab toggle flips
-      // it to the raw editor. Other files default to preview (pin=false);
-      // explicit actions like context-menu "Open" pass pin=true to persist.
-      if (isMarkdownPath(path)) newMarkdownTab(path);
-      else openFileTab(path, pin ?? false);
-    },
-    [openFileTab, newMarkdownTab],
-  );
-
   const activeTerminalLeafCwd =
     activeTab?.kind === "terminal"
       ? (findLeafCwd(activeTab.paneTree, activeTab.activeLeafId) ??
         activeTab.cwd ??
         null)
       : null;
-
-  const activeFilePath = (() => {
-    if (activeTab?.kind === "editor") return activeTab.path;
-    if (activeTab?.kind === "git-diff") {
-      if (/^([A-Za-z]:|\/|\\)/.test(activeTab.path)) return activeTab.path;
-      const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
-      const rel = activeTab.path.replace(/^[\\/]+/, "");
-      return `${root}/${rel}`;
-    }
-    return null;
-  })();
-  const explorerActiveFilePath =
-    activeTab?.kind === "editor" || activeTab?.kind === "markdown"
-      ? activeTab.path
-      : null;
-  const { sourceControl, toggleSourceControl } = useSourceControlContext({
-    activeTab,
-    tabs,
-    activeTerminalLeafCwd,
-    explorerRoot,
-    launchCwd,
-    launchCwdResolved,
-    home,
-    sidebarView,
-    cycleSidebarView,
-  });
-  const openNewSftpTab = useCallback(() => {
-    newSftpTab(inheritedCwdForNewTab());
-  }, [newSftpTab, inheritedCwdForNewTab]);
 
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
@@ -364,7 +281,6 @@ export default function App() {
     () => ({
       "commandPalette.open": openCommandPalette,
       "tab.new": openNewTab,
-      "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
       "tab.next": () => stepSwitcher(1),
       "tab.prev": () => stepSwitcher(-1),
@@ -373,7 +289,6 @@ export default function App() {
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
       "pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
-      "pane.source": toggleSourceControl,
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
@@ -384,8 +299,6 @@ export default function App() {
       "view.zoomOut": zoomOut,
       "view.zoomReset": zoomReset,
       "view.zenMode": () => setZenMode((v) => !v),
-      "editor.undo": () => editorRefs.current.get(activeId)?.undo(),
-      "editor.redo": () => editorRefs.current.get(activeId)?.redo(),
     }),
     [
       activeId,
@@ -396,7 +309,6 @@ export default function App() {
       selectByIndex,
       splitActivePaneInActiveTab,
       focusNextPaneInTab,
-      toggleSourceControl,
       toggleSidebar,
       toggleExplorerFocus,
       zoomIn,
@@ -407,9 +319,6 @@ export default function App() {
 
   const shortcutsDisabled = useCallback(
     (id: ShortcutId, e: KeyboardEvent) => {
-      if (id === "editor.undo" || id === "editor.redo") {
-        return activeTab?.kind !== "editor";
-      }
       if (id === "terminal.clear") {
         // Only intercept ⌘K while a terminal is focused; elsewhere let the key
         // fall through (we never preventDefault when disabled).
@@ -432,7 +341,7 @@ export default function App() {
       }
       return false;
     },
-    [activeTab],
+    [],
   );
 
   useGlobalShortcuts(shortcutHandlers, { isDisabled: shortcutsDisabled });
@@ -441,17 +350,6 @@ export default function App() {
     (leafId: number, h: TerminalPaneHandle | null) => {
       if (h) terminalRefs.current.set(leafId, h);
       else terminalRefs.current.delete(leafId);
-    },
-    [],
-  );
-
-  const registerEditorHandle = useCallback(
-    (id: number, h: EditorPaneHandle | null) => {
-      if (h) {
-        editorRefs.current.set(id, h);
-      } else {
-        editorRefs.current.delete(id);
-      }
     },
     [],
   );
@@ -492,11 +390,6 @@ export default function App() {
     [closePaneByLeaf],
   );
 
-  const handleEditorDirty = useCallback(
-    (id: number, dirty: boolean) => updateTab(id, { dirty }),
-    [updateTab],
-  );
-
   const handleRenameTab = useCallback(
     (id: number, title: string) => updateTab(id, { customTitle: title.trim() }),
     [updateTab],
@@ -509,12 +402,7 @@ export default function App() {
             {
               tabs,
               activeId,
-              explorerRoot,
-              home,
               openNewTab,
-              openNewEditor: () => setNewEditorOpen(true),
-              openSftp: openNewSftpTab,
-              toggleSourceControl,
               closeActiveTabOrPane: handleCloseTabOrPane,
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
               splitPaneDown: () => splitActivePaneInActiveTab("col"),
@@ -529,14 +417,10 @@ export default function App() {
       commandPaletteOpen,
       tabs,
       activeId,
-      explorerRoot,
-      home,
       openNewTab,
-      openNewSftpTab,
       handleCloseTabOrPane,
       splitActivePaneInActiveTab,
       toggleSidebar,
-      toggleSourceControl,
       messages,
     ],
   );
@@ -551,16 +435,12 @@ export default function App() {
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
-              onNewEditor={() => setNewEditorOpen(true)}
-              onNewSftp={openNewSftpTab}
               onClose={handleClose}
-              onPin={pinTab}
               onRename={handleRenameTab}
               onReorder={reorderTabByGap}
               onToggleSidebar={toggleSidebar}
               onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}
-              onOverrideLanguage={setOverrideLanguage}
               home={home}
               homeResolved={homeResolved}
             />
@@ -589,33 +469,13 @@ export default function App() {
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
-                  <div
-                    key={sidebarView}
-                    className="min-h-0 flex-1 kite-panel-in"
-                  >
-                    {sidebarView === "explorer" ? (
-                      <FileExplorer
-                        ref={explorerRef}
-                        rootPath={explorerRoot}
-                        activeFilePath={explorerActiveFilePath}
-                        onOpenFile={handleOpenFile}
-                        onRevealInTerminal={cdInNewTab}
-                      />
-                    ) : (
-                      <SourceControlPanel
-                        open
-                        sourceControl={sourceControl}
-                        onOpenDiff={openGitDiffTab}
-                        onOpenFile={handleOpenFile}
-                        onNavigateToPath={cdInNewTab}
-                      />
-                    )}
+                  <div className="min-h-0 flex-1">
+                    <FileExplorer
+                      ref={explorerRef}
+                      rootPath={explorerRoot}
+                      onRevealInTerminal={cdInNewTab}
+                    />
                   </div>
-                  <SidebarRail
-                    activeView={sidebarView}
-                    onSelectView={persistSidebarView}
-                    changedCount={sourceControl.changedCount}
-                  />
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
@@ -630,10 +490,6 @@ export default function App() {
                       onCwd={handleTerminalCwd}
                       onExit={handleLeafExit}
                       onFocusLeaf={handleFocusLeaf}
-                      registerEditorHandle={registerEditorHandle}
-                      onEditorDirtyChange={handleEditorDirty}
-                      onEditorCloseTab={handleClose}
-                      onSetMarkdownView={setMarkdownView}
                     />
                   </div>
                 </div>
@@ -644,7 +500,6 @@ export default function App() {
           {!zenMode && (
             <StatusBar
               cwd={activeTerminalLeafCwd}
-              filePath={activeFilePath}
               home={home}
               onCd={sendCd}
               onWorkspaceChange={handleWorkspaceChange}
@@ -668,18 +523,7 @@ export default function App() {
             commandItems={commandPaletteItems}
           />
 
-          <NewEditorDialog
-            open={newEditorOpen}
-            onOpenChange={setNewEditorOpen}
-            rootPath={explorerRoot ?? home}
-            onCreated={(path) => openFileTab(path)}
-          />
-
           <CloseDialogs
-            tabs={tabs}
-            pendingCloseTab={pendingCloseTab}
-            onCancelClose={cancelClose}
-            onConfirmClose={confirmClose}
             pendingTerminalCloseTab={pendingTerminalCloseTab}
             onCancelTerminalClose={cancelTerminalClose}
             onConfirmTerminalClose={confirmTerminalClose}

@@ -9,8 +9,8 @@ it aligned with structural changes.
 Kite is an open-source, lightweight, cross-platform terminal emulator.
 
 - Desktop runtime: Tauri 2
-- Backend: Rust 2021, `portable-pty`, `ssh2`
-- Frontend: React 19, TypeScript, Vite, xterm.js, CodeMirror 6
+- Backend: Rust 2021, `portable-pty`
+- Frontend: React 19, TypeScript, Vite, xterm.js
 - Package manager: pnpm only
 - Bundle id: `app.kelongyan.kite`
 - Platforms: macOS, Linux, Windows, including WSL workspaces
@@ -36,13 +36,13 @@ cargo test --locked
 
 - Correctness: handle edge cases, failures, and concurrent access.
 - Performance: avoid unnecessary IPC, renders, memory, and dependencies.
-- Security: validate IPC, filesystem, process, Git, and network boundaries.
+- Security: validate IPC, filesystem, and process boundaries.
 - UI/UX: keep every state polished, accessible, and platform appropriate.
 - Architecture: put new logic in pure, dependency-light functions and keep
   Tauri commands and React components thin.
 
-Changes to terminal spawning, workspace authorization, Git, filesystem, IPC,
-or SFTP security need tests that lock the relevant invariant.
+Changes to terminal spawning, workspace authorization, or IPC need tests that
+lock the relevant invariant.
 
 ## Conventions
 
@@ -56,24 +56,18 @@ or SFTP security need tests that lock the relevant invariant.
 ## Process Boundary
 
 Rust under `src-tauri/` owns operating-system access. The webview does not
-touch shells, processes, Git, SFTP, or the local filesystem directly. Calls go
+touch shells, processes, or the local filesystem directly. Calls go
 through commands registered in `src-tauri/src/lib.rs`; streaming uses Tauri
 channels and events.
 
 Backend command groups:
 
 - `pty::*`: open, write, resize, close, foreground-process checks, shell list.
-- `fs::tree`, `fs::file`, `fs::mutate`: directory listing, file read/write,
-  stat/canonicalize, and the create/delete helpers still used by editor/theme.
-- `git::commands`: repository resolution, status snapshots, diffs, stage,
-  discard, commit, fetch/pull/push, and branch operations.
-- `sftp::commands`: profiles, sessions, directory operations, search,
-  transfers, and cancellation.
+- `fs::tree`: directory listing for the explorer and statusbar.
 - `workspace::*`: authorization, current directory, WSL list and home.
-- `history::*`: shell history suggestions, recording, and listing.
 - `open_settings_window`: creates or focuses the separate settings webview.
 
-Every filesystem, Git, and process entry point must preserve workspace
+Every filesystem and process entry point must preserve workspace
 authorization. Do not add a command only to expose an internal helper.
 
 ## PTY And Shell Integration
@@ -109,29 +103,19 @@ There are two Vite entry points:
 `src/modules/<area>/`. Module barrels should expose only consumers' actual
 public surface.
 
-Current tab kinds are:
+The only tab kind is `terminal`.
 
-- `terminal`
-- `editor`
-- `markdown`
-- `git-diff`
-- `sftp`
-
-Mounted, booted tabs remain alive while inactive so PTYs and editors keep their
+Mounted, booted tabs remain alive while inactive so PTYs keep their
 state. Terminal tabs contain a binary pane tree and allow at most four panes.
 
 ### Modules
 
 - `terminal`: xterm sessions, split panes, renderer pool, OSC.
-- `editor`: CodeMirror editor, local media/PDF display, Git diff surfaces.
 - `explorer`: lightweight cwd directory navigator, keyboard navigation,
-  open/reveal/copy-path actions.
+  reveal/copy-path actions.
 - `tabs`: tab source of truth, switcher, pane-aware close behavior.
-- `source-control`: status, stage, commit, fetch, pull, and push workflow.
-- `sftp`: profile UI, local/remote panes, transfers, and sync preview.
-- `markdown`: rendered Markdown tabs using `streamdown`.
 - `workspace`: Local and WSL environment selection.
-- `theme`: built-in/custom themes and editor pairing.
+- `theme`: built-in/custom themes.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
 - `header`, `sidebar`, `statusbar`, `i18n`: application chrome.
 
@@ -145,32 +129,16 @@ Do not reset a terminal when the dormant ring overflows. Avoid reading layout
 from parked `display:none` slots. Cursor styling is shared between xterm native
 rendering and the overlay implementation.
 
-## Editor And Themes
-
-The editor uses CodeMirror 6 with language packages loaded on demand. The
-editor theme preference is `auto` or an explicit editor theme id. `auto`
-resolves against the active application theme at render time.
+## Themes
 
 The app theme engine is custom, not `next-themes`. `ThemeProvider` and
 `applyTheme` write CSS variables. Built-ins live under
-`src/modules/theme/themes/`; custom themes are validated before use.
+`src/modules/theme/themes/`; custom themes are validated before use and
+imported through a plain HTML file input.
 
 Legacy `terax-*` store keys and theme ids are read only as migration fallbacks.
 New state is written under `kite-*` names. `.terax-theme` remains a supported
 legacy import extension.
-
-## SFTP And Secrets
-
-SFTP runs entirely in Rust through `ssh2`. Credentials are never stored in the
-frontend:
-
-- Windows and macOS use the operating system credential store through
-  `keyring`.
-- Linux uses an application-local `secrets.json`, written atomically with mode
-  `0600`.
-
-Host-key verification and transfer conflict decisions must remain explicit.
-Never log passwords, private-key passphrases, or raw credential values.
 
 ## UI
 
@@ -179,8 +147,7 @@ Never log passwords, private-key passphrases, or raw credential values.
 - `src/components/ui/` is linted and included in dead-code scans.
 - Use `cn()` from `@/lib/utils`.
 - Layout resizing uses `react-resizable-panels`.
-- Arbitrary URLs are not embedded. Local images, video, audio, and PDF files
-  are displayed through Tauri's asset protocol inside the editor.
+- Arbitrary URLs are not embedded in the webview.
 
 ## Windows And Bundling
 
@@ -188,8 +155,8 @@ Never log passwords, private-key passphrases, or raw credential values.
 - Linux and Windows use transparent, undecorated windows plus React controls.
 - The NSIS installer is per-user and embeds the WebView2 bootstrapper.
 - Update artifacts are disabled and releases are published manually.
-- The CSP allows Tauri IPC, local development connections, and local asset
-  frames. It does not allow arbitrary WebView network connections or frames.
+- The CSP allows Tauri IPC and local development connections. It does not
+  allow arbitrary WebView network connections or frames.
 
 ## Known Gotchas
 

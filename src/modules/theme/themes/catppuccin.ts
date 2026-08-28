@@ -4,7 +4,6 @@ export const catppuccin: Theme = {
   id: "catppuccin",
   name: "Catppuccin",
   description: "Frappé + Latte, soft pastel without the heavy dark floor.",
-  editorTheme: { dark: "catppuccin-mocha", light: "catppuccin-latte" },
   variants: {
     dark: {
       colors: {

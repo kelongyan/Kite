@@ -100,22 +100,6 @@ function SelectItem({
   )
 }
 
-function SelectSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={cn(
-        "pointer-events-none -mx-1.5 my-1.5 h-px bg-border",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
 function SelectScrollUpButton({
   className,
   ...props
@@ -156,7 +140,6 @@ export {
   Select,
   SelectContent,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 }

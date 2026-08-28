@@ -9,16 +9,12 @@ export type TabLabelOptions = {
 };
 
 /**
- * The label shown on a tab. Non-terminal tabs use their stored title; terminal
- * tabs prefer a user-set custom name, then fall back to the last segment of the
- * cwd. While home is still resolving, terminals stay on the neutral default so
- * startup never flashes a real folder name before the workspace is ready.
+ * The label shown on a tab. Terminal tabs prefer a user-set custom name, then
+ * fall back to the last segment of the cwd. While home is still resolving,
+ * terminals stay on the neutral default so startup never flashes a real folder
+ * name before the workspace is ready.
  */
 export function labelFor(t: Tab, options: TabLabelOptions = {}): string {
-  if (t.kind === "editor") return t.title;
-  if (t.kind === "markdown") return t.title;
-  if (t.kind === "git-diff") return t.title;
-  if (t.kind === "sftp") return t.title;
   if (t.customTitle) return t.customTitle;
   if (!t.cwd || options.homeResolved === false) {
     return terminalFallbackTitle(t.title);

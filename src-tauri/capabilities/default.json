@@ -21,7 +21,6 @@
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "opener:default",
-    "dialog:default",
     "log:default",
     "os:default",
     "store:default"

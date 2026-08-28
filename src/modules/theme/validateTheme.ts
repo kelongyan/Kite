@@ -121,11 +121,5 @@ export function validateTheme(raw: unknown): ValidationResult {
   };
   if (isStr(raw.author)) theme.author = raw.author;
   if (isStr(raw.description)) theme.description = raw.description;
-  if (isObj(raw.editorTheme)) {
-    const et: Theme["editorTheme"] = {};
-    if (isStr(raw.editorTheme.light)) et.light = raw.editorTheme.light;
-    if (isStr(raw.editorTheme.dark)) et.dark = raw.editorTheme.dark;
-    if (et.light || et.dark) theme.editorTheme = et;
-  }
   return { ok: true, theme };
 }

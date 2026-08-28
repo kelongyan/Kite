@@ -51,17 +51,17 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 
 ### Process boundary
 
-Rust owns all OS access. The webview never touches shells, processes, Git, SFTP, or the filesystem directly — everything goes through Tauri commands registered in `src-tauri/src/lib.rs` (snake_case: `pty_open`, `fs_read_file`, `git_status`, …). PTY data streams as `Channel<ArrayBuffer>` — raw binary, no base64 overhead.
+Rust owns all OS access. The webview never touches shells, processes, or the
+filesystem directly — everything goes through Tauri commands registered in
+`src-tauri/src/lib.rs` (snake_case: `pty_open`, `fs_read_dir`,
+`workspace_authorize`, …). PTY data streams as `Channel<ArrayBuffer>` — raw
+binary, no base64 overhead.
 
 ### Frontend modules (`src/modules/`)
 
 | `tabs` | All tab state (`useTabs` hook), tab bar, tab switcher HUD, pane tree logic |
 | `terminal` | xterm.js integration, PTY bridge, split panes, renderer pool, clipboard |
-| `editor` | CodeMirror 6 file editor |
 | `explorer` | Lightweight cwd directory navigator |
-| `source-control` | Git staging/commit panel |
-| `sftp` | SFTP browser (uses Rust libssh2) |
-| `markdown` | Rendered markdown tab |
 | `settings` | Preferences Zustand store and types (UI lives in `src/settings/`) |
 | `shortcuts` | Global keyboard shortcut registry |
 | `command-palette` | Cmd+K palette |
@@ -70,15 +70,16 @@ Rust owns all OS access. The webview never touches shells, processes, Git, SFTP,
 
 ### Rust backend modules (`src-tauri/src/modules/`)
 
-`pty` (PTY sessions via portable-pty), `fs` (directory listing, file read/write, create/delete helpers), `git` (git operations via child processes), `sftp` (SSH2/SFTP), `history` (shell history parse), `workspace`, `proc`, `secrets`.
+`pty` (PTY sessions via portable-pty), `fs` (directory listing only),
+`workspace`, `proc`.
 
 ### Tab system
 
-Five tab kinds: `TerminalTab | EditorTab | MarkdownTab | GitDiffTab | SftpTab`.
+The only tab kind is `TerminalTab`.
 
 Each terminal tab holds a **pane tree** (binary split tree of `PaneNode`), capped at `MAX_PANES_PER_TAB = 4`.
 
-Tabs are **cold by default** — shells only spawn on first activation. This is controlled by a `booted` flag to prevent spurious shell spawns during workspace restore. Hidden tabs stay mounted and alive (PTYs and editors keep state) — do not assume unmount-on-switch.
+Tabs are **cold by default** — shells only spawn on first activation. This is controlled by a `booted` flag to prevent spurious shell spawns during workspace restore. Hidden tabs stay mounted and alive (PTYs keep state) — do not assume unmount-on-switch.
 
 ## Critical gotchas
 
@@ -91,11 +92,10 @@ Tabs are **cold by default** — shells only spawn on first activation. This is 
 - **`src-tauri/tests/`** are integration tests that need Tauri runtime context.
 - **Tailwind v4 config lives in `src/styles/globals.css`** (CSS-based, not tailwind.config).
 - **Theme engine is custom**, not `next-themes`; built-ins under `src/modules/theme/themes/`. Legacy `terax-*` store keys are read-only migration fallbacks; new state is written under `kite-*`.
-- **SFTP secrets never live in the frontend**: Windows/macOS use the OS credential store (`keyring`), Linux an app-local `secrets.json` (mode 0600). Never log credential values.
 
 ## Testing requirements
 
-Changes to these load-bearing paths **must add or extend a test** that locks the invariant: shell/terminal spawn, workspace authorization (both allow and deny), Git command layer, filesystem mutation (atomic writes, symlinks, no data loss), IPC command surface, and pure logic with wide reach (cwd inheritance, tab/split tree transforms, OSC/prompt parsing). UI rendering, themes, and syntax-highlight tables do not need tests.
+Changes to these load-bearing paths **must add or extend a test** that locks the invariant: shell/terminal spawn, workspace authorization (both allow and deny), IPC command surface, and pure logic with wide reach (cwd inheritance, tab/split tree transforms, OSC/prompt parsing). UI rendering and themes do not need tests.
 
 ## Code conventions
 

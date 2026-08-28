@@ -17,16 +17,11 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
-  onNewEditor: () => void;
-  onNewSftp: () => void;
   onClose: (id: number) => void;
-  /** Promote a preview (transient) tab to persistent. */
-  onPin: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
   /** Move a dragged tab to a new position (insertion gap index). */
   onReorder: (fromId: number, toGapIndex: number) => void;
-  onOverrideLanguage?: (id: number, lang: string | null) => void;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
@@ -41,13 +36,9 @@ export function Header({
   activeId,
   onSelect,
   onNew,
-  onNewEditor,
-  onNewSftp,
   onClose,
-  onPin,
   onRename,
   onReorder,
-  onOverrideLanguage,
   onToggleSidebar,
   onOpenCommandPalette,
   onOpenSettings,
@@ -127,13 +118,9 @@ export function Header({
           activeId={activeId}
           onSelect={onSelect}
           onNew={onNew}
-          onNewEditor={onNewEditor}
-          onNewSftp={onNewSftp}
           onClose={onClose}
-          onPin={onPin}
           onRename={onRename}
           onReorder={onReorder}
-          onOverrideLanguage={onOverrideLanguage}
           home={home}
           homeResolved={homeResolved}
           compact={compact}

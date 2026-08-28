@@ -4,7 +4,6 @@ export const tokyoNight: Theme = {
   id: "tokyo-night",
   name: "Tokyo Night",
   description: "Calm, blue-leaning dark theme.",
-  editorTheme: { dark: "tokyo-night" },
   variants: {
     dark: {
       colors: {

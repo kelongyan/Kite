@@ -25,19 +25,8 @@ describe("selectLiveTerminals", () => {
     expect(live.map((t) => t.id)).toEqual([2]);
   });
 
-  it("keeps warm terminals and ignores non-terminal kinds", () => {
-    const tabs: Tab[] = [
-      term(1),
-      term(2),
-      {
-        id: 3,
-        kind: "editor",
-        title: "x",
-        path: "/x.ts",
-        dirty: false,
-        preview: false,
-      },
-    ];
+  it("keeps warm terminals mounted", () => {
+    const tabs: Tab[] = [term(1), term(2)];
     expect(selectLiveTerminals(tabs).map((t) => t.id)).toEqual([1, 2]);
   });
 });

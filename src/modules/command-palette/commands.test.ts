@@ -13,12 +13,7 @@ function context(
   return {
     tabs: [],
     activeId: 0,
-    explorerRoot: "F:/repo",
-    home: "C:/Users/Administrator",
     openNewTab: noop,
-    openNewEditor: noop,
-    openSftp: noop,
-    toggleSourceControl: noop,
     closeActiveTabOrPane: noop,
     splitPaneRight: noop,
     splitPaneDown: noop,
@@ -42,17 +37,17 @@ describe("createCommandItems", () => {
     expect(splitRight?.disabledReason).toBe("没有终端标签");
   });
 
-  it("runs the Open SFTP action", () => {
+  it("runs the new terminal tab action", () => {
     let opened = false;
     const items = createCommandItems(
       context({
-        openSftp: () => {
+        openNewTab: () => {
           opened = true;
         },
       }),
     );
 
-    items.find((item) => item.id === "sftp.open")?.run();
+    items.find((item) => item.id === "tab.new")?.run();
 
     expect(opened).toBe(true);
   });

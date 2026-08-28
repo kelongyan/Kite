@@ -29,65 +29,12 @@ import { segmentsFromCwd } from "./lib/pathUtils";
 
 type Props = {
   cwd: string | null;
-  filePath?: string | null;
   home: string | null;
   onCd: (path: string) => void;
 };
 
-function dirname(path: string): string {
-  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  if (i <= 0) return "/";
-  return path.slice(0, i);
-}
-
-function basename(path: string): string {
-  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return i === -1 ? path : path.slice(i + 1);
-}
-
-export function CwdBreadcrumb({ cwd, filePath, home, onCd }: Props) {
+export function CwdBreadcrumb({ cwd, home, onCd }: Props) {
   const messages = useMessages().mainShell.statusbar.cwd;
-  // File mode: dir segments navigate; filename is the terminal leaf.
-  if (filePath) {
-    const dir = dirname(filePath);
-    const name = basename(filePath);
-    const segments = segmentsFromCwd(dir, home);
-    const first = segments[0];
-    const middle = segments.slice(1);
-    return (
-      <Breadcrumb>
-        <BreadcrumbList className="gap-1 text-xs sm:gap-1.5">
-          {first ? (
-            <BreadcrumbSegment
-              label={first.label}
-              isHome={first.isHome}
-              homeLabel={messages.home}
-              onClick={() => onCd(first.fullPath)}
-            />
-          ) : null}
-          {middle.length > 0 ? (
-            <CollapsedSegments segments={middle} onCd={onCd} messages={messages} />
-          ) : null}
-          {middle.map((s) => (
-            <span
-              key={s.fullPath}
-              className="contents max-md:hidden"
-            >
-              <BreadcrumbSegment
-                label={s.label}
-                isHome={s.isHome}
-                homeLabel={messages.home}
-                onClick={() => onCd(s.fullPath)}
-              />
-            </span>
-          ))}
-          <BreadcrumbItem>
-            <BreadcrumbPage className="text-foreground">{name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-    );
-  }
 
   if (!cwd) {
     return (

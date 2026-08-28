@@ -8,12 +8,11 @@ type Params = {
 };
 
 /**
- * Guards tab closing: dirty editors and terminals with a live foreground
- * process route through a confirmation dialog instead of closing immediately.
- * Owns the three pending-close states the dialogs render from.
+ * Guards tab closing: terminals with a live foreground process route through a
+ * confirmation dialog instead of closing immediately. Owns the pending-close
+ * state the dialog renders from.
  */
 export function useTabCloseGuards({ tabs, disposeTab }: Params) {
-  const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
   const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<
     number | null
   >(null);
@@ -24,10 +23,6 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
       // dialog entirely so confirming it doesn't appear to silently fail.
       if (nextActiveTab(tabs, id) === null) return;
       const t = tabs.find((x) => x.id === id);
-      if (t?.kind === "editor" && t.dirty) {
-        setPendingCloseTab(id);
-        return;
-      }
       if (t?.kind === "terminal") {
         const leaves = leafIds(t.paneTree);
         const checks = await Promise.all(leaves.map(leafHasForegroundProcess));
@@ -41,17 +36,6 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
     [tabs, disposeTab],
   );
 
-  const confirmClose = useCallback(() => {
-    if (pendingCloseTab !== null) {
-      disposeTab(pendingCloseTab);
-      setPendingCloseTab(null);
-    }
-  }, [pendingCloseTab, disposeTab]);
-
-  const cancelClose = useCallback(() => {
-    setPendingCloseTab(null);
-  }, []);
-
   const confirmTerminalClose = useCallback(() => {
     if (pendingTerminalCloseTab !== null) disposeTab(pendingTerminalCloseTab);
     setPendingTerminalCloseTab(null);
@@ -62,11 +46,8 @@ export function useTabCloseGuards({ tabs, disposeTab }: Params) {
   }, []);
 
   return {
-    pendingCloseTab,
     pendingTerminalCloseTab,
     handleClose,
-    confirmClose,
-    cancelClose,
     confirmTerminalClose,
     cancelTerminalClose,
   };

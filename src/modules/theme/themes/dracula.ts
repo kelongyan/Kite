@@ -4,7 +4,6 @@ export const dracula: Theme = {
   id: "dracula",
   name: "Dracula",
   description: "Classic neon dark theme, refined for Kite chrome.",
-  editorTheme: { dark: "dracula" },
   variants: {
     dark: {
       colors: {

@@ -3,15 +3,12 @@ import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
 import {
   Cancel01Icon,
-  FileEditIcon,
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
   PaintBoardIcon,
-  ServerStack01Icon,
   Settings01Icon,
   SidebarLeftIcon,
-  SourceCodeIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import type { PaletteItem } from "./types";
@@ -19,23 +16,12 @@ import type { PaletteItem } from "./types";
 type CommandPaletteMessages = Messages["mainShell"]["commandPalette"];
 type CommandMessageKey = keyof CommandPaletteMessages["commands"];
 
-export const COMMAND_GROUPS = [
-  "General",
-  "Tabs",
-  "Panes",
-  "Git",
-  "View",
-] as const;
+export const COMMAND_GROUPS = ["General", "Tabs", "Panes", "View"] as const;
 
 export type CommandPaletteActionContext = {
   tabs: Tab[];
   activeId: number;
-  explorerRoot: string | null;
-  home: string | null;
   openNewTab: () => void;
-  openNewEditor: () => void;
-  openSftp: () => void;
-  toggleSourceControl: () => void;
   closeActiveTabOrPane: () => void;
   splitPaneRight: () => void;
   splitPaneDown: () => void;
@@ -60,7 +46,6 @@ export function createCommandItems(
     ? leafIds(activeTerminalTab.paneTree).length
     : 0;
   const onlyOneTab = ctx.tabs.length < 2;
-  const noWorkspaceRoot = !ctx.explorerRoot && !ctx.home;
   const splitDisabled = !activeTerminalTab
     ? messages.disabled.noTerminalTab
     : activePaneCount >= MAX_PANES_PER_TAB
@@ -115,22 +100,6 @@ export function createCommandItems(
       run: ctx.openNewTab,
     },
     {
-      id: "tab.newEditor",
-      ...item("newEditorTab", "Tabs"),
-      icon: FileEditIcon,
-      shortcutId: "tab.newEditor",
-      disabledReason: noWorkspaceRoot
-        ? messages.disabled.noWorkspaceRoot
-        : undefined,
-      run: ctx.openNewEditor,
-    },
-    {
-      id: "sftp.open",
-      ...item("openSftp", "Tabs"),
-      icon: ServerStack01Icon,
-      run: ctx.openSftp,
-    },
-    {
       id: "tab.close",
       ...item("closeTabOrPane", "Tabs"),
       icon: Cancel01Icon,
@@ -153,13 +122,6 @@ export function createCommandItems(
       shortcutId: "pane.splitDown",
       disabledReason: splitDisabled,
       run: ctx.splitPaneDown,
-    },
-    {
-      id: "git.source",
-      ...item("toggleSourceControl", "Git"),
-      icon: SourceCodeIcon,
-      shortcutId: "pane.source",
-      run: ctx.toggleSourceControl,
     },
     {
       id: "sidebar.toggle",
