@@ -18,8 +18,13 @@ ReactDOM.createRoot(
   </ThemeProvider>,
 );
 
-const showWindow = () => {
-  return getCurrentWindow().show();
+// Focus matters as much as show(): a window that never takes focus swallows the
+// first click on its own controls as an activation click, which makes the tab
+// strip look unresponsive.
+const showWindow = async () => {
+  const window = getCurrentWindow();
+  await window.show();
+  await window.setFocus();
 };
 setTimeout(() => {
   void showWindow().catch((error) => {

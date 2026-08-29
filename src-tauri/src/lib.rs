@@ -3,9 +3,9 @@ pub mod modules;
 use modules::{fs, pty, workspace};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
-use tauri::{PhysicalPosition, WindowEvent};
+use tauri::WindowEvent;
+use tauri::{Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_window_state::StateFlags;
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
@@ -118,6 +118,86 @@ fn log_launch_context(app: &tauri::AppHandle) {
     );
 }
 
+/// Initial inner size for the settings dialog, in logical pixels.
+///
+/// Kite's default main window is 800x600, smaller than the 900x700 the settings
+/// UI is designed for. Without shrinking to fit, the dialog covers the window it
+/// belongs to (header controls included), so it reads as the main window rather
+/// than as a dialog on top of it.
+fn settings_inner_size(main_inner: Option<(u32, u32)>) -> (u32, u32) {
+    const DESIGN: (u32, u32) = (900, 700);
+    const FLOOR: (u32, u32) = (680, 520);
+    // Leaves a visible frame of the main window around the dialog.
+    const MARGIN: u32 = 80;
+    let Some((width, height)) = main_inner else {
+        return DESIGN;
+    };
+    (
+        DESIGN.0.min(width.saturating_sub(MARGIN)).max(FLOOR.0),
+        DESIGN.1.min(height.saturating_sub(MARGIN)).max(FLOOR.1),
+    )
+}
+
+/// Center a `win_size` window over an anchor window, clamped to `work_area`.
+///
+/// The clamp matters because the settings window is larger than a small main
+/// window: plain centering would push it off the left or top edge of the screen.
+fn centered_position(
+    anchor_pos: (i32, i32),
+    anchor_size: (u32, u32),
+    win_size: (u32, u32),
+    work_area: Option<((i32, i32), (u32, u32))>,
+) -> (i32, i32) {
+    let mut x = anchor_pos.0 + (anchor_size.0 as i32 - win_size.0 as i32) / 2;
+    let mut y = anchor_pos.1 + (anchor_size.1 as i32 - win_size.1 as i32) / 2;
+    if let Some(((area_x, area_y), (area_w, area_h))) = work_area {
+        // min() before max() so a window taller or wider than the work area pins
+        // to its origin instead of hanging off the opposite edge.
+        x = x
+            .min(area_x + area_w as i32 - win_size.0 as i32)
+            .max(area_x);
+        y = y
+            .min(area_y + area_h as i32 - win_size.1 as i32)
+            .max(area_y);
+    }
+    (x, y)
+}
+
+/// Place `window` centered over the main window.
+///
+/// The settings window is a dialog, so it opens centered every time instead of
+/// wherever it was last dragged. A remembered position could align it exactly
+/// with the main window, which then looks like one window while every click near
+/// the main window's header lands on the settings window instead.
+fn center_over_main(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    let Some(main) = app.get_webview_window("main") else {
+        let _ = window.center();
+        return;
+    };
+    let (Ok(main_pos), Ok(main_size), Ok(win_size)) = (
+        main.outer_position(),
+        main.outer_size(),
+        window.outer_size(),
+    ) else {
+        let _ = window.center();
+        return;
+    };
+    let work_area = window.current_monitor().ok().flatten().map(|monitor| {
+        let area = monitor.work_area();
+        (
+            (area.position.x, area.position.y),
+            (area.size.width, area.size.height),
+        )
+    });
+    let (x, y) = centered_position(
+        (main_pos.x, main_pos.y),
+        (main_size.width, main_size.height),
+        (win_size.width, win_size.height),
+        work_area,
+    );
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
 #[tauri::command]
 async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
     let url_path = match tab.as_deref() {
@@ -126,7 +206,9 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
     };
 
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.set_always_on_top(true);
+        // Hidden with its owner while the main window was minimized, so undo that
+        // before raising it.
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
@@ -137,15 +219,19 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         return Ok(());
     }
 
+    let main_inner = app.get_webview_window("main").and_then(|main| {
+        let scale = main.scale_factor().ok()?;
+        let size = main.inner_size().ok()?.to_logical::<f64>(scale);
+        Some((size.width as u32, size.height as u32))
+    });
+    let (width, height) = settings_inner_size(main_inner);
+
     let builder = WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url_path.into()))
         .title("Settings")
-        .inner_size(900.0, 700.0)
-        .min_inner_size(820.0, 620.0)
+        .inner_size(width as f64, height as f64)
+        .min_inner_size(640.0, 480.0)
         .resizable(true)
-        .visible(false)
-        // Keep settings above the main app window so it doesn't get hidden
-        // when the user clicks back into the editor or terminal (#33).
-        .always_on_top(true);
+        .visible(false);
 
     // Tie lifecycle to the main window so settings minimizes/closes with it.
     // macOS: skip parent() — child + always_on_top leaves the settings webview
@@ -156,6 +242,14 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
     } else {
         builder
     };
+
+    // macOS skips parent() above, so always_on_top is the only thing keeping
+    // settings above the main window there (#33). Windows and Linux get that from
+    // the parent/owner relationship: an owned window is always above its owner.
+    // Marking it topmost on those platforms would also float it above every other
+    // app and pin it over the main window's own header controls.
+    #[cfg(target_os = "macos")]
+    let builder = builder.always_on_top(true);
 
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -169,9 +263,6 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
     let window = builder.build().map_err(|e| e.to_string())?;
 
-    #[cfg(target_os = "windows")]
-    let _ = &window;
-
     // Some Linux compositors (GNOME/Mutter with CSD-by-default) ignore the
     // builder-time decorations flag — re-assert it after realize.
     #[cfg(target_os = "linux")]
@@ -179,22 +270,9 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         let _ = window.set_decorations(false);
     }
 
-    #[cfg(target_os = "macos")]
-    if let Some(main) = app.get_webview_window("main") {
-        if let (Ok(main_pos), Ok(main_size), Ok(settings_size)) = (
-            main.outer_position(),
-            main.outer_size(),
-            window.outer_size(),
-        ) {
-            let x = main_pos.x
-                + ((main_size.width as i32).saturating_sub(settings_size.width as i32)) / 2;
-            let y = main_pos.y
-                + ((main_size.height as i32).saturating_sub(settings_size.height as i32)) / 2;
-            let _ = window.set_position(PhysicalPosition::new(x, y));
-        } else {
-            let _ = window.center();
-        }
-    }
+    // Still hidden here: the settings webview calls show() after its first
+    // paint, so placing it now costs no visible jump.
+    center_over_main(&app, &window);
 
     Ok(())
 }
@@ -241,6 +319,9 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
+                // The settings window is centered on the main window every time it
+                // opens, so a persisted position would fight that placement.
+                .with_denylist(&["settings"])
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -306,8 +387,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_launch_dir_from_paths, resolve_secondary_executable,
-        secondary_matches_current_executable,
+        centered_position, parse_launch_dir_from_paths, resolve_secondary_executable,
+        secondary_matches_current_executable, settings_inner_size,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -357,6 +438,58 @@ mod tests {
             .display()
             .to_string()];
         assert!(!secondary_matches_current_executable(&args, "ignored"));
+    }
+
+    #[test]
+    fn settings_size_falls_back_to_the_design_size() {
+        assert_eq!(settings_inner_size(None), (900, 700));
+        assert_eq!(settings_inner_size(Some((1600, 1000))), (900, 700));
+    }
+
+    #[test]
+    fn settings_size_shrinks_to_fit_the_default_main_window() {
+        assert_eq!(settings_inner_size(Some((800, 600))), (720, 520));
+    }
+
+    #[test]
+    fn settings_size_stops_at_a_usable_floor() {
+        assert_eq!(settings_inner_size(Some((400, 300))), (680, 520));
+    }
+
+    #[test]
+    fn centers_over_the_anchor_window() {
+        assert_eq!(
+            centered_position((100, 200), (1000, 800), (900, 700), None),
+            (150, 250)
+        );
+    }
+
+    #[test]
+    fn keeps_an_oversized_window_inside_the_work_area() {
+        // Main window smaller than the settings window: plain centering would put
+        // it at x = -58, off the left edge.
+        assert_eq!(
+            centered_position(
+                (-8, -8),
+                (800, 600),
+                (916, 708),
+                Some(((0, 0), (1920, 1040)))
+            ),
+            (0, 0)
+        );
+    }
+
+    #[test]
+    fn clamps_to_the_far_work_area_edge() {
+        assert_eq!(
+            centered_position(
+                (1800, 900),
+                (800, 600),
+                (900, 700),
+                Some(((0, 0), (1920, 1040)))
+            ),
+            (1020, 340)
+        );
     }
 
     #[test]
