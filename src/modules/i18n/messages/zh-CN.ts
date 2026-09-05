@@ -5,7 +5,6 @@ export const zhCN = {
   mainShell: {
     header: {
       settings: "设置",
-      toggleSidebar: "切换侧边栏",
       commandPalette: "命令面板",
     },
     tabs: {
@@ -26,7 +25,6 @@ export const zhCN = {
         General: "通用",
         Tabs: "标签",
         Panes: "窗格",
-        View: "视图",
       },
       commands: {
         openSettings: {
@@ -56,10 +54,6 @@ export const zhCN = {
         splitPaneDown: {
           title: "向下拆分窗格",
           keywords: ["终端", "窗格", "拆分", "下方", "行"],
-        },
-        toggleFileExplorer: {
-          title: "切换文件资源管理器",
-          keywords: ["侧边栏", "文件", "资源管理器"],
         },
       },
       disabled: {
@@ -102,17 +96,6 @@ export const zhCN = {
       closeAnyway: "仍要关闭",
     },
   },
-  workspace: {
-    explorer: {
-      noCurrentDirectory: "没有当前目录",
-      loading: "加载中...",
-      refresh: "刷新",
-      openInTerminal: "在终端中打开",
-      revealInFinder: "在 Finder 中显示",
-      revealInFileManager: "在文件管理器中显示",
-      copyPath: "复制路径",
-    },
-  },
   settings: {
     tabs: {
       general: "通用",
@@ -136,11 +119,11 @@ export const zhCN = {
         title: "缩放",
         uiZoomLevel: "界面缩放比例",
       },
-      explorer: {
-        title: "资源管理器",
-        showHiddenFiles: "显示隐藏文件",
-        showHiddenFilesDescription:
-          "在文件资源管理器中包含以点开头的文件和文件夹（.env、.gitignore、.config）。",
+      pathNav: {
+        title: "路径导航",
+        showHiddenDirs: "显示隐藏目录",
+        showHiddenDirsDescription:
+          "在状态栏的路径导航中包含以点开头的目录（.config、.cache）。",
       },
       terminal: {
         title: "终端",
@@ -231,8 +214,6 @@ export const zhCN = {
         "tab.next": "下一个标签",
         "tab.prev": "上一个标签",
         "tab.selectByIndex": "跳转到标签 1-9",
-        "sidebar.toggle": "切换文件资源管理器",
-        "explorer.focus": "切换文件资源管理器焦点",
         "view.zoomIn": "放大",
         "view.zoomOut": "缩小",
         "view.zoomReset": "重置缩放",

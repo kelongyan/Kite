@@ -155,10 +155,10 @@ export function GeneralSection() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>{g.explorer.title}</Label>
+        <Label>{g.pathNav.title}</Label>
         <SettingRow
-          title={g.explorer.showHiddenFiles}
-          description={g.explorer.showHiddenFilesDescription}
+          title={g.pathNav.showHiddenDirs}
+          description={g.pathNav.showHiddenDirsDescription}
         >
           <Switch
             checked={showHidden}

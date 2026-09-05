@@ -1,8 +1,3 @@
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getLaunchDir } from "@/lib/launchDir";
@@ -13,7 +8,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { native } from "@/lib/native";
 import { CommandPalette, createCommandItems } from "@/modules/command-palette";
 import { useMessages } from "@/modules/i18n";
-import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import { Header } from "@/modules/header";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import {
@@ -21,11 +15,6 @@ import {
   type ShortcutHandlers,
   type ShortcutId,
 } from "@/modules/shortcuts";
-import {
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-  useSidebarPanel,
-} from "@/modules/sidebar";
 import { StatusBar } from "@/modules/statusbar";
 import {
   TabSwitcherHud,
@@ -87,7 +76,6 @@ export default function App() {
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
-  const explorerRef = useRef<FileExplorerHandle>(null);
 
   // Drives session disposal off the pane tree, not React lifecycles —
   // split/unsplit re-mount components but the leaf is still live.
@@ -147,29 +135,19 @@ export default function App() {
     }
   }, [launchCwdResolved, launchCwd, homeResolved, markBooted]);
 
-  const {
-    sidebarRef,
-    sidebarWidthRef,
-    initialSidebarCollapsed,
-    persistSidebarCollapsed,
-    toggleSidebar,
-    persistSidebarWidth,
-    toggleExplorerFocus,
-  } = useSidebarPanel(explorerRef);
-
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
   const activeTab = tabs.find((t) => t.id === activeId);
 
-  const { explorerRoot, inheritedCwdForNewTab } = useWorkspaceCwd(
+  const { workspaceRoot, inheritedCwdForNewTab } = useWorkspaceCwd(
     activeTab,
     tabs,
     launchCwd ?? home,
   );
 
-  useWindowTitle(activeTab, explorerRoot, home, homeResolved);
+  useWindowTitle(activeTab, workspaceRoot, home, homeResolved);
 
   const {
     pendingTerminalCloseTab,
@@ -235,21 +213,6 @@ export default function App() {
     [activeLeafId],
   );
 
-  const cdInNewTab = useCallback(
-    (path: string) => {
-      const tabId = newTab(path);
-      setTimeout(() => {
-        const tab = tabsRef.current.find((x) => x.id === tabId);
-        if (tab?.kind !== "terminal") return;
-        const t = terminalRefs.current.get(tab.activeLeafId);
-        if (!t) return;
-        t.write(`cd ${quoteShellArg(path)}\r`);
-        t.focus();
-      }, 80);
-    },
-    [newTab],
-  );
-
   const activeTerminalLeafCwd =
     activeTab?.kind === "terminal"
       ? (findLeafCwd(activeTab.paneTree, activeTab.activeLeafId) ??
@@ -293,8 +256,6 @@ export default function App() {
         clearFocusedTerminal();
       },
       "settings.open": () => void openSettingsWindow(),
-      "sidebar.toggle": toggleSidebar,
-      "explorer.focus": toggleExplorerFocus,
       "view.zoomIn": zoomIn,
       "view.zoomOut": zoomOut,
       "view.zoomReset": zoomReset,
@@ -309,40 +270,21 @@ export default function App() {
       selectByIndex,
       splitActivePaneInActiveTab,
       focusNextPaneInTab,
-      toggleSidebar,
-      toggleExplorerFocus,
       zoomIn,
       zoomOut,
       zoomReset,
     ],
   );
 
-  const shortcutsDisabled = useCallback(
-    (id: ShortcutId, e: KeyboardEvent) => {
-      if (id === "terminal.clear") {
-        // Only intercept ⌘K while a terminal is focused; elsewhere let the key
-        // fall through (we never preventDefault when disabled).
-        const target =
-          (e.target as HTMLElement | null) ?? document.activeElement;
-        return !(target as HTMLElement | null)?.closest?.(".xterm");
-      }
-      if (id === "sidebar.toggle") {
-        // Ctrl+B is also Claude Code's "run in background" key. While a terminal
-        // is focused, let Ctrl+B reach the shell/Claude instead of toggling the
-        // sidebar. Ctrl+Shift+B (second binding) still toggles it from anywhere.
-        const target =
-          (e.target as HTMLElement | null) ?? document.activeElement;
-        const inTerminal = !!(target as HTMLElement | null)?.closest?.(
-          ".xterm",
-        );
-        // Only defer the plain (no-shift) Ctrl/⌘+B binding; the Shift variant
-        // is the always-on toggle and is never claimed by the terminal.
-        return inTerminal && !e.shiftKey;
-      }
-      return false;
-    },
-    [],
-  );
+  const shortcutsDisabled = useCallback((id: ShortcutId, e: KeyboardEvent) => {
+    if (id === "terminal.clear") {
+      // Only intercept ⌘K while a terminal is focused; elsewhere let the key
+      // fall through (we never preventDefault when disabled).
+      const target = (e.target as HTMLElement | null) ?? document.activeElement;
+      return !(target as HTMLElement | null)?.closest?.(".xterm");
+    }
+    return false;
+  }, []);
 
   useGlobalShortcuts(shortcutHandlers, { isDisabled: shortcutsDisabled });
 
@@ -406,7 +348,6 @@ export default function App() {
               closeActiveTabOrPane: handleCloseTabOrPane,
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
               splitPaneDown: () => splitActivePaneInActiveTab("col"),
-              toggleSidebar,
               openSettings: () => void openSettingsWindow(),
               openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
             },
@@ -420,7 +361,6 @@ export default function App() {
       openNewTab,
       handleCloseTabOrPane,
       splitActivePaneInActiveTab,
-      toggleSidebar,
       messages,
     ],
   );
@@ -438,7 +378,6 @@ export default function App() {
               onClose={handleClose}
               onRename={handleRenameTab}
               onReorder={reorderTabByGap}
-              onToggleSidebar={toggleSidebar}
               onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}
               home={home}
@@ -447,54 +386,17 @@ export default function App() {
           )}
 
           <main className="zoom-content flex min-h-0 flex-1 flex-col">
-            <ResizablePanelGroup
-              orientation="horizontal"
-              className="min-h-0 flex-1"
-            >
-              <ResizablePanel
-                id="sidebar"
-                panelRef={sidebarRef}
-                defaultSize={
-                  initialSidebarCollapsed
-                    ? "0px"
-                    : `${sidebarWidthRef.current}px`
-                }
-                minSize={`${SIDEBAR_MIN_WIDTH}px`}
-                maxSize={`${SIDEBAR_MAX_WIDTH}px`}
-                collapsible
-                collapsedSize={0}
-                onResize={(size) => {
-                  if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
-                  persistSidebarCollapsed(size.inPixels <= 0);
-                }}
-              >
-                <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
-                  <div className="min-h-0 flex-1">
-                    <FileExplorer
-                      ref={explorerRef}
-                      rootPath={explorerRoot}
-                      onRevealInTerminal={cdInNewTab}
-                    />
-                  </div>
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="relative min-h-0 flex-1">
-                    <WorkspaceSurface
-                      tabs={tabs}
-                      activeId={activeId}
-                      activeTab={activeTab}
-                      registerTerminalHandle={registerTerminalHandle}
-                      onCwd={handleTerminalCwd}
-                      onExit={handleLeafExit}
-                      onFocusLeaf={handleFocusLeaf}
-                    />
-                  </div>
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            <div className="relative min-h-0 flex-1">
+              <WorkspaceSurface
+                tabs={tabs}
+                activeId={activeId}
+                activeTab={activeTab}
+                registerTerminalHandle={registerTerminalHandle}
+                onCwd={handleTerminalCwd}
+                onExit={handleLeafExit}
+                onFocusLeaf={handleFocusLeaf}
+              />
+            </div>
           </main>
 
           {!zenMode && (

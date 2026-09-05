@@ -36,21 +36,21 @@ function tabLabel(
 }
 
 function projectLabel(
-  explorerRoot: string | null,
+  workspaceRoot: string | null,
   home?: string | null,
   homeResolved?: boolean,
 ): string {
-  if (!explorerRoot) return "";
+  if (!workspaceRoot) return "";
   if (homeResolved === false) return "";
-  if (home && isSameDisplayPath(explorerRoot, home)) {
+  if (home && isSameDisplayPath(workspaceRoot, home)) {
     return TERMINAL_HOME_LABEL;
   }
-  return basename(explorerRoot);
+  return basename(workspaceRoot);
 }
 
 export function resolveWindowTitle(
   activeTab: Tab | undefined,
-  explorerRoot: string | null,
+  workspaceRoot: string | null,
   options: { home?: string | null; homeResolved?: boolean } = {},
 ): string {
   if (options.homeResolved === false) {
@@ -62,7 +62,7 @@ export function resolveWindowTitle(
   }
 
   const project = projectLabel(
-    explorerRoot,
+    workspaceRoot,
     options.home,
     options.homeResolved,
   );
@@ -82,11 +82,11 @@ export function resolveWindowTitle(
  */
 export function useWindowTitle(
   activeTab: Tab | undefined,
-  explorerRoot: string | null,
+  workspaceRoot: string | null,
   home?: string | null,
   homeResolved?: boolean,
 ): void {
-  const title = resolveWindowTitle(activeTab, explorerRoot, {
+  const title = resolveWindowTitle(activeTab, workspaceRoot, {
     home,
     homeResolved,
   });

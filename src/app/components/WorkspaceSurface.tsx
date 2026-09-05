@@ -24,17 +24,15 @@ export function WorkspaceSurface({
   onFocusLeaf,
 }: Props) {
   return (
-    <div className="relative h-full min-h-0">
-      <div className="absolute inset-0 px-3 pt-2 pb-2">
-        <TerminalStack
-          tabs={tabs}
-          activeId={activeId}
-          registerHandle={registerTerminalHandle}
-          onCwd={onCwd}
-          onExit={onExit}
-          onFocusLeaf={onFocusLeaf}
-        />
-      </div>
+    <div className="absolute inset-0 px-3 pt-2 pb-2">
+      <TerminalStack
+        tabs={tabs}
+        activeId={activeId}
+        registerHandle={registerTerminalHandle}
+        onCwd={onCwd}
+        onExit={onExit}
+        onFocusLeaf={onFocusLeaf}
+      />
     </div>
   );
 }

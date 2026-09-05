@@ -8,7 +8,6 @@ import {
   LayoutTwoRowIcon,
   PaintBoardIcon,
   Settings01Icon,
-  SidebarLeftIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import type { PaletteItem } from "./types";
@@ -16,7 +15,7 @@ import type { PaletteItem } from "./types";
 type CommandPaletteMessages = Messages["mainShell"]["commandPalette"];
 type CommandMessageKey = keyof CommandPaletteMessages["commands"];
 
-export const COMMAND_GROUPS = ["General", "Tabs", "Panes", "View"] as const;
+export const COMMAND_GROUPS = ["General", "Tabs", "Panes"] as const;
 
 export type CommandPaletteActionContext = {
   tabs: Tab[];
@@ -25,7 +24,6 @@ export type CommandPaletteActionContext = {
   closeActiveTabOrPane: () => void;
   splitPaneRight: () => void;
   splitPaneDown: () => void;
-  toggleSidebar: () => void;
   openSettings: () => void;
   openKeyboardShortcuts: () => void;
 };
@@ -122,13 +120,6 @@ export function createCommandItems(
       shortcutId: "pane.splitDown",
       disabledReason: splitDisabled,
       run: ctx.splitPaneDown,
-    },
-    {
-      id: "sidebar.toggle",
-      ...item("toggleFileExplorer", "View"),
-      icon: SidebarLeftIcon,
-      shortcutId: "sidebar.toggle",
-      run: ctx.toggleSidebar,
     },
   ];
 }

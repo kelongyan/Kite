@@ -82,6 +82,8 @@ const REMOVED_SHORTCUT_IDS = [
   "pane.source",
   "editor.undo",
   "editor.redo",
+  "sidebar.toggle",
+  "explorer.focus",
 ] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
@@ -139,7 +141,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 7;
+const SETTINGS_VERSION = 8;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -165,6 +167,9 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
     },
     7: (map) => {
       for (const key of REMOVED_EDITOR_KEYS) map.delete(key);
+      removeRetiredShortcuts(map);
+    },
+    8: (map) => {
       removeRetiredShortcuts(map);
     },
   };

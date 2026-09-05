@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Tab } from "./useTabs";
 
 type Result = {
-  explorerRoot: string | null;
+  workspaceRoot: string | null;
   inheritedCwdForNewTab: () => string | undefined;
 };
 
@@ -19,7 +19,8 @@ export function useWorkspaceCwd(
     }
   }, [activeTab]);
 
-  const explorerRoot = useMemo<string | null>(() => {
+  // Drives the project half of the window title.
+  const workspaceRoot = useMemo<string | null>(() => {
     if (activeTab?.kind === "terminal" && activeTab.cwd) return activeTab.cwd;
     if (lastTerminalCwd.current) return lastTerminalCwd.current;
     const anyTerm = tabs.find((t) => t.kind === "terminal" && t.cwd);
@@ -33,5 +34,5 @@ export function useWorkspaceCwd(
     return home ?? undefined;
   }, [home]);
 
-  return { explorerRoot, inheritedCwdForNewTab };
+  return { workspaceRoot, inheritedCwdForNewTab };
 }

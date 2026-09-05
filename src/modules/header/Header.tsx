@@ -4,11 +4,7 @@ import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { useMessages } from "@/modules/i18n";
 import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
-import {
-  CommandIcon,
-  Settings01Icon,
-  SidebarLeftIcon,
-} from "@hugeicons/core-free-icons";
+import { CommandIcon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -22,7 +18,6 @@ type Props = {
   onRename: (id: number, title: string) => void;
   /** Move a dragged tab to a new position (insertion gap index). */
   onReorder: (fromId: number, toGapIndex: number) => void;
-  onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
   home?: string | null;
@@ -39,7 +34,6 @@ export function Header({
   onClose,
   onRename,
   onReorder,
-  onToggleSidebar,
   onOpenCommandPalette,
   onOpenSettings,
   home,
@@ -82,16 +76,6 @@ export function Header({
       }`}
     >
       <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          onClick={onToggleSidebar}
-          title={shellMessages.header.toggleSidebar}
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <HugeiconsIcon icon={SidebarLeftIcon} size={18} strokeWidth={1.75} />
-        </Button>
-
         <Button
           size="icon-sm"
           variant="ghost"

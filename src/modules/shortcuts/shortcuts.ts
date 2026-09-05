@@ -16,13 +16,11 @@ export type ShortcutId =
   | "pane.focusNext"
   | "pane.focusPrev"
   | "terminal.clear"
-  | "explorer.focus"
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
   | "view.zenMode"
-  | "settings.open"
-  | "sidebar.toggle";
+  | "settings.open";
 
 export type ShortcutGroup =
   | "General"
@@ -124,24 +122,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Jump to tab 1–9",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "1" }],
-  },
-  {
-    id: "sidebar.toggle",
-    label: "Toggle file explorer",
-    group: "View",
-    // Plain Mod+B toggles the sidebar everywhere EXCEPT a focused terminal,
-    // where it's handed to the shell / Claude Code (its "run in background"
-    // key). Mod+Shift+B always toggles, including from inside a terminal.
-    defaultBindings: [
-      { [MOD_PROP]: true, key: "b" },
-      { [MOD_PROP]: true, shift: true, key: "b" },
-    ],
-  },
-  {
-    id: "explorer.focus",
-    label: "Toggle file explorer focus",
-    group: "View",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "e" }],
   },
   {
     id: "view.zoomIn",

@@ -17,7 +17,6 @@ function context(
     closeActiveTabOrPane: noop,
     splitPaneRight: noop,
     splitPaneDown: noop,
-    toggleSidebar: noop,
     openSettings: noop,
     openKeyboardShortcuts: noop,
     ...overrides,

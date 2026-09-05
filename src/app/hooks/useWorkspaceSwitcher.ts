@@ -92,7 +92,8 @@ export function useWorkspaceSwitcher({
       try {
         await native.workspaceAuthorize(normalized);
       } catch {
-        // Rust already validated Explorer-launched directories; keep opening.
+        // Rust already validated the launch dir passed by the OS context
+        // menu; keep opening.
       }
       resetWorkspace(normalized);
       return true;
