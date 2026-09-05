@@ -14,11 +14,12 @@ import { disposeSession } from "@/modules/terminal/lib/useTerminalSession";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TERMINAL_DEFAULT_TITLE } from "./tabLabel";
 
-// Matches the renderer slot pool size — over this we'd evict an active leaf.
+// Capped below the global renderer pool (5 slots) so a single tab cannot claim
+// every slot. Panes across tabs still compete, and eviction handles that.
 export const MAX_PANES_PER_TAB = 4;
 
 export type TerminalTab = {
-  /** Restored from disk, not yet activated: rendered as a placeholder, not mounted. */
+  /** Not yet activated: rendered as a placeholder, no PTY spawned. */
   cold?: boolean;
   id: number;
   kind: "terminal";
@@ -79,7 +80,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     ];
   });
   const [activeId, setActiveId] = useState(1);
-  // Gates warming until boot resolves the restore, so no shell spawns before it.
+  // Gates warming until the launch cwd resolves, so no shell spawns before it.
   const [booted, setBooted] = useState(false);
   const nextIdRef = useRef(3);
   const tabsRef = useRef(tabs);

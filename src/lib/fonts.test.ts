@@ -41,7 +41,7 @@ describe("resolveFontFamily", () => {
     expect(resolveFontFamily("")).not.toContain("Nerd Font");
   });
 
-  it("keeps the legacy default-stack export for editor surfaces", () => {
+  it("returns the same default stack from detectMonoFontFamily", () => {
     expect(detectMonoFontFamily()).toBe(DEFAULT_STACK);
   });
 });

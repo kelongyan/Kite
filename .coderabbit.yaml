@@ -89,8 +89,8 @@ reviews:
         wasted re-renders, quadratic work on hot paths, unnecessary allocations or RAM
         growth, work done while the feature is idle.
         (4) Bundle size and dependencies: flag every new dependency and whether it is
-        justified, prefer std/platform or existing deps; the bundle stays ~7-8MB.
-        (5) Security: validation at boundaries (IPC, fs, network, AI tool surface),
+        justified, prefer std/platform or existing deps; the installer stays ~4MB.
+        (5) Security: validation at boundaries (IPC, fs, process spawn),
         injection, path traversal, secret exposure.
         (6) Correctness: edge cases, error and failure handling, race conditions,
         rollback on partial failure.
@@ -102,30 +102,37 @@ reviews:
         Rust backend owns all OS access. Verify OS-specific logic exists in the
         matching cfg arm for every platform the change affects (unix, windows, macos);
         a fix that only handles one platform is a regression on the others. Keep tauri
-        commands thin with logic in pure, testable functions. The secret-path deny-list
-        must apply on both read and write and never be bypassed. Do not accept removal
-        of SPAWN_LOCK or the per-session Job Object without an equivalent guarantee
-        (first-tab stability, no orphaned child processes). Question any new crate on
-        bundle-size grounds.
+        commands thin with logic in pure, testable functions. Do not accept removal of
+        CONPTY_LIFECYCLE_LOCK (it serializes ConPTY create and close) or the per-session
+        Job Object without an equivalent guarantee (first-tab stability, no orphaned
+        child processes). Session field order matters: _job must drop before master.
+        validate_wsl_distro_name must gate every wsl.exe argv, and
+        sanitize_shell_override must keep spawns limited to enumerated shells.
+        Question any new crate on bundle-size grounds.
     - path: "src/**/*.{ts,tsx}"
       instructions: >-
         Watch for performance regressions: wasted re-renders, extra IPC round-trips,
         eager work that should be lazy, heavy new dependencies. Tabs are kept mounted
-        and hidden on switch (PTYs/dev servers keep streaming), so do not accept logic
-        that assumes unmount-on-switch. Paths originating from OSC 7, the explorer or
-        the OS must tolerate both separators (split on /[\\/]/); canonical frontend
-        form is forward-slash. New features belong in modules/<area> with App.tsx as a
-        thin coordinator.
+        and hidden on switch (PTYs keep streaming), so do not accept logic that assumes
+        unmount-on-switch. The renderer pool is 5 slots shared across all tabs, so
+        cross-tab eviction is expected; do not accept a dormant-ring change that emits
+        a terminal reset. OSC 7 must stay ignored while a command is running. Paths
+        originating from OSC 7 or the OS must tolerate both separators
+        (split on /[\\/]/); canonical frontend form is forward-slash. New features
+        belong in modules/<area> with App.tsx as a thin coordinator.
     - path: ".github/workflows/**"
       instructions: >-
-        Release pipeline is high blast radius. Flag anything that could break the
-        auto-updater signature flow, latest.json, code signing, or cross-platform
-        artifact production. A broken release affects every user's auto-update.
+        Release pipeline is high blast radius. Flag anything that could break
+        cross-platform artifact production, the macOS signing gate, or the AppImage
+        wayland-library fixup. Updater artifacts are disabled, so there is no
+        latest.json or signature flow to protect.
     - path: "**/*.{md,mdx}"
       instructions: >-
-        Only flag substance, not style. Terax is positioned terminal-first; flag
+        Only flag substance, not style. Kite is positioned terminal-first; flag
         README or marketing rewrites that reframe it as an IDE or generic developer
-        environment.
+        environment, and flag docs that claim removed features (editor, Markdown
+        preview, Git panel, SFTP, block terminals, file-explorer sidebar) still
+        exist.
 
   tools:
     gitleaks:

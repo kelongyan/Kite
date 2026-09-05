@@ -28,18 +28,20 @@
 
 ---
 
-Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面终端模拟器。它提供多标签、分屏的原生终端体验，并带有轻量的文件浏览侧栏，让你在一个干净的窗口里跑命令、看项目。
+Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面终端模拟器。它提供多标签、分屏的原生终端体验，界面只有标签栏、终端和状态栏，让你在一个干净的窗口里专注跑命令。
 
 项目当前的定位是一个终端优先的高性能桌面终端模拟器。你可以继续使用熟悉的 shell 和本地工具，在统一轻量的工作环境中高效工作。
 
 ## 界面预览
+
+> 以下截图摄于文件侧栏移除之前，主题配色仍然准确，但左侧目录树在当前版本已不存在。
 
 <table>
   <tr>
     <td align="center">
       <img src="docs/screenshots/workspace-default.png" alt="Kite 主界面默认主题" />
       <br />
-      <sub>默认主题：终端、文件侧栏和多标签工作区</sub>
+      <sub>默认主题</sub>
     </td>
     <td align="center">
       <img src="docs/screenshots/workspace-blue.png" alt="Kite 主界面蓝色主题" />
@@ -51,27 +53,29 @@ Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面
     <td align="center">
       <img src="docs/screenshots/workspace-slate.png" alt="Kite 主界面 Slate 主题" />
       <br />
-      <sub>Slate 主题：低对比、长时间写代码更舒服</sub>
+      <sub>Slate 主题：低对比、长时间使用更舒服</sub>
     </td>
     <td align="center">
       <img src="docs/screenshots/workspace-midnight.png" alt="Kite 主界面 Midnight 主题" />
       <br />
-      <sub>Midnight 主题：聚焦终端输入与文件浏览</sub>
+      <sub>Midnight 主题：更深的背景，聚焦终端输入</sub>
     </td>
   </tr>
 </table>
 
 ## 核心能力
 
-- **原生终端体验**：基于 `portable-pty` 与 xterm.js，支持多标签、分屏、WebGL 渲染、搜索、链接识别、真彩色和后台输出。
-- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd 与 WSL。
-- **文件浏览**：轻量的当前目录导航器，支持键盘操作、在终端中打开、系统资源管理器中显示和复制路径。
+- **原生终端体验**：基于 `portable-pty` 与 xterm.js，支持多标签、分屏（每标签最多 4 个）、WebGL 渲染、链接识别、真彩色和后台输出。
+- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd、Git Bash 与 WSL。
+- **路径导航**：状态栏面包屑显示当前目录，点击任意层级即可向终端发送 `cd`。
 - **主题与字体**：内置与自定义主题体系，可按偏好切换工作台视觉风格。
+
+界面语言目前仅提供简体中文。
 
 ## 适合谁
 
 - 日常大量使用终端和 CLI 工具的开发者。
-- 想要一个轻快、跨平台、带分屏和文件侧栏的终端模拟器的用户。
+- 想要一个轻快、跨平台、支持多标签和分屏的纯终端模拟器的用户。
 
 ## 安装
 
@@ -115,7 +119,7 @@ pnpm test
 pnpm lint
 
 cd src-tauri
-cargo test --locked
+cargo nextest run --locked
 cargo clippy --all-targets --locked -- -D warnings
 ```
 
@@ -126,7 +130,7 @@ cargo clippy --all-targets --locked -- -D warnings
 - **前端框架**：React 19、TypeScript、Vite
 - **终端渲染**：xterm.js、WebGL addon
 - **界面与状态**：Tailwind CSS v4、shadcn/ui、Zustand
-- **质量工具**：Biome、Vitest、Cargo test、Cargo clippy
+- **质量工具**：Biome、Vitest、cargo nextest、Cargo clippy
 
 ## 许可证
 

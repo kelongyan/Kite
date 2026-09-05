@@ -34,7 +34,6 @@ export function CopiedBubble({ x, y, onDone }: Props) {
     injectStyle();
     const id = setTimeout(() => onDoneRef.current(), 1300);
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

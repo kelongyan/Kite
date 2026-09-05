@@ -1,8 +1,9 @@
 # TERAX.md
 
-Kite loads `TERAX.md` from the workspace root as coding-assistant memory. This file is
-also the living architecture reference. Read it before making changes and keep
-it aligned with structural changes.
+The living architecture reference. Read it before making changes and keep it
+aligned with structural changes. Coding assistants pick it up through
+`.coderabbit.yaml`'s knowledge base and their own instruction-file discovery;
+no application code reads this file.
 
 ## Project
 
@@ -29,7 +30,7 @@ pnpm knip
 cd src-tauri
 cargo check --all-targets --locked
 cargo clippy --all-targets --locked -- -D warnings
-cargo test --locked
+cargo nextest run --locked
 ```
 
 ## Quality Bar
@@ -41,8 +42,8 @@ cargo test --locked
 - Architecture: put new logic in pure, dependency-light functions and keep
   Tauri commands and React components thin.
 
-Changes to terminal spawning, workspace authorization, or IPC need tests that
-lock the relevant invariant.
+Changes to terminal spawning, the workspace and WSL path layer, or the IPC
+surface need tests that lock the relevant invariant.
 
 ## Conventions
 
@@ -62,13 +63,25 @@ channels and events.
 
 Backend command groups:
 
-- `pty::*`: open, write, resize, close, foreground-process checks, shell list.
-- `fs::tree`: directory listing for the explorer and statusbar.
+- `pty::*`: open, write, resize, close, close-all, foreground-process and
+  foreground-job checks, shell list.
+- `fs::tree::list_subdirs`: subdirectory listing for the statusbar cwd
+  breadcrumb.
 - `workspace::*`: authorization, current directory, WSL list and home.
+- `get_launch_dir`: drains the CLI launch directory on first read.
 - `open_settings_window`: creates or focuses the separate settings webview.
 
-Every filesystem and process entry point must preserve workspace
-authorization. Do not add a command only to expose an internal helper.
+Do not add a command only to expose an internal helper.
+
+`WorkspaceRegistry` records canonicalized directories the app has touched. It
+is a bookkeeping registry, not a sandbox: `authorize` accepts any path that
+canonicalizes, and `is_authorized` currently has no non-test caller. A cwd
+handed to `pty_open` is registered rather than checked against existing roots
+(`authorize_user_spawn_cwd`), and `list_subdirs` reads whatever path the webview
+passes. Treat the enforced boundary as: the CSP, the capability allowlist,
+`sanitize_shell_override` (a shell override must match an enumerated shell), and
+`validate_wsl_distro_name` (every `wsl.exe` argv). A process spawned in the PTY
+is unconstrained by design.
 
 ## PTY And Shell Integration
 
@@ -81,16 +94,22 @@ scripts live in `src-tauri/src/modules/pty/scripts/` and emit:
 Platform rules:
 
 - Unix shells use injected zsh, bash, or fish initialization.
-- Windows prefers `pwsh.exe`, then `powershell.exe`, then `cmd.exe`.
-- Enter is sent as carriage return (`\r`), not line feed.
+- Windows prefers `pwsh.exe`, then `powershell.exe`, then `cmd.exe`. Git Bash is
+  offered when a Git for Windows install is found.
 - Windows cwd values are normalized before ConPTY spawn.
-- `SPAWN_LOCK` serializes `openpty + spawn_command` on Windows. Removing it can
-  stall one of multiple concurrent ConPTY sessions.
+- `CONPTY_LIFECYCLE_LOCK` serializes ConPTY create and close on Windows.
+  Removing it lets overlapping pseudoconsole lifecycle calls corrupt a new
+  console so its shell never pumps output.
 - Each Windows session uses a Job Object with kill-on-close so child process
   trees do not survive Kite unexpectedly.
+- Generated init scripts are written atomically under
+  `~/.cache/kite/shell-integration/` (WSL writes into the distro's own home).
+- `da_filter` answers DA1/DA2 and a single startup cursor-position query inline,
+  because a shell may query before any renderer slot exists to reply.
 
-React 19 Strict Mode mounts effects twice in development. An initial PTY may
-open and close immediately before the real session starts.
+React 19 Strict Mode mounts effects twice in development. The session record
+lives in a module map keyed by leaf id and the first mount's attach is skipped
+by a `cancelled` flag, so the double mount does not open a second PTY.
 
 ## Frontend
 
@@ -105,36 +124,52 @@ public surface.
 
 The only tab kind is `terminal`.
 
-Mounted, booted tabs remain alive while inactive so PTYs keep their
-state. Terminal tabs contain a binary pane tree and allow at most four panes.
+Tabs are not persisted across launches; every start opens one tab at the launch
+directory. New tabs open at home rather than inheriting the active tab's cwd.
+
+Mounted tabs remain alive while inactive so PTYs keep their state. Terminal tabs
+contain a pane tree, at most four panes per tab. `PaneNode` splits hold an
+n-ary `children` array: splitting along an existing split's direction appends a
+sibling instead of nesting, which keeps resize handles aligned.
 
 ### Modules
 
 - `terminal`: xterm sessions, split panes, renderer pool, OSC.
-- `explorer`: lightweight cwd directory navigator, keyboard navigation,
-  reveal/copy-path actions.
 - `tabs`: tab source of truth, switcher, pane-aware close behavior.
 - `workspace`: Local and WSL environment selection.
 - `theme`: built-in/custom themes.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
-- `header`, `sidebar`, `statusbar`, `i18n`: application chrome.
+- `header`, `statusbar`, `i18n`: application chrome.
+
+There is no file explorer or sidebar. The window is header, terminal surface,
+statusbar. Directory navigation is the statusbar cwd breadcrumb, which sends
+`cd` to the focused terminal.
+
+`i18n` currently ships one locale, `zh-CN`, with no locale switching.
+`usePreferencesStore.init()` is what hydrates preferences from disk and
+subscribes to cross-window changes.
 
 ## Terminal Rendering
 
-`rendererPool.ts` maintains at most five renderer slots. Hidden leaves may keep
-a parked live grid or release the renderer while retaining their buffer. A
-1 MiB dormant ring buffers output for leaves without a bound renderer.
+`rendererPool.ts` maintains at most five renderer slots, shared across all tabs,
+so cross-tab eviction is normal. Hidden leaves may keep a parked live grid, keep
+a released-but-retained buffer, or fall back to a 1 MiB dormant ring that
+buffers output for leaves with no bound renderer.
 
-Do not reset a terminal when the dormant ring overflows. Avoid reading layout
-from parked `display:none` slots. Cursor styling is shared between xterm native
-rendering and the overlay implementation.
+Do not reset a terminal when the dormant ring overflows: the overflow notice
+carries no `ESC c` precisely because a reset would erase the snapshot replayed
+just before the drain. Avoid reading layout from parked `display:none` slots.
+Cursor styling is shared between xterm native rendering and the overlay
+implementation.
 
 ## Themes
 
 The app theme engine is custom, not `next-themes`. `ThemeProvider` and
-`applyTheme` write CSS variables. Built-ins live under
-`src/modules/theme/themes/`; custom themes are validated before use and
-imported through a plain HTML file input.
+`applyTheme` write CSS variables. Six built-ins live under
+`src/modules/theme/themes/` (`kite-default`, `claude`, `dracula`, `nord`,
+`catppuccin`, `tokyo-night`); `kite-default` has empty variants so it clears
+overrides back to the `globals.css` baseline. Custom themes are validated before
+use and imported through a plain HTML file input.
 
 Legacy `terax-*` store keys and theme ids are read only as migration fallbacks.
 New state is written under `kite-*` names. `.terax-theme` remains a supported
@@ -166,4 +201,7 @@ legacy import extension.
   boundary to prevent file-tree resets.
 - xterm WebGL uses a fixed glyph atlas. CJK fallback fonts can misalign; users
   can disable WebGL or choose a monospaced CJK font.
-- Rust tools may live under `D:\cargo\bin` on the maintainer workstation.
+- OSC 7 is honored only between commands. Command stdout is untrusted, so a
+  remote shell or `cat` of a hostile file cannot move the tracked cwd.
+- `src-tauri/tests/` call the command functions directly as plain Rust; they do
+  not need a Tauri runtime.
