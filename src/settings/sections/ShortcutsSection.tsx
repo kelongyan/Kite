@@ -5,6 +5,7 @@ import { useMessages, type Messages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { setShortcuts } from "@/modules/settings/store";
 import {
+  bindingsEqual,
   getBindingTokens,
   SHORTCUTS,
   SHORTCUT_GROUPS,
@@ -12,6 +13,7 @@ import {
   type Shortcut,
   type ShortcutId,
 } from "@/modules/shortcuts/shortcuts";
+import { toast } from "sonner";
 import {
   ArrowTurnBackwardIcon,
   Search01Icon,
@@ -19,6 +21,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useState, useMemo } from "react";
+import { SettingGroup } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import {
   AlertDialog,
@@ -54,6 +57,19 @@ export function ShortcutsSection() {
   }, [search, shortcutMessages.actions, shortcutMessages.groups]);
 
   const onRecord = (id: ShortcutId, binding: KeyBinding) => {
+    // Reject duplicates instead of silently rebinding: a shared binding would
+    // fire both actions, and the earlier action wins in the registry.
+    const conflict = SHORTCUTS.find(
+      (s) =>
+        s.id !== id &&
+        (userShortcuts[s.id] ?? s.defaultBindings).some((b) =>
+          bindingsEqual(b, binding),
+        ),
+    );
+    if (conflict) {
+      toast.error(shortcutMessages.conflict(shortcutMessages.actions[conflict.id]));
+      return;
+    }
     const next = { ...userShortcuts, [id]: [binding] };
     void setShortcuts(next);
     setRecordingId(null);
@@ -118,27 +134,22 @@ export function ShortcutsSection() {
           if (items.length === 0) return null;
 
           return (
-            <div key={group} className="flex flex-col gap-3">
-              <h3 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                {shortcutMessages.groups[group]}
-              </h3>
-              <div className="flex flex-col divide-y divide-border/40 rounded-lg border border-border/60 bg-card/40 overflow-hidden">
-                {items.map((s) => (
-                  <ShortcutRow
-                    key={s.id}
-                    shortcut={s}
-                    isRecording={recordingId === s.id}
-                    onStartRecording={() => setRecordingId(s.id)}
-                    onStopRecording={() => setRecordingId(null)}
-                    onRecord={(b) => onRecord(s.id, b)}
-                    onClear={() => onClear(s.id)}
-                    onReset={() => onResetShortcut(s.id)}
-                    userBindings={userShortcuts[s.id]}
-                    messages={shortcutMessages}
-                  />
-                ))}
-              </div>
-            </div>
+            <SettingGroup key={group} title={shortcutMessages.groups[group]}>
+              {items.map((s) => (
+                <ShortcutRow
+                  key={s.id}
+                  shortcut={s}
+                  isRecording={recordingId === s.id}
+                  onStartRecording={() => setRecordingId(s.id)}
+                  onStopRecording={() => setRecordingId(null)}
+                  onRecord={(b) => onRecord(s.id, b)}
+                  onClear={() => onClear(s.id)}
+                  onReset={() => onResetShortcut(s.id)}
+                  userBindings={userShortcuts[s.id]}
+                  messages={shortcutMessages}
+                />
+              ))}
+            </SettingGroup>
           );
         })}
       </div>
@@ -250,7 +261,7 @@ function ShortcutRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-7 text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
+                className="size-7 text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 onClick={onClear}
                 title={messages.clearShortcut}
               >

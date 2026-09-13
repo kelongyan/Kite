@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useMessages } from "@/modules/i18n";
-import { GithubIcon, Globe02Icon } from "@hugeicons/core-free-icons";
+import { GithubIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getName, getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -9,7 +9,6 @@ import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
 const REPO_URL = "https://github.com/kelongyan/Kite";
-const WEBSITE = "https://github.com/kelongyan/Kite";
 
 const PLATFORM_LABEL: Record<string, string> = {
   macos: "macOS",
@@ -53,7 +52,7 @@ export function AboutSection() {
           <span className="text-[11px] text-muted-foreground">
             {aboutMessages.tagline}
           </span>
-          <span className="mt-1 font-mono text-[11px] text-muted-foreground">
+          <span className="mt-1 font-mono text-[11px] text-muted-foreground select-text">
             v{version || "—"}
           </span>
         </div>
@@ -61,12 +60,12 @@ export function AboutSection() {
 
       <dl className="grid grid-cols-[110px_1fr] gap-y-2.5 text-[12px]">
         <dt className="text-muted-foreground">{aboutMessages.build}</dt>
-        <dd className="font-mono text-[11.5px]">
-          {build ? `${build} · v${version}` : `v${version}`}
+        <dd className="font-mono text-[11.5px] select-text">
+          {build || "—"}
         </dd>
 
         <dt className="text-muted-foreground">{aboutMessages.bundleId}</dt>
-        <dd className="font-mono text-[11.5px]">app.kelongyan.kite</dd>
+        <dd className="font-mono text-[11.5px] select-text">app.kelongyan.kite</dd>
 
         <dt className="text-muted-foreground">{aboutMessages.license}</dt>
         <dd>Apache 2.0</dd>
@@ -79,17 +78,6 @@ export function AboutSection() {
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
             <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
-            kelongyan/Kite
-          </button>
-        </dd>
-        <dt className="text-muted-foreground">{aboutMessages.projectPage}</dt>
-        <dd>
-          <button
-            type="button"
-            onClick={() => void openUrl(WEBSITE)}
-            className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
-          >
-            <HugeiconsIcon icon={Globe02Icon} size={12} strokeWidth={1.75} />
             github.com/kelongyan/Kite
           </button>
         </dd>
@@ -97,9 +85,6 @@ export function AboutSection() {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex gap-2">
-          <Button size="sm" disabled>
-            {aboutMessages.updatesDisabled}
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -110,7 +95,7 @@ export function AboutSection() {
             {aboutMessages.actions.viewOnGitHub}
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => void openUrl(`${REPO_URL}/issues/new`)}
           >

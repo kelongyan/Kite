@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -21,6 +22,7 @@ import {
   setDefaultWorkspaceEnv,
   setRestoreWindowState,
   setShowHidden,
+  setTerminalCjkFontFamily,
   setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalFontWeight,
@@ -37,12 +39,15 @@ import {
   ComputerIcon,
   Moon02Icon,
   Sun03Icon,
+  InformationCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { SettingGroup, SettingGroupTitle } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
+import { useSettingsNavigation } from "../SettingsNavigationContext";
 
 const APPEARANCE: {
   id: ThemePref;
@@ -71,6 +76,7 @@ const ZOOM_STEP = 0.05;
 export function GeneralSection() {
   const messages = useMessages();
   const g = messages.settings.general;
+  const { setActiveTab } = useSettingsNavigation();
   const { mode, setMode } = useTheme();
 
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
@@ -79,6 +85,9 @@ export function GeneralSection() {
     (s) => s.terminalWebglEnabled,
   );
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
+  const terminalCjkFontFamily = usePreferencesStore(
+    (s) => s.terminalCjkFontFamily,
+  );
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalShell = usePreferencesStore((s) => s.terminalShell);
   const [shells, setShells] = useState<ShellInfo[]>([]);
@@ -105,12 +114,13 @@ export function GeneralSection() {
       <SectionHeader title={g.title} description={g.description} />
 
       <div className="flex flex-col gap-2">
-        <Label>{g.appearance.title}</Label>
+        <SettingGroupTitle>{g.appearance.title}</SettingGroupTitle>
         <div className="grid grid-cols-3 gap-2">
           {APPEARANCE.map((o) => (
             <button
               key={o.id}
               type="button"
+              aria-pressed={mode === o.id}
               onClick={() => setMode(o.id)}
               className={cn(
                 "group flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg border bg-card transition-all",
@@ -126,36 +136,36 @@ export function GeneralSection() {
         </div>
         <p className="text-[11px] text-muted-foreground">
           {g.appearance.themesHint}{" "}
-          <strong className="font-medium text-foreground">
+          <button
+            type="button"
+            onClick={() => setActiveTab("themes")}
+            className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground/60"
+          >
             {g.appearance.themesTab}
-          </strong>{" "}
+          </button>{" "}
           {g.appearance.themesHintSuffix}
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label>{g.zoom.title}</Label>
-        <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[11.5px] text-muted-foreground">
-              {g.zoom.uiZoomLevel}
-            </span>
-            <span className="tabular-nums text-[11px] text-muted-foreground">
+      <SettingGroup title={g.zoom.title}>
+        <SettingRow title={g.zoom.uiZoomLevel}>
+          <div className="flex w-60 items-center gap-3">
+            <Slider
+              value={[zoomLevel]}
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={ZOOM_STEP}
+              onValueChange={(v) => void setZoomLevel(v[0] ?? 1)}
+              className="flex-1"
+            />
+            <span className="w-10 text-right tabular-nums text-[11px] text-muted-foreground">
               {Math.round(zoomLevel * 100)}%
             </span>
           </div>
-          <Slider
-            value={[zoomLevel]}
-            min={ZOOM_MIN}
-            max={ZOOM_MAX}
-            step={ZOOM_STEP}
-            onValueChange={(v) => void setZoomLevel(v[0] ?? 1)}
-          />
-        </div>
-      </div>
+        </SettingRow>
+      </SettingGroup>
 
-      <div className="flex flex-col gap-2">
-        <Label>{g.pathNav.title}</Label>
+      <SettingGroup title={g.pathNav.title}>
         <SettingRow
           title={g.pathNav.showHiddenDirs}
           description={g.pathNav.showHiddenDirsDescription}
@@ -165,43 +175,39 @@ export function GeneralSection() {
             onCheckedChange={(v) => void setShowHidden(v)}
           />
         </SettingRow>
-      </div>
+      </SettingGroup>
 
-      <div className="flex flex-col gap-2">
-        <Label>{g.terminal.title}</Label>
-        <SettingRow
-          title={
-            <span className="inline-flex items-center gap-1.5">
-              {g.terminal.useWebgl}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help bg-transparent p-0 text-[11px] text-muted-foreground/70 leading-none"
-                      aria-label={g.terminal.webglAria}
-                    >
-                      ⓘ
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-65 text-[11px]">
-                    {g.terminal.webglTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </span>
-          }
-          description={g.terminal.webglDescription}
-        >
-          <Switch
-            checked={terminalWebglEnabled}
-            onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
-          />
-        </SettingRow>
+      <SettingGroup title={g.terminal.title}>
         <FontFamilyInput
-          value={terminalFontFamily}
-          onCommit={(v) => void setTerminalFontFamily(v)}
+          codeValue={terminalFontFamily}
+          cjkValue={terminalCjkFontFamily}
+          onCodeCommit={(v) => void setTerminalFontFamily(v)}
+          onCjkCommit={(v) => void setTerminalCjkFontFamily(v)}
         />
+        <SettingRow
+          title={g.terminal.fontSize}
+          description={g.terminal.fontSizeDescription}
+        >
+          <Select
+            value={String(terminalFontSize)}
+            onValueChange={(v) => void setTerminalFontSize(Number(v))}
+          >
+            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TERMINAL_FONT_SIZES.map((size) => (
+                <SelectItem
+                  key={size}
+                  value={String(size)}
+                  className="text-[12px]"
+                >
+                  {size} px
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
         <SettingRow
           title={g.terminal.fontWeight}
           description={g.terminal.fontWeightDescription}
@@ -224,6 +230,26 @@ export function GeneralSection() {
                   className="text-[12px]"
                 >
                   {g.terminal.fontWeights[w.labelKey]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SettingRow
+          title={g.terminal.letterSpacing}
+          description={g.terminal.letterSpacingDescription}
+        >
+          <Select
+            value={String(terminalLetterSpacing)}
+            onValueChange={(v) => void setTerminalLetterSpacing(Number(v))}
+          >
+            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LETTER_SPACINGS.map((v) => (
+                <SelectItem key={v} value={String(v)} className="text-[12px]">
+                  {v > 0 ? `+${v}` : v} px
                 </SelectItem>
               ))}
             </SelectContent>
@@ -280,7 +306,7 @@ export function GeneralSection() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="local" className="text-[12px]">
-                  Windows
+                  {g.terminal.workspaceEnvWindows}
                 </SelectItem>
                 {wslDistros.map((d) => (
                   <SelectItem
@@ -288,7 +314,7 @@ export function GeneralSection() {
                     value={`wsl:${d.name}`}
                     className="text-[12px]"
                   >
-                    WSL: {d.name}
+                    {g.terminal.workspaceEnvWsl}: {d.name}
                   </SelectItem>
                 ))}
                 {defaultWorkspaceEnv.startsWith("wsl:") &&
@@ -308,48 +334,37 @@ export function GeneralSection() {
           </SettingRow>
         )}
         <SettingRow
-          title={g.terminal.letterSpacing}
-          description={g.terminal.letterSpacingDescription}
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              {g.terminal.useWebgl}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="cursor-help bg-transparent p-0 text-muted-foreground/70"
+                      aria-label={g.terminal.webglAria}
+                    >
+                      <HugeiconsIcon
+                        icon={InformationCircleIcon}
+                        size={13}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-65 text-[11px]">
+                    {g.terminal.webglTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </span>
+          }
+          description={g.terminal.webglDescription}
         >
-          <Select
-            value={String(terminalLetterSpacing)}
-            onValueChange={(v) => void setTerminalLetterSpacing(Number(v))}
-          >
-            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LETTER_SPACINGS.map((v) => (
-                <SelectItem key={v} value={String(v)} className="text-[12px]">
-                  {v > 0 ? `+${v}` : v} px
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </SettingRow>
-        <SettingRow
-          title={g.terminal.fontSize}
-          description={g.terminal.fontSizeDescription}
-        >
-          <Select
-            value={String(terminalFontSize)}
-            onValueChange={(v) => void setTerminalFontSize(Number(v))}
-          >
-            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TERMINAL_FONT_SIZES.map((size) => (
-                <SelectItem
-                  key={size}
-                  value={String(size)}
-                  className="text-[12px]"
-                >
-                  {size} px
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Switch
+            checked={terminalWebglEnabled}
+            onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
+          />
         </SettingRow>
         <SettingRow
           title={g.terminal.scrollback}
@@ -375,69 +390,97 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-      </div>
+      </SettingGroup>
 
-      <div className="flex flex-col gap-2">
-        <Label>{g.startup.title}</Label>
-        <div className="flex flex-col gap-2">
-          <SettingRow
-            title={g.startup.restoreWindow}
-            description={g.startup.restoreWindowDescription}
-          >
-            <Switch
-              checked={restoreWindowState}
-              onCheckedChange={(v) => void setRestoreWindowState(v)}
-            />
-          </SettingRow>
-        </div>
-      </div>
+      <SettingGroup title={g.startup.title}>
+        <SettingRow
+          title={g.startup.restoreWindow}
+          description={g.startup.restoreWindowDescription}
+        >
+          <Switch
+            checked={restoreWindowState}
+            onCheckedChange={(v) => void setRestoreWindowState(v)}
+          />
+        </SettingRow>
+      </SettingGroup>
     </div>
   );
 }
 
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
-      {children}
-    </span>
-  );
-}
+// Short lists keep the dropdown scannable. Anything else can still be typed
+// through the combobox custom row, so a niche family does not need an entry.
+const CODE_FONT_FAMILIES = [
+  "JetBrains Mono",
+  "Cascadia Code",
+  "Consolas",
+  "Fira Code",
+  "Monaco",
+  "Menlo",
+  "DejaVu Sans Mono",
+  "monospace",
+] as const;
+
+const CJK_FONT_FAMILIES = [
+  "Sarasa Mono SC",
+  "LXGW WenKai Mono",
+  "Microsoft YaHei",
+  "PingFang SC",
+  "Noto Sans CJK SC",
+] as const;
 
 function FontFamilyInput({
-  value,
-  onCommit,
+  codeValue,
+  cjkValue,
+  onCodeCommit,
+  onCjkCommit,
 }: {
-  value: string;
-  onCommit: (v: string) => void;
+  codeValue: string;
+  cjkValue: string;
+  onCodeCommit: (value: string) => void;
+  onCjkCommit: (value: string) => void;
 }) {
   const messages = useMessages();
   const terminalMessages = messages.settings.general.terminal;
-  const [draft, setDraft] = useState(value);
 
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  const commit = () => {
-    const next = draft.trim();
-    if (next !== draft) setDraft(next);
-    if (next !== value) onCommit(next);
-  };
+  const codeOptions: ComboboxOption[] = CODE_FONT_FAMILIES.map((family) => ({
+    value: family,
+    label: family,
+  }));
+  const cjkOptions: ComboboxOption[] = [
+    { value: "", label: terminalMessages.cjkFontFamilyPlaceholder },
+    ...CJK_FONT_FAMILIES.map((family) => ({ value: family, label: family })),
+  ];
 
   return (
     <SettingRow title={terminalMessages.fontFamily}>
-      <div className="flex flex-col gap-1.5">
-        <input
-          type="text"
-          value={draft}
-          placeholder={terminalMessages.fontFamilyPlaceholder}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
-          className="h-8 w-[360px] rounded-md border border-border bg-background px-2.5 text-[12px] outline-none focus:border-foreground/40"
-        />
+      <div className="grid w-[360px] grid-cols-2 gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10.5px] text-muted-foreground">
+            {terminalMessages.codeFontFamily}
+          </span>
+          <Combobox
+            value={codeValue}
+            options={codeOptions}
+            onValueChange={onCodeCommit}
+            ariaLabel={terminalMessages.codeFontFamily}
+            searchPlaceholder={terminalMessages.fontFamilySearch}
+            customPrefix={terminalMessages.fontFamilyUseCustom}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10.5px] text-muted-foreground">
+            {terminalMessages.cjkFontFamily}
+          </span>
+          <Combobox
+            value={cjkValue}
+            options={cjkOptions}
+            onValueChange={onCjkCommit}
+            ariaLabel={terminalMessages.cjkFontFamily}
+            emptyLabel={terminalMessages.cjkFontFamilyPlaceholder}
+            searchPlaceholder={terminalMessages.fontFamilySearch}
+            customPrefix={terminalMessages.fontFamilyUseCustom}
+          />
+        </div>
       </div>
     </SettingRow>
   );

@@ -1,0 +1,52 @@
+import type { Theme } from "../types";
+
+export const oneDark: Theme = {
+  id: "one-dark",
+  name: "One Dark",
+  description: "Atom's balanced dark palette.",
+  variants: {
+    dark: {
+      colors: {
+        background: "#282c34",
+        foreground: "#abb2bf",
+        card: "#21252b",
+        cardForeground: "#abb2bf",
+        popover: "#21252b",
+        popoverForeground: "#abb2bf",
+        primary: "#61afef",
+        primaryForeground: "#1b1f27",
+        secondary: "#3a3f4b",
+        secondaryForeground: "#abb2bf",
+        muted: "#3a3f4b",
+        mutedForeground: "#8b92a0",
+        accent: "#3a3f4b",
+        accentForeground: "#abb2bf",
+        destructive: "#e06c75",
+        border: "rgba(171,178,191,0.14)",
+        input: "rgba(171,178,191,0.18)",
+        ring: "#61afef",
+        sidebar: "#21252b",
+        sidebarForeground: "#abb2bf",
+        sidebarPrimary: "#61afef",
+        sidebarPrimaryForeground: "#1b1f27",
+        sidebarAccent: "#3a3f4b",
+        sidebarAccentForeground: "#abb2bf",
+        sidebarBorder: "rgba(171,178,191,0.14)",
+        sidebarRing: "#61afef",
+      },
+      terminal: {
+        background: "#282c34",
+        foreground: "#abb2bf",
+        cursor: "#528bff",
+        cursorAccent: "#282c34",
+        selection: "rgba(97,175,239,0.28)",
+        ansi: [
+          "#3f4451", "#e05561", "#8cc265", "#d18f52",
+          "#4aa5f0", "#c162de", "#42b3c2", "#d7dae0",
+          "#4f5666", "#ff616e", "#a5e075", "#f0a45d",
+          "#4dc4ff", "#de73ff", "#4cd1e0", "#e6e6e6",
+        ],
+      },
+    },
+  },
+};

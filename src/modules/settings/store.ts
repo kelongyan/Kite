@@ -1,4 +1,7 @@
-import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/fonts";
+import {
+  DEFAULT_MONO_FONT_FAMILY,
+  splitLegacyFontFamily,
+} from "@/lib/fonts";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { DEFAULT_THEME_ID, normalizeThemeId } from "@/modules/theme/types";
 import {
@@ -30,6 +33,7 @@ export type Preferences = {
   terminalCursorWidth: TerminalCursorWidth;
   terminalCursorSmoothCaretAnimation: TerminalCursorSmoothCaretAnimation;
   terminalFontFamily: string;
+  terminalCjkFontFamily: string;
   terminalFontWeight: string;
   terminalShell: string;
   terminalLetterSpacing: number;
@@ -52,6 +56,7 @@ const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION =
   "terminalCursorSmoothCaretAnimation";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
+const KEY_TERMINAL_CJK_FONT_FAMILY = "terminalCjkFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
@@ -113,6 +118,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalCursorSmoothCaretAnimation:
     DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION,
   terminalFontFamily: DEFAULT_MONO_FONT_FAMILY,
+  terminalCjkFontFamily: "",
   terminalFontWeight: "normal",
   terminalShell: "",
   terminalLetterSpacing: 0,
@@ -132,6 +138,12 @@ export function normalizeTerminalFontFamily(value: string | undefined): string {
   return fontFamily;
 }
 
+export function normalizeTerminalCjkFontFamily(
+  value: string | undefined,
+): string {
+  return value?.trim() ?? "";
+}
+
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
 const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
   defaults: {},
@@ -141,7 +153,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 8;
+const SETTINGS_VERSION = 9;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -171,6 +183,15 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
     },
     8: (map) => {
       removeRetiredShortcuts(map);
+    },
+    9: (map) => {
+      if (map.has(KEY_TERMINAL_CJK_FONT_FAMILY)) return;
+      const legacy = map.get(KEY_TERMINAL_FONT_FAMILY);
+      const { codeFontFamily, cjkFontFamily } = splitLegacyFontFamily(
+        typeof legacy === "string" ? legacy : undefined,
+      );
+      map.set(KEY_TERMINAL_FONT_FAMILY, codeFontFamily);
+      map.set(KEY_TERMINAL_CJK_FONT_FAMILY, cjkFontFamily);
     },
   };
 
@@ -276,6 +297,9 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontFamily: normalizeTerminalFontFamily(
       get<string>(KEY_TERMINAL_FONT_FAMILY),
     ),
+    terminalCjkFontFamily: normalizeTerminalCjkFontFamily(
+      get<string>(KEY_TERMINAL_CJK_FONT_FAMILY),
+    ),
     terminalFontWeight: coerceFontWeight(
       get<string>(KEY_TERMINAL_FONT_WEIGHT) ??
         DEFAULT_PREFERENCES.terminalFontWeight,
@@ -332,6 +356,13 @@ export async function setTerminalCursorSmoothCaretAnimation(
 
 export async function setTerminalFontFamily(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_FAMILY, normalizeTerminalFontFamily(value));
+}
+
+export async function setTerminalCjkFontFamily(value: string): Promise<void> {
+  await writePref(
+    KEY_TERMINAL_CJK_FONT_FAMILY,
+    normalizeTerminalCjkFontFamily(value),
+  );
 }
 
 const TERMINAL_FONT_WEIGHT_VALUES = new Set(["normal", "500", "600", "bold"]);
@@ -419,6 +450,7 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION]:
       "terminalCursorSmoothCaretAnimation",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
+    [KEY_TERMINAL_CJK_FONT_FAMILY]: "terminalCjkFontFamily",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
     [KEY_TERMINAL_SHELL]: "terminalShell",
     [KEY_TERMINAL_LETTER_SPACING]: "terminalLetterSpacing",

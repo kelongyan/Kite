@@ -292,7 +292,10 @@ function getRecycler(): HTMLDivElement {
 function termOptions() {
   const prefs = usePreferencesStore.getState();
   return {
-    fontFamily: resolveFontFamily(prefs.terminalFontFamily),
+    fontFamily: resolveFontFamily(
+      prefs.terminalFontFamily,
+      prefs.terminalCjkFontFamily,
+    ),
     fontWeight: prefs.terminalFontWeight as FontWeight,
     letterSpacing: prefs.terminalLetterSpacing,
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
@@ -1745,8 +1748,11 @@ export function applyLetterSpacing(spacing: number): void {
   }
 }
 
-export function applyFontFamily(family: string): void {
-  const resolved = resolveFontFamily(family);
+export function applyFontFamily(
+  codeFontFamily: string,
+  cjkFontFamily: string,
+): void {
+  const resolved = resolveFontFamily(codeFontFamily, cjkFontFamily);
   for (const slot of slots) {
     if (slot.term.options.fontFamily === resolved) continue;
     slot.term.options.fontFamily = resolved;

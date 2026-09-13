@@ -1,0 +1,52 @@
+import type { Theme } from "../types";
+
+export const nightOwl: Theme = {
+  id: "night-owl",
+  name: "Night Owl",
+  description: "Deep navy tuned for low light.",
+  variants: {
+    dark: {
+      colors: {
+        background: "#011627",
+        foreground: "#d6deeb",
+        card: "#01121f",
+        cardForeground: "#d6deeb",
+        popover: "#01121f",
+        popoverForeground: "#d6deeb",
+        primary: "#82aaff",
+        primaryForeground: "#01121f",
+        secondary: "#0b2942",
+        secondaryForeground: "#d6deeb",
+        muted: "#0b2942",
+        mutedForeground: "#8badc1",
+        accent: "#0b2942",
+        accentForeground: "#d6deeb",
+        destructive: "#ef5350",
+        border: "rgba(214,222,235,0.12)",
+        input: "rgba(214,222,235,0.16)",
+        ring: "#82aaff",
+        sidebar: "#01121f",
+        sidebarForeground: "#d6deeb",
+        sidebarPrimary: "#82aaff",
+        sidebarPrimaryForeground: "#01121f",
+        sidebarAccent: "#0b2942",
+        sidebarAccentForeground: "#d6deeb",
+        sidebarBorder: "rgba(214,222,235,0.12)",
+        sidebarRing: "#82aaff",
+      },
+      terminal: {
+        background: "#011627",
+        foreground: "#d6deeb",
+        cursor: "#80a4c2",
+        cursorAccent: "#011627",
+        selection: "rgba(130,170,255,0.25)",
+        ansi: [
+          "#011627", "#ef5350", "#22da6e", "#addb67",
+          "#82aaff", "#c792ea", "#21c7a8", "#ffffff",
+          "#575656", "#ef5350", "#22da6e", "#ffeb95",
+          "#82aaff", "#c792ea", "#7fdbca", "#ffffff",
+        ],
+      },
+    },
+  },
+};

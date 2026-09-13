@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
 import App from "./app/App";
 import { initLaunchDir } from "./lib/launchDir";
+import { usePreferencesStore } from "./modules/settings/preferences";
 import { USE_CUSTOM_WINDOW_CONTROLS } from "./lib/platform";
 
 if (USE_CUSTOM_WINDOW_CONTROLS) {
@@ -22,8 +23,17 @@ if (import.meta.env.DEV && import.meta.env.VITE_REACT_SCAN === "true") {
 // Reap PTY sessions orphaned by a prior webview load before any tab spawns.
 await invoke("pty_close_all").catch(() => {});
 
-// Seed before first paint so default tab mounts at target cwd (no flicker).
-await initLaunchDir();
+// Seed before first paint so the default tab mounts at the target cwd and the
+// terminal renders with the saved preferences instead of flashing defaults.
+// This window must call init() itself: it both reads preferences from disk and
+// registers the cross-window change subscription, and nothing else in the main
+// window does either, so dropping it silently reverts every persisted setting.
+await Promise.all([
+  initLaunchDir(),
+  usePreferencesStore.getState().init().catch((error) => {
+    console.error("preferences initialization failed:", error);
+  }),
+]);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <App />,

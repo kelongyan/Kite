@@ -627,9 +627,10 @@ export function useTerminalSession({
   }, [fontSize, zoomLevel]);
 
   const fontFamily = usePreferencesStore((p) => p.terminalFontFamily);
+  const cjkFontFamily = usePreferencesStore((p) => p.terminalCjkFontFamily);
   useEffect(() => {
-    applyFontFamily(fontFamily);
-  }, [fontFamily]);
+    applyFontFamily(fontFamily, cjkFontFamily);
+  }, [fontFamily, cjkFontFamily]);
 
   const fontWeight = usePreferencesStore((p) => p.terminalFontWeight);
   useEffect(() => {

@@ -1,0 +1,52 @@
+import type { Theme } from "../types";
+
+export const monokai: Theme = {
+  id: "monokai",
+  name: "Monokai",
+  description: "The classic high-saturation editor palette.",
+  variants: {
+    dark: {
+      colors: {
+        background: "#272822",
+        foreground: "#f8f8f2",
+        card: "#1f201b",
+        cardForeground: "#f8f8f2",
+        popover: "#1f201b",
+        popoverForeground: "#f8f8f2",
+        primary: "#a6e22e",
+        primaryForeground: "#1f201b",
+        secondary: "#3e3d32",
+        secondaryForeground: "#f8f8f2",
+        muted: "#3e3d32",
+        mutedForeground: "#c9c9bd",
+        accent: "#3e3d32",
+        accentForeground: "#f8f8f2",
+        destructive: "#f92672",
+        border: "rgba(248,248,242,0.14)",
+        input: "rgba(248,248,242,0.18)",
+        ring: "#a6e22e",
+        sidebar: "#1f201b",
+        sidebarForeground: "#f8f8f2",
+        sidebarPrimary: "#a6e22e",
+        sidebarPrimaryForeground: "#1f201b",
+        sidebarAccent: "#3e3d32",
+        sidebarAccentForeground: "#f8f8f2",
+        sidebarBorder: "rgba(248,248,242,0.14)",
+        sidebarRing: "#a6e22e",
+      },
+      terminal: {
+        background: "#272822",
+        foreground: "#f8f8f2",
+        cursor: "#f8f8f0",
+        cursorAccent: "#272822",
+        selection: "rgba(166,226,46,0.25)",
+        ansi: [
+          "#272822", "#f92672", "#a6e22e", "#f4bf75",
+          "#66d9ef", "#ae81ff", "#a1efe4", "#f8f8f2",
+          "#75715e", "#f92672", "#a6e22e", "#f4bf75",
+          "#66d9ef", "#ae81ff", "#a1efe4", "#f9f8f5",
+        ],
+      },
+    },
+  },
+};

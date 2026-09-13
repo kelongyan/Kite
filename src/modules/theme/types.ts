@@ -60,15 +60,14 @@ export type Theme = {
 
 export const DEFAULT_THEME_ID = "kite-default";
 const LEGACY_DEFAULT_THEME_ID = "terax-default";
+// Ids that once shipped and no longer do, so a stored selection falls back to
+// the default instead of rendering an unknown theme. Only add ids that are
+// gone for good; a theme that still ships under this id would become
+// unselectable because every write path normalizes through here.
 const RETIRED_BUILTIN_THEME_IDS = new Set([
   "caffeine",
-  "everforest",
-  "gruvbox",
-  "kanagawa",
   "kanagawa-dragon",
-  "rose-pine",
   "sage",
-  "solarized",
   "tide",
 ]);
 

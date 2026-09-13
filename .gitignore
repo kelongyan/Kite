@@ -28,3 +28,7 @@ output/
 *.sw?
 
 *.tsbuildinfo
+
+# AI tool working dirs
+.commandcode/
+.zcode/

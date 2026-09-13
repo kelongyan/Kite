@@ -19,11 +19,48 @@ const CJK_FONT_CANDIDATES = [
   "NSimSun",
 ];
 
-const quote = (family: string) => `"${family}"`;
+const GENERIC_FONT_FAMILIES = new Set([
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-monospace",
+]);
+const SYSTEM_MONO_FALLBACKS = ["SFMono-Regular", "Menlo", "monospace"];
+const LEGACY_CJK_FONT_FAMILIES = new Set(
+  [
+    ...CJK_FONT_CANDIDATES,
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "WenQuanYi Micro Hei",
+    "Noto Sans CJK SC",
+  ].map((family) => family.toLowerCase()),
+);
 
-const CJK_FALLBACK_CHAIN = CJK_FONT_CANDIDATES.map(quote).join(", ");
-const FALLBACK_CHAIN = `${CJK_FALLBACK_CHAIN}, SFMono-Regular, Menlo, monospace`;
-const DEFAULT_FONT_STACK = `${quote(DEFAULT_MONO_FONT_FAMILY)}, ${FALLBACK_CHAIN}`;
+function parseFontFamilies(value: string): string[] {
+  return value
+    .split(",")
+    .map((family) => family.trim().replace(/['"]/g, ""))
+    .filter(Boolean);
+}
+
+function formatFontFamily(family: string): string {
+  return GENERIC_FONT_FAMILIES.has(family.toLowerCase())
+    ? family.toLowerCase()
+    : `"${family}"`;
+}
+
+function uniqueFontFamilies(families: string[]): string[] {
+  const seen = new Set<string>();
+  return families.filter((family) => {
+    const key = family.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 let monoReady: Promise<void> | null = null;
 
@@ -40,17 +77,60 @@ export function ensureMonoFontsLoaded(): Promise<void> {
   return monoReady;
 }
 
-export function resolveFontFamily(userInput: string): string {
-  const name = userInput.trim();
-  if (!name) return DEFAULT_FONT_STACK;
-  // A comma means the user gave a full stack; otherwise quote the single family.
-  // Strip any quotes first so a stray quote can't produce a malformed token.
-  const head = name.includes(",")
-    ? name
-    : `"${name.replace(/['"]/g, "")}"`;
-  return `${head}, ${FALLBACK_CHAIN}`;
+export function resolveFontFamily(
+  codeFontFamily: string,
+  cjkFontFamily = "",
+): string {
+  const codeFamilies = parseFontFamilies(codeFontFamily);
+  const cjkFamilies = parseFontFamilies(cjkFontFamily);
+  const families = uniqueFontFamilies([
+    ...(codeFamilies.length > 0 ? codeFamilies : [DEFAULT_MONO_FONT_FAMILY]),
+    DEFAULT_MONO_FONT_FAMILY,
+    ...cjkFamilies,
+    ...CJK_FONT_CANDIDATES,
+    ...SYSTEM_MONO_FALLBACKS,
+  ]);
+  return families.map(formatFontFamily).join(", ");
+}
+
+export function splitLegacyFontFamily(value: string | undefined): {
+  codeFontFamily: string;
+  cjkFontFamily: string;
+} {
+  const normalized = value?.trim() ?? "";
+  if (!normalized || normalized.toLowerCase() === "monaco") {
+    return { codeFontFamily: DEFAULT_MONO_FONT_FAMILY, cjkFontFamily: "" };
+  }
+
+  const families = parseFontFamilies(normalized);
+  if (families.length < 2) {
+    return { codeFontFamily: normalized, cjkFontFamily: "" };
+  }
+
+  const codeFontFamily = families[0];
+  const cjkIndex = families.findIndex(
+    (family, index) =>
+      index > 0 && LEGACY_CJK_FONT_FAMILIES.has(family.toLowerCase()),
+  );
+  if (cjkIndex !== 1) {
+    return { codeFontFamily: normalized, cjkFontFamily: "" };
+  }
+
+  const trailingFamilies = families.slice(cjkIndex + 1);
+  if (
+    trailingFamilies.some(
+      (family) => !GENERIC_FONT_FAMILIES.has(family.toLowerCase()),
+    )
+  ) {
+    return { codeFontFamily: normalized, cjkFontFamily: "" };
+  }
+
+  return {
+    codeFontFamily,
+    cjkFontFamily: families[cjkIndex],
+  };
 }
 
 export function detectMonoFontFamily(): string {
-  return DEFAULT_FONT_STACK;
+  return resolveFontFamily(DEFAULT_MONO_FONT_FAMILY);
 }

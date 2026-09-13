@@ -1,0 +1,52 @@
+import type { Theme } from "../types";
+
+export const oneLight: Theme = {
+  id: "one-light",
+  name: "One Light",
+  description: "The daylight counterpart to One Dark.",
+  variants: {
+    light: {
+      colors: {
+        background: "#fafafa",
+        foreground: "#383a42",
+        card: "#ffffff",
+        cardForeground: "#383a42",
+        popover: "#ffffff",
+        popoverForeground: "#383a42",
+        primary: "#4078f2",
+        primaryForeground: "#ffffff",
+        secondary: "#e5e5e6",
+        secondaryForeground: "#383a42",
+        muted: "#e5e5e6",
+        mutedForeground: "#696c77",
+        accent: "#e5e5e6",
+        accentForeground: "#383a42",
+        destructive: "#e45649",
+        border: "rgba(56,58,66,0.12)",
+        input: "rgba(56,58,66,0.16)",
+        ring: "#4078f2",
+        sidebar: "#ffffff",
+        sidebarForeground: "#383a42",
+        sidebarPrimary: "#4078f2",
+        sidebarPrimaryForeground: "#ffffff",
+        sidebarAccent: "#e5e5e6",
+        sidebarAccentForeground: "#383a42",
+        sidebarBorder: "rgba(56,58,66,0.12)",
+        sidebarRing: "#4078f2",
+      },
+      terminal: {
+        background: "#fafafa",
+        foreground: "#383a42",
+        cursor: "#526fff",
+        cursorAccent: "#fafafa",
+        selection: "rgba(64,120,242,0.18)",
+        ansi: [
+          "#383a42", "#e45649", "#50a14f", "#c18401",
+          "#4078f2", "#a626a4", "#0184bc", "#a0a1a7",
+          "#696c77", "#e45649", "#50a14f", "#c18401",
+          "#4078f2", "#a626a4", "#0184bc", "#ffffff",
+        ],
+      },
+    },
+  },
+};

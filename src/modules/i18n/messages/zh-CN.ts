@@ -134,8 +134,12 @@ export const zhCN = {
         webglDescription:
           "硬件加速渲染。文字出现损坏、空白块或 CJK 对齐异常时可关闭。",
         fontFamily: "字体族",
-        fontFamilyPlaceholder:
-          "例如 JetBrains Mono, 'Microsoft YaHei', monospace",
+        codeFontFamily: "代码字体",
+        codeFontFamilyPlaceholder: "JetBrains Mono",
+        cjkFontFamily: "中文字体",
+        cjkFontFamilyPlaceholder: "自动",
+        fontFamilySearch: "搜索或输入字体名",
+        fontFamilyUseCustom: "使用",
         fontWeight: "字体粗细",
         fontWeightDescription: "终端字符的粗细。",
         fontWeights: {
@@ -153,6 +157,8 @@ export const zhCN = {
         workspaceEnvironment: "工作区环境",
         workspaceEnvironmentDescription:
           "新终端运行的位置：Windows 或 WSL 发行版。已打开的标签保持原环境，可在状态栏切换。",
+        workspaceEnvWindows: "Windows",
+        workspaceEnvWsl: "WSL",
         unavailable: "不可用",
         letterSpacing: "字距",
         letterSpacingDescription:
@@ -177,8 +183,12 @@ export const zhCN = {
       theme: {
         title: "主题",
         importTheme: "导入 .kite-theme",
+        dragHint: "也可将 .kite-theme 文件拖入本页任意位置导入",
         failedToRead: "读取失败",
         removeTheme: (name: string) => `移除 ${name}`,
+        removeThemeConfirm: "此操作无法撤销。",
+        cancel: "取消",
+        remove: "移除",
       },
     },
     shortcuts: {
@@ -191,6 +201,7 @@ export const zhCN = {
       clearShortcut: "清除快捷键",
       recording: "录制中...",
       escToCancel: "（Esc 取消）",
+      conflict: (action: string) => `该快捷键已分配给「${action}」`,
       resetDialogTitle: "重置所有快捷键？",
       resetDialogDescription:
         "这会把所有自定义键盘快捷键恢复为出厂默认值，此操作无法撤销。",
@@ -227,8 +238,6 @@ export const zhCN = {
       bundleId: "Bundle ID",
       license: "许可证",
       sourceCode: "源代码",
-      projectPage: "项目页面",
-      updatesDisabled: "更新已禁用",
       updateChecksDisabled: "此个人 fork 已禁用更新检查。",
       actions: {
         viewOnGitHub: "在 GitHub 查看",

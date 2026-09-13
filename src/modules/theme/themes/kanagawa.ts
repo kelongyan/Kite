@@ -1,0 +1,52 @@
+import type { Theme } from "../types";
+
+export const kanagawa: Theme = {
+  id: "kanagawa",
+  name: "Kanagawa",
+  description: "Ink-wash blues after ukiyo-e prints.",
+  variants: {
+    dark: {
+      colors: {
+        background: "#1f1f28",
+        foreground: "#dcd7ba",
+        card: "#16161d",
+        cardForeground: "#dcd7ba",
+        popover: "#16161d",
+        popoverForeground: "#dcd7ba",
+        primary: "#7e9cd8",
+        primaryForeground: "#16161d",
+        secondary: "#2a2a37",
+        secondaryForeground: "#dcd7ba",
+        muted: "#2a2a37",
+        mutedForeground: "#c8c093",
+        accent: "#2a2a37",
+        accentForeground: "#dcd7ba",
+        destructive: "#c34043",
+        border: "rgba(220,215,186,0.12)",
+        input: "rgba(220,215,186,0.16)",
+        ring: "#7e9cd8",
+        sidebar: "#16161d",
+        sidebarForeground: "#dcd7ba",
+        sidebarPrimary: "#7e9cd8",
+        sidebarPrimaryForeground: "#16161d",
+        sidebarAccent: "#2a2a37",
+        sidebarAccentForeground: "#dcd7ba",
+        sidebarBorder: "rgba(220,215,186,0.12)",
+        sidebarRing: "#7e9cd8",
+      },
+      terminal: {
+        background: "#1f1f28",
+        foreground: "#dcd7ba",
+        cursor: "#c8c093",
+        cursorAccent: "#1f1f28",
+        selection: "rgba(126,156,216,0.24)",
+        ansi: [
+          "#16161d", "#c34043", "#76946a", "#c0a36e",
+          "#7e9cd8", "#957fb8", "#6a9589", "#c8c093",
+          "#727169", "#e82424", "#98bb6c", "#e6c384",
+          "#7fb4ca", "#938aa9", "#7aa89f", "#dcd7ba",
+        ],
+      },
+    },
+  },
+};

@@ -110,7 +110,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 
   it("falls back to the legacy settings file only when the Kite store is empty", async () => {
@@ -143,7 +143,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundImageId");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundOpacity");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundBlur");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 
   it("removes retired explorer git decoration preference during migration", async () => {
@@ -156,7 +156,7 @@ describe("loadPreferences", () => {
 
     expect("explorerGitDecorations" in prefs).toBe(false);
     expect(storeMock.delete).toHaveBeenCalledWith("explorerGitDecorations");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 
   it("removes the retired header search shortcut during migration", async () => {
@@ -169,20 +169,73 @@ describe("loadPreferences", () => {
 
     expect("search.focus" in prefs.shortcuts).toBe(false);
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 
   it("normalizes retired builtin app themes during migration", async () => {
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 5],
-      ["themeId", "kanagawa"],
+      ["themeId", "sage"],
     ]);
 
     const prefs = await loadPreferences();
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
+  });
+
+  it("keeps the id of a builtin theme that still ships", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 8],
+      ["themeId", "kanagawa"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.themeId).toBe("kanagawa");
+  });
+
+  it("migrates the former recommended font stack into separate fields", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 8],
+      ["terminalFontFamily", "JetBrains Mono, 'Microsoft YaHei', monospace"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalFontFamily).toBe("JetBrains Mono");
+    expect(prefs.terminalCjkFontFamily).toBe("Microsoft YaHei");
+    expect(storeMock.set).toHaveBeenCalledWith(
+      "terminalCjkFontFamily",
+      "Microsoft YaHei",
+    );
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
+  });
+
+  it("preserves ambiguous legacy font stacks during migration", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 8],
+      ["terminalFontFamily", "Foo, Bar, monospace"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalFontFamily).toBe("Foo, Bar, monospace");
+    expect(prefs.terminalCjkFontFamily).toBe("");
+  });
+
+  it("loads a separately stored CJK font without remigrating it", async () => {
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 9],
+      ["terminalFontFamily", "Fira Code"],
+      ["terminalCjkFontFamily", "  SimSun  "],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalFontFamily).toBe("Fira Code");
+    expect(prefs.terminalCjkFontFamily).toBe("SimSun");
   });
 
   it("removes retired editor preferences and shortcuts during migration", async () => {
@@ -206,7 +259,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSave");
     expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSaveDelay");
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 
   it("removes retired sidebar and explorer shortcuts during migration", async () => {
@@ -228,6 +281,6 @@ describe("loadPreferences", () => {
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {
       "tab.new": [{ ctrl: true, key: "t" }],
     });
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 8);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 9);
   });
 });

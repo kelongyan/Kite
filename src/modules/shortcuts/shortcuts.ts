@@ -192,6 +192,21 @@ export function matchBinding(
 }
 
 /**
+ * Binding equality for conflict checks: case-insensitive key, exact modifier
+ * set. Booleans are coerced so a binding recorded with explicit `false`
+ * matches a default that omits the modifier.
+ */
+export function bindingsEqual(a: KeyBinding, b: KeyBinding): boolean {
+  return (
+    a.key.toLowerCase() === b.key.toLowerCase() &&
+    !!a.ctrl === !!b.ctrl &&
+    !!a.shift === !!b.shift &&
+    !!a.alt === !!b.alt &&
+    !!a.meta === !!b.meta
+  );
+}
+
+/**
  * Display helpers
  */
 export function getBindingTokens(binding?: KeyBinding): string[] {

@@ -8,11 +8,16 @@ type Props = {
   className?: string;
 };
 
+/**
+ * One row inside a SettingGroup. The group owns border, background, and
+ * dividers; this component only lays out title/description against the
+ * control, so it must not add chrome of its own.
+ */
 export function SettingRow({ title, description, children, className }: Props) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5",
+        "flex items-start justify-between gap-4 px-3 py-2.5",
         className,
       )}
     >
