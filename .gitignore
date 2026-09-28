@@ -32,3 +32,6 @@ output/
 # AI tool working dirs
 .commandcode/
 .zcode/
+
+# Local-only project rules (never commit)
+RULE.md
