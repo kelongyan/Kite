@@ -48,3 +48,16 @@
   font-weight: 700;
   src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-cyrillic-700-normal.woff2') format('woff2');
 }
+
+/* Noto Sans SC — the bundled CJK fallback. Only the "chinese-simplified"
+   subset is shipped: it covers the whole CJK block in one 1.1 MB file, while
+   the package's per-range slices total ~3.4 MB for the same coverage. Latin
+   needs no entry here because the code font always resolves those glyphs
+   first. woff2 only, matching the mono face above. */
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2') format('woff2');
+}

@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   detectMonoFontFamily,
+  isFontAvailable,
   resolveFontFamily,
   splitLegacyFontFamily,
 } from "./fonts";
 
 const FALLBACK =
-  '"Sarasa Mono SC", "Sarasa Term SC", "Source Han Mono SC", "Source Han Sans SC", "LXGW WenKai Mono", "Noto Sans Mono CJK SC", "Noto Serif CJK SC", "Microsoft YaHei Mono", "Microsoft YaHei", "Microsoft YaHei UI", "DengXian", "SimHei", "SimSun", "FangSong", "KaiTi", "NSimSun", "SFMono-Regular", "Menlo", monospace';
+  '"Sarasa Mono SC", "Sarasa Term SC", "Source Han Mono SC", "Source Han Sans SC", "LXGW WenKai Mono", "LXGW WenKai", "Noto Sans Mono CJK SC", "Noto Serif CJK SC", "Noto Sans SC", "Noto Serif SC", "Microsoft YaHei Mono", "Microsoft YaHei", "Microsoft YaHei UI", "DengXian", "SimHei", "SimSun", "FangSong", "KaiTi", "NSimSun", "SFMono-Regular", "Menlo", monospace';
 const DEFAULT_STACK = `"JetBrains Mono", ${FALLBACK}`;
 
 function withoutFallbackFamilies(...families: string[]): string {
@@ -99,5 +100,42 @@ describe("splitLegacyFontFamily", () => {
       codeFontFamily: "JetBrains Mono",
       cjkFontFamily: "",
     });
+  });
+});
+
+describe("isFontAvailable", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubDocument(fontFamilies: string[], canvasContext: unknown) {
+    vi.stubGlobal("document", {
+      fonts: fontFamilies.map((family) => ({ family })),
+      createElement: () => ({ getContext: () => canvasContext }),
+    });
+  }
+
+  // Every baseline measures the same width, so a canvas probe reports "missing".
+  const blankCanvas = { measureText: () => ({ width: 100 }), font: "" };
+
+  it("treats a family the app bundles via @font-face as available", () => {
+    // The declared face shadows the system install, so a canvas probe measures
+    // the (possibly unloaded) web font and wrongly reports it missing.
+    stubDocument(['"JetBrains Mono"', "Inter Variable"], blankCanvas);
+
+    expect(isFontAvailable("JetBrains Mono")).toBe(true);
+    expect(isFontAvailable("  'jetbrains mono'  ")).toBe(true);
+    expect(isFontAvailable("Inter Variable")).toBe(true);
+  });
+
+  it("does not claim a family that is neither bundled nor installed", () => {
+    stubDocument(['"JetBrains Mono"'], blankCanvas);
+
+    expect(isFontAvailable("Definitely Not A Real Font XYZ")).toBe(false);
+  });
+
+  it("treats generic and empty families as available", () => {
+    expect(isFontAvailable("")).toBe(true);
+    expect(isFontAvailable("monospace")).toBe(true);
   });
 });

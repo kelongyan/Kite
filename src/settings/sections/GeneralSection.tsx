@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -43,7 +43,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { SettingGroup, SettingGroupTitle } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
@@ -407,27 +407,9 @@ export function GeneralSection() {
   );
 }
 
-// Short lists keep the dropdown scannable. Anything else can still be typed
-// through the combobox custom row, so a niche family does not need an entry.
-const CODE_FONT_FAMILIES = [
-  "JetBrains Mono",
-  "Cascadia Code",
-  "Consolas",
-  "Fira Code",
-  "Monaco",
-  "Menlo",
-  "DejaVu Sans Mono",
-  "monospace",
-] as const;
-
-const CJK_FONT_FAMILIES = [
-  "Sarasa Mono SC",
-  "LXGW WenKai Mono",
-  "Microsoft YaHei",
-  "PingFang SC",
-  "Noto Sans CJK SC",
-] as const;
-
+// Font family names are free-form: VS Code-style, the user types whatever the
+// OS has installed. Nothing is enumerated, so the field never implies a font is
+// missing just because it was not on a curated list.
 function FontFamilyInput({
   codeValue,
   cjkValue,
@@ -442,46 +424,91 @@ function FontFamilyInput({
   const messages = useMessages();
   const terminalMessages = messages.settings.general.terminal;
 
-  const codeOptions: ComboboxOption[] = CODE_FONT_FAMILIES.map((family) => ({
-    value: family,
-    label: family,
-  }));
-  const cjkOptions: ComboboxOption[] = [
-    { value: "", label: terminalMessages.cjkFontFamilyPlaceholder },
-    ...CJK_FONT_FAMILIES.map((family) => ({ value: family, label: family })),
-  ];
-
   return (
-    <SettingRow title={terminalMessages.fontFamily}>
+    <SettingRow
+      title={terminalMessages.fontFamily}
+      description={terminalMessages.fontFamilyHint}
+    >
       <div className="grid w-[360px] grid-cols-2 gap-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[10.5px] text-muted-foreground">
-            {terminalMessages.codeFontFamily}
-          </span>
-          <Combobox
-            value={codeValue}
-            options={codeOptions}
-            onValueChange={onCodeCommit}
-            ariaLabel={terminalMessages.codeFontFamily}
-            searchPlaceholder={terminalMessages.fontFamilySearch}
-            customPrefix={terminalMessages.fontFamilyUseCustom}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[10.5px] text-muted-foreground">
-            {terminalMessages.cjkFontFamily}
-          </span>
-          <Combobox
-            value={cjkValue}
-            options={cjkOptions}
-            onValueChange={onCjkCommit}
-            ariaLabel={terminalMessages.cjkFontFamily}
-            emptyLabel={terminalMessages.cjkFontFamilyPlaceholder}
-            searchPlaceholder={terminalMessages.fontFamilySearch}
-            customPrefix={terminalMessages.fontFamilyUseCustom}
-          />
-        </div>
+        <FontFamilyField
+          label={terminalMessages.codeFontFamily}
+          value={codeValue}
+          placeholder={terminalMessages.codeFontFamilyPlaceholder}
+          onCommit={onCodeCommit}
+        />
+        <FontFamilyField
+          label={terminalMessages.cjkFontFamily}
+          value={cjkValue}
+          placeholder={terminalMessages.cjkFontFamilyPlaceholder}
+          onCommit={onCjkCommit}
+        />
       </div>
     </SettingRow>
+  );
+}
+
+// Local while typing, committed on blur or Enter so we do not rewrite the
+// preference (and re-layout every terminal) on each keystroke.
+function FontFamilyField({
+  label,
+  value,
+  placeholder,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState(value);
+
+  // Set by Escape so the blur it triggers reverts instead of committing. A ref
+  // rather than state: onBlur runs before React re-renders, so a state update
+  // would still be stale when the commit reads it.
+  const reverted = useRef(false);
+
+  // A change from another window (settings is shared) must win over stale
+  // local text, but not mid-edit.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-[10.5px] text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        id={id}
+        value={draft}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoComplete="off"
+        className="h-8 rounded-3xl text-[12px]"
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={() => setEditing(true)}
+        onBlur={() => {
+          setEditing(false);
+          if (reverted.current) {
+            reverted.current = false;
+            setDraft(value);
+          } else if (draft !== value) {
+            onCommit(draft);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            reverted.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
   );
 }

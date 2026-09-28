@@ -137,9 +137,9 @@ export const zhCN = {
         codeFontFamily: "代码字体",
         codeFontFamilyPlaceholder: "JetBrains Mono",
         cjkFontFamily: "中文字体",
-        cjkFontFamilyPlaceholder: "自动",
-        fontFamilySearch: "搜索或输入字体名",
-        fontFamilyUseCustom: "使用",
+        cjkFontFamilyPlaceholder: "Noto Sans SC",
+        fontFamilyHint:
+          "填写字体名，多个字体用英文逗号分隔；留空时使用 Kite 自带字体。",
         fontWeight: "字体粗细",
         fontWeightDescription: "终端字符的粗细。",
         fontWeights: {

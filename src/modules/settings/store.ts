@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CJK_FONT_FAMILY,
   DEFAULT_MONO_FONT_FAMILY,
   splitLegacyFontFamily,
 } from "@/lib/fonts";
@@ -118,7 +119,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalCursorSmoothCaretAnimation:
     DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION,
   terminalFontFamily: DEFAULT_MONO_FONT_FAMILY,
-  terminalCjkFontFamily: "",
+  terminalCjkFontFamily: DEFAULT_CJK_FONT_FAMILY,
   terminalFontWeight: "normal",
   terminalShell: "",
   terminalLetterSpacing: 0,
@@ -138,6 +139,9 @@ export function normalizeTerminalFontFamily(value: string | undefined): string {
   return fontFamily;
 }
 
+// Unlike the code font, an explicit empty value is meaningful here: it is the
+// "自动" (automatic) choice, so only surrounding whitespace is stripped. Stores
+// written before the Noto Sans SC default are filled in once by migration 10.
 export function normalizeTerminalCjkFontFamily(
   value: string | undefined,
 ): string {
@@ -153,7 +157,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 9;
+const SETTINGS_VERSION = 10;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -192,6 +196,15 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
       );
       map.set(KEY_TERMINAL_FONT_FAMILY, codeFontFamily);
       map.set(KEY_TERMINAL_CJK_FONT_FAMILY, cjkFontFamily);
+    },
+    10: (map) => {
+      // Adopt Noto Sans SC as the shipped default. Stores written while the
+      // default was the empty "自动" sentinel hold "", which `??`-style reads
+      // keep forever, so they must be filled in explicitly.
+      const cjk = map.get(KEY_TERMINAL_CJK_FONT_FAMILY);
+      if (cjk === undefined || (typeof cjk === "string" && cjk.trim() === "")) {
+        map.set(KEY_TERMINAL_CJK_FONT_FAMILY, DEFAULT_CJK_FONT_FAMILY);
+      }
     },
   };
 

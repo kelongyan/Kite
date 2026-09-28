@@ -8,6 +8,7 @@
   "project": ["src/**/*.{ts,tsx}"],
   "ignoreDependencies": [
     "@fontsource-variable/inter",
-    "@fontsource/jetbrains-mono"
+    "@fontsource/jetbrains-mono",
+    "@fontsource/noto-sans-sc"
   ]
 }

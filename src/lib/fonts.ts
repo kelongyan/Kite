@@ -1,4 +1,5 @@
 export const DEFAULT_MONO_FONT_FAMILY = "JetBrains Mono";
+export const DEFAULT_CJK_FONT_FAMILY = "Noto Sans SC";
 
 const CJK_FONT_CANDIDATES = [
   "Sarasa Mono SC",
@@ -6,8 +7,17 @@ const CJK_FONT_CANDIDATES = [
   "Source Han Mono SC",
   "Source Han Sans SC",
   "LXGW WenKai Mono",
+  // Windows registers LXGW WenKai without the "Mono" suffix (family id 1 is
+  // "LXGW WenKai"), so the Mono spelling alone leaves a user who installed it
+  // with no matching entry.
+  "LXGW WenKai",
   "Noto Sans Mono CJK SC",
   "Noto Serif CJK SC",
+  // Windows/macOS ship Noto under "Noto Sans SC"; only Linux fontconfig
+  // exposes the "... CJK SC" aliases above, so both spellings must be listed
+  // or a Noto selection silently falls through on non-Linux systems.
+  "Noto Sans SC",
+  "Noto Serif SC",
   "Microsoft YaHei Mono",
   "Microsoft YaHei",
   "Microsoft YaHei UI",
@@ -64,6 +74,10 @@ function uniqueFontFamilies(families: string[]): string[] {
 
 let monoReady: Promise<void> | null = null;
 
+// Both bundled faces must be loaded before the terminal measures its first
+// cell: an unloaded face falls back and the glyph grid is mismeasured until a
+// relayout. The CJK face is loaded at the size the terminal uses so woff2
+// decompression is not paid twice.
 export function ensureMonoFontsLoaded(): Promise<void> {
   if (monoReady) return monoReady;
   if (typeof document === "undefined" || !document.fonts?.load) {
@@ -73,6 +87,7 @@ export function ensureMonoFontsLoaded(): Promise<void> {
   monoReady = Promise.allSettled([
     document.fonts.load('400 14px "JetBrains Mono"'),
     document.fonts.load('700 14px "JetBrains Mono"'),
+    document.fonts.load('400 14px "Noto Sans SC"'),
   ]).then(() => undefined);
   return monoReady;
 }
@@ -133,4 +148,47 @@ export function splitLegacyFontFamily(value: string | undefined): {
 
 export function detectMonoFontFamily(): string {
   return resolveFontFamily(DEFAULT_MONO_FONT_FAMILY);
+}
+
+// Mixed latin + CJK so a font missing only one script still probes as present
+// for the script it does cover.
+const FONT_PROBE_TEXT = "mmmmmmmmmmlli\u6c49\u5b57\u4e2d\u6587WW";
+const FONT_PROBE_BASELINES = ["monospace", "sans-serif", "serif"] as const;
+
+// Families this app ships itself (see src/styles/fonts.css). The declared
+// @font-face shadows any system install of the same name, so a canvas probe
+// measures the web font instead of the machine's copy — and an unused face
+// stays `unloaded` forever, which reads as an exact baseline match. Since we
+// bundle the file, the family always renders and must not be flagged missing.
+function bundledFontFamilies(): Set<string> {
+  const families = new Set<string>();
+  if (typeof document === "undefined" || !document.fonts) return families;
+  for (const face of document.fonts) {
+    families.add(face.family.trim().replace(/['"]/g, "").toLowerCase());
+  }
+  return families;
+}
+
+// Detects whether a named family is actually installed. `document.fonts.check`
+// can report a fallback as present, so we compare rendered glyph widths against
+// the generic baselines the family is layered on: a real font shifts the width
+// for at least one baseline, a missing one matches every baseline exactly.
+export function isFontAvailable(family: string): boolean {
+  const name = family.trim().replace(/['"]/g, "");
+  if (!name) return true;
+  if (GENERIC_FONT_FAMILIES.has(name.toLowerCase())) return true;
+  if (typeof document === "undefined") return true;
+  if (bundledFontFamilies().has(name.toLowerCase())) return true;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  // No 2D context (headless/jsdom): don't hide options we cannot verify.
+  if (!ctx) return true;
+  const size = 48;
+  for (const baseline of FONT_PROBE_BASELINES) {
+    ctx.font = `${size}px ${baseline}`;
+    const baseWidth = ctx.measureText(FONT_PROBE_TEXT).width;
+    ctx.font = `${size}px "${name}", ${baseline}`;
+    if (ctx.measureText(FONT_PROBE_TEXT).width !== baseWidth) return true;
+  }
+  return false;
 }
