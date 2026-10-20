@@ -140,6 +140,8 @@ export const zhCN = {
         cjkFontFamilyPlaceholder: "Noto Sans SC",
         fontFamilyHint:
           "填写字体名，多个字体用英文逗号分隔；留空时使用 Kite 自带字体。",
+        fontFamilyUnmatched:
+          "未匹配到字体名，终端会改用自带字体。请填写字体族名，不要带字重或斜体后缀。",
         fontWeight: "字体粗细",
         fontWeightDescription: "终端字符的粗细。",
         fontWeights: {

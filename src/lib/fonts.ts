@@ -192,3 +192,17 @@ export function isFontAvailable(family: string): boolean {
   }
   return false;
 }
+
+/**
+ * Families in a comma-separated preference value that the system cannot match.
+ * The picker is free-text, and Windows registers many styles under display
+ * names that are not the CSS family ("Space Mono Italic" and
+ * "JetBrainsMono NF Bold" are styles of families named without the suffix), so
+ * such a value resolves to nothing and the fallback chain silently substitutes
+ * another face. Report those, but never block the commit: the probe has false
+ * negatives (a pure CJK family can measure exactly the baseline widths), and a
+ * variable font or a not-yet-loaded face can also read as missing.
+ */
+export function findUnavailableFonts(value: string): string[] {
+  return parseFontFamilies(value).filter((family) => !isFontAvailable(family));
+}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   detectMonoFontFamily,
+  findUnavailableFonts,
   isFontAvailable,
   resolveFontFamily,
   splitLegacyFontFamily,
@@ -137,5 +138,39 @@ describe("isFontAvailable", () => {
   it("treats generic and empty families as available", () => {
     expect(isFontAvailable("")).toBe(true);
     expect(isFontAvailable("monospace")).toBe(true);
+  });
+});
+
+describe("findUnavailableFonts", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubMissingProbe() {
+    vi.stubGlobal("document", {
+      fonts: [],
+      createElement: () => ({
+        getContext: () => ({ measureText: () => ({ width: 100 }), font: "" }),
+      }),
+    });
+  }
+
+  it("reports only the families the probe cannot match", () => {
+    stubMissingProbe();
+    expect(findUnavailableFonts("LXGW WenKai Regular, Def Not Real XYZ")).toEqual(
+      ["LXGW WenKai Regular", "Def Not Real XYZ"],
+    );
+  });
+
+  it("keeps generic families and ignores separators and quotes", () => {
+    stubMissingProbe();
+    expect(findUnavailableFonts(" 'Fira Code' ,, monospace ")).toEqual([
+      "Fira Code",
+    ]);
+  });
+
+  it("returns nothing for an empty value", () => {
+    stubMissingProbe();
+    expect(findUnavailableFonts("")).toEqual([]);
   });
 });

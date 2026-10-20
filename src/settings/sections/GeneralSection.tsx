@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { findUnavailableFonts } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -43,7 +44,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { SettingGroup, SettingGroupTitle } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
@@ -434,12 +435,14 @@ function FontFamilyInput({
           label={terminalMessages.codeFontFamily}
           value={codeValue}
           placeholder={terminalMessages.codeFontFamilyPlaceholder}
+          unmatchedHint={terminalMessages.fontFamilyUnmatched}
           onCommit={onCodeCommit}
         />
         <FontFamilyField
           label={terminalMessages.cjkFontFamily}
           value={cjkValue}
           placeholder={terminalMessages.cjkFontFamilyPlaceholder}
+          unmatchedHint={terminalMessages.fontFamilyUnmatched}
           onCommit={onCjkCommit}
         />
       </div>
@@ -453,11 +456,13 @@ function FontFamilyField({
   label,
   value,
   placeholder,
+  unmatchedHint,
   onCommit,
 }: {
   label: string;
   value: string;
   placeholder: string;
+  unmatchedHint: string;
   onCommit: (value: string) => void;
 }) {
   const id = useId();
@@ -475,6 +480,10 @@ function FontFamilyField({
     if (!editing) setDraft(value);
   }, [value, editing]);
 
+  // Probe the value the terminal is actually using, not the in-progress text,
+  // so the warning describes the real render and does not nag per keystroke.
+  const unmatched = useMemo(() => findUnavailableFonts(value), [value]);
+
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-[10.5px] text-muted-foreground">
@@ -486,7 +495,10 @@ function FontFamilyField({
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
-        className="h-8 rounded-3xl text-[12px]"
+        className={cn(
+          "h-8 rounded-3xl text-[12px]",
+          unmatched.length > 0 && "border-destructive/60",
+        )}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={() => setEditing(true)}
         onBlur={() => {
@@ -509,6 +521,11 @@ function FontFamilyField({
           }
         }}
       />
+      {unmatched.length > 0 && (
+        <p role="status" className="text-[10.5px] leading-tight text-destructive">
+          {unmatched.join(", ")}: {unmatchedHint}
+        </p>
+      )}
     </div>
   );
 }
