@@ -538,11 +538,12 @@ html *::-webkit-scrollbar {
   will-change: opacity, transform;
 }
 
-.kite-terminal-cursor-overlay-motion .kite-terminal-cursor-overlay-visual {
-  animation: none;
-  opacity: 1;
-  transform: none;
-}
+/* NOTE: while moving, do NOT switch the visual to `animation: none`. Removing
+   and re-matching an animation restarts it from 0%, so every keystroke (which
+   toggles the motion class on the parent) would relight the pulse at its
+   dimmest frame and the cursor would flicker at typing speed. The 64ms glide
+   is far shorter than the 1.1s pulse, so letting the pulse run through it is
+   visually identical and never restarts it. */
 
 .kite-terminal-cursor-overlay-smooth {
   animation: kite-terminal-cursor-smooth 1.1s var(--ease-soft) infinite;

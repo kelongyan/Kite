@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   coerceTerminalCursorSmoothCaretAnimation,
+  isSameTerminalCursorGrid,
+  resolveTerminalCursorFallback,
   shouldAnimateTerminalCursorMotion,
   shouldHoldTerminalCursorMotionForHiddenCursor,
   shouldSuppressCursorMotionForInput,
@@ -168,5 +170,115 @@ describe("terminal cursor motion", () => {
         suppressed: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("hidden cursor fallback hysteresis", () => {
+  const pos = (cursorX: number, cursorY: number) => ({ cursorX, cursorY });
+
+  it("takes the first candidate when there is nothing to compare against", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(3, 2),
+        previous: null,
+        previousCellCursorLike: false,
+        inputRecent: false,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "move", position: pos(3, 2) });
+  });
+
+  it("holds the previous position while a busy TUI flips its scan result", () => {
+    // A spinner frame makes the scan resolve to a different cell than the
+    // input cursor the user is not currently typing into.
+    const previous = pos(3, 20);
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(40, 2),
+        previous,
+        previousCellCursorLike: true,
+        inputRecent: false,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "hold", position: previous });
+  });
+
+  it("holds, and does not hide, while the scan misses an isolated cell", () => {
+    const previous = pos(3, 20);
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: null,
+        previous,
+        previousCellCursorLike: true,
+        inputRecent: false,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "hold", position: previous });
+  });
+
+  it("hides once nothing on screen looks like a cursor anymore", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: null,
+        previous: pos(3, 20),
+        previousCellCursorLike: false,
+        inputRecent: false,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "hide" });
+  });
+
+  it("follows the cursor when the previous cell stopped being one", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(3, 21),
+        previous: pos(3, 20),
+        previousCellCursorLike: false,
+        inputRecent: false,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "move", position: pos(3, 21) });
+  });
+
+  it("follows the cursor while the user is typing", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(4, 20),
+        previous: pos(3, 20),
+        previousCellCursorLike: true,
+        inputRecent: true,
+        refreshDue: false,
+      }),
+    ).toEqual({ kind: "move", position: pos(4, 20) });
+  });
+
+  it("re-resolves a stale position even while idle", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(9, 9),
+        previous: pos(3, 20),
+        previousCellCursorLike: true,
+        inputRecent: false,
+        refreshDue: true,
+      }),
+    ).toEqual({ kind: "move", position: pos(9, 9) });
+  });
+
+  it("treats an unchanged candidate as a hold", () => {
+    expect(
+      resolveTerminalCursorFallback({
+        candidate: pos(3, 20),
+        previous: pos(3, 20),
+        previousCellCursorLike: true,
+        inputRecent: false,
+        refreshDue: true,
+      }),
+    ).toEqual({ kind: "hold", position: pos(3, 20) });
+  });
+
+  it("compares grid positions", () => {
+    expect(isSameTerminalCursorGrid(null, pos(1, 1))).toBe(false);
+    expect(isSameTerminalCursorGrid(pos(1, 1), pos(1, 1))).toBe(true);
+    expect(isSameTerminalCursorGrid(pos(1, 1), pos(1, 2))).toBe(false);
   });
 });

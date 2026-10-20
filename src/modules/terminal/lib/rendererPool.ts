@@ -28,10 +28,14 @@ import {
   shouldHoldTerminalCursorMotionForHiddenCursor,
   shouldAnimateTerminalCursorMotion,
   shouldSuppressCursorMotionForInput,
+  TERMINAL_CURSOR_FALLBACK_REFRESH_MS,
   TERMINAL_CURSOR_MOTION_HIDDEN_GRACE_MS,
   TERMINAL_CURSOR_MOTION_INTENT_MS,
   TERMINAL_CURSOR_MOTION_SUPPRESS_MS,
   TERMINAL_CURSOR_MOTION_TRANSITION_MS,
+  isSameTerminalCursorGrid,
+  resolveTerminalCursorFallback,
+  type TerminalCursorFallbackDecision,
   type TerminalCursorGridPosition,
   type TerminalCursorSmoothCaretAnimation,
 } from "./cursorMotion";
@@ -121,6 +125,10 @@ export type Slot = {
   cursorMotionSuppressUntil: number;
   cursorMotionTransitionUntil: number;
   cursorOverlayLastGrid: TerminalCursorGridPosition | null;
+  // Inferred position of a hidden terminal cursor, held between frames so a
+  // continuously redrawing TUI cannot yank the overlay cursor around.
+  cursorFallbackGrid: TerminalCursorGridPosition | null;
+  cursorFallbackAt: number;
   cursorNativeSuppressed: boolean;
   lastCols: number;
   lastRows: number;
@@ -385,6 +393,8 @@ function createSlot(): Slot {
     cursorMotionSuppressUntil: 0,
     cursorMotionTransitionUntil: 0,
     cursorOverlayLastGrid: null,
+    cursorFallbackGrid: null,
+    cursorFallbackAt: 0,
     cursorNativeSuppressed: false,
     lastCols: term.cols,
     lastRows: term.rows,
@@ -1066,20 +1076,75 @@ function resolveSlotVisualCursor(slot: Slot): SlotVisualCursor | null {
       baseY: buffer.baseY,
       viewportY: buffer.viewportY,
     });
+    // The reported cursor is authoritative here, so a previously inferred
+    // position is meaningless once the cursor reappears.
+    slot.cursorFallbackGrid = null;
     return cursor
       ? slotVisualCursor(slot, cursor.cursorX, cursor.cursorY)
       : null;
   }
   if (buffer.type !== "normal") return null;
 
-  const visibleCursor = findVisibleCursorCell({
+  // The terminal cursor is hidden: an agent TUI draws its own as an isolated
+  // inverse cell. Resolve the scan to a single best candidate (instead of
+  // bailing on ambiguity) and let the hysteresis keep the overlay still while
+  // the TUI redraws around it.
+  const scanned = findVisibleCursorCell({
     buffer,
     cols: slot.term.cols,
     rows: slot.term.rows,
     requireInverse: true,
+    allowAmbiguous: true,
   });
-  if (!visibleCursor?.inverse) return null;
-  return slotVisualCursor(slot, visibleCursor.cursorX, visibleCursor.cursorY);
+  const candidate = scanned
+    ? { cursorX: scanned.cursorX, cursorY: scanned.cursorY }
+    : null;
+
+  const now = cursorNow();
+  const decision = resolveTerminalCursorFallback({
+    candidate,
+    previous: slot.cursorFallbackGrid,
+    previousCellCursorLike: slotCursorCellInverse(slot, slot.cursorFallbackGrid),
+    inputRecent: now <= slot.cursorMotionIntentUntil || slot.imeComposing,
+    refreshDue:
+      slot.cursorFallbackAt === 0 ||
+      now - slot.cursorFallbackAt > TERMINAL_CURSOR_FALLBACK_REFRESH_MS,
+  });
+  return applyFallbackDecision(slot, decision, now);
+}
+
+function applyFallbackDecision(
+  slot: Slot,
+  decision: TerminalCursorFallbackDecision,
+  now: number,
+): SlotVisualCursor | null {
+  if (decision.kind === "hide") {
+    slot.cursorFallbackGrid = null;
+    slot.cursorFallbackAt = now;
+    return null;
+  }
+  if (decision.kind === "move") {
+    slot.cursorFallbackGrid = decision.position;
+    slot.cursorFallbackAt = now;
+  }
+  return slotVisualCursor(
+    slot,
+    decision.position.cursorX,
+    decision.position.cursorY,
+  );
+}
+
+// The inferred cursor only ever points at an inverse cell, so that is also the
+// test for "is the inferred position still where the TUI draws its cursor".
+function slotCursorCellInverse(
+  slot: Slot,
+  pos: TerminalCursorGridPosition | null,
+): boolean {
+  if (!pos) return false;
+  const buffer = slot.term.buffer.active;
+  const line = buffer.getLine(buffer.viewportY + pos.cursorY);
+  const cell = line?.getCell(pos.cursorX);
+  return !!cell && cell.getWidth() > 0 && cell.isInverse() !== 0;
 }
 
 function slotVisualCursor(
@@ -1098,13 +1163,6 @@ function slotVisualCursor(
       xtermPaletteColor(slot.term, index),
     ),
   };
-}
-
-function isSameTerminalCursorGrid(
-  a: TerminalCursorGridPosition | null,
-  b: TerminalCursorGridPosition,
-): boolean {
-  return !!a && a.cursorX === b.cursorX && a.cursorY === b.cursorY;
 }
 
 function setOverlayStyle(
@@ -1209,6 +1267,7 @@ function hideSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlayMotionEnd(slot);
   if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
   slot.cursorOverlayLastGrid = null;
+  slot.cursorFallbackGrid = null;
   hideSlotCursorOverlayMask(slot);
 }
 
@@ -1284,6 +1343,8 @@ function resetSlotCursorMotion(slot: Slot): void {
   cancelSlotCursorOverlayHiddenGrace(slot);
   cancelSlotCursorOverlayMotionEnd(slot);
   slot.cursorOverlayLastGrid = null;
+  slot.cursorFallbackGrid = null;
+  slot.cursorFallbackAt = 0;
   slot.cursorMotionIntentUntil = 0;
   slot.cursorMotionSuppressUntil =
     cursorNow() + TERMINAL_CURSOR_MOTION_SUPPRESS_MS;

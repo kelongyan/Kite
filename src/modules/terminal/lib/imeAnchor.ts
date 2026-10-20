@@ -55,6 +55,14 @@ export type ImeCursorInput = {
   rows: number;
   cursorHidden?: boolean;
   requireInverse?: boolean;
+  /**
+   * Keep the first (lowest) candidate instead of bailing when a second
+   * cursor-like cell appears. Off for the IME anchor, which would rather place
+   * the hidden textarea at the reported cursor than guess. On for the overlay
+   * cursor, where ambiguity otherwise turns the per-frame scan into on/off
+   * strobing while a busy TUI redraws.
+   */
+  allowAmbiguous?: boolean;
 };
 
 export type ImeSyncOptions = {
@@ -247,6 +255,7 @@ export function findVisibleCursorCell(
         inverse: cell.isInverse() !== 0,
       };
       if (!input.requireInverse) return candidate;
+      if (input.allowAmbiguous) return candidate;
       if (inverseCandidate) return null;
       inverseCandidate = candidate;
     }
