@@ -30,7 +30,13 @@ output/
 *.tsbuildinfo
 
 # AI tool working dirs
+.agents/
+.claude/
 .commandcode/
+.pi/
+.playwright-cli/
+.playwright-mcp/
+.qoder/
 .zcode/
 
 # Local-only project rules (never commit)

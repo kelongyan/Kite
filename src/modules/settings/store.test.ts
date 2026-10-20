@@ -213,6 +213,40 @@ describe("loadPreferences", () => {
     expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
   });
 
+  it("migrates the retired Monaco default to the bundled mono font", async () => {
+    // "Monaco" was the pre-v1 default. The commit-time normalize no longer
+    // rewrites it, so this migration is the only place old stores are cleaned.
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 8],
+      ["terminalFontFamily", "Monaco"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalFontFamily).toBe("JetBrains Mono");
+    expect(prefs.terminalCjkFontFamily).toBe("Noto Sans SC");
+    expect(storeMock.set).toHaveBeenCalledWith(
+      "terminalFontFamily",
+      "JetBrains Mono",
+    );
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+  });
+
+  it("keeps a Monaco family stored by a post-migration commit", async () => {
+    // A v10 store holds whatever the user committed; loading must not treat
+    // it as the retired sentinel (that was the pre-fix bug).
+    const { loadPreferences } = await loadStoreWithEntries([
+      ["_version", 10],
+      ["terminalFontFamily", "Monaco"],
+      ["terminalCjkFontFamily", "Noto Sans SC"],
+    ]);
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalFontFamily).toBe("Monaco");
+    expect(storeMock.set).not.toHaveBeenCalled();
+  });
+
   it("preserves ambiguous legacy font stacks during migration", async () => {
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 8],

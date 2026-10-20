@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GeneralSection } from "@/settings/sections/GeneralSection";
 
 vi.mock("@/modules/theme", () => ({
@@ -15,7 +15,24 @@ vi.mock("@/settings/SettingsNavigationContext", () => ({
   }),
 }));
 
+vi.mock("@/lib/fonts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/fonts")>();
+  return { ...actual, findUnavailableFonts: vi.fn(() => []) };
+});
+
+const findUnavailableFonts = vi.mocked(
+  (await import("@/lib/fonts")).findUnavailableFonts,
+);
+
 describe("GeneralSection", () => {
+  beforeEach(() => {
+    findUnavailableFonts.mockImplementation(() => []);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("keeps terminal settings but removes cursor controls", () => {
     const html = renderToStaticMarkup(<GeneralSection />);
 
@@ -33,5 +50,28 @@ describe("GeneralSection", () => {
     expect(html).not.toContain("Cursor preview");
     expect(html).not.toContain("Shape");
     expect(html).not.toContain("Style");
+  });
+
+  it("warns when the committed font family does not resolve", () => {
+    // jsdom has no 2D canvas context, so the real probe reports every family
+    // as available; mock the finder to exercise the warning surface.
+    findUnavailableFonts.mockImplementation((value: string) =>
+      value === "JetBrains Mono" ? ["JetBrains Mono"] : [],
+    );
+
+    const html = renderToStaticMarkup(<GeneralSection />);
+
+    expect(html).toContain("未匹配到字体名");
+    expect(html).toContain("JetBrains Mono: 未匹配到字体名");
+    expect(html.match(/role="status"/g)).toHaveLength(1);
+  });
+
+  it("stays quiet when every committed family resolves", () => {
+    findUnavailableFonts.mockReturnValue([]);
+
+    const html = renderToStaticMarkup(<GeneralSection />);
+
+    expect(html).not.toContain("未匹配到字体名");
+    expect(html).not.toContain('role="status"');
   });
 });
