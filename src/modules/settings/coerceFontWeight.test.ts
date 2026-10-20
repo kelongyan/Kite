@@ -28,10 +28,18 @@ describe("default terminal font", () => {
     expect(DEFAULT_PREFERENCES.terminalFontFamily).toBe("JetBrains Mono");
   });
 
-  it("migrates blank and Monaco legacy values to JetBrains Mono", () => {
+  it("falls back to the bundled default only for a blank value", () => {
     expect(normalizeTerminalFontFamily("")).toBe("JetBrains Mono");
     expect(normalizeTerminalFontFamily("  ")).toBe("JetBrains Mono");
-    expect(normalizeTerminalFontFamily("Monaco")).toBe("JetBrains Mono");
+    expect(normalizeTerminalFontFamily(undefined)).toBe("JetBrains Mono");
+  });
+
+  it("keeps a real installed family that shares a legacy default's name", () => {
+    // "Monaco" was the pre-v1 default, but it is also a family a user can
+    // install. The retired-value rewrite lives in splitLegacyFontFamily so it
+    // runs once during migration, not on every commit.
+    expect(normalizeTerminalFontFamily("Monaco")).toBe("Monaco");
+    expect(normalizeTerminalFontFamily(" monaco ")).toBe("monaco");
   });
 
   it("keeps an explicit custom terminal font", () => {

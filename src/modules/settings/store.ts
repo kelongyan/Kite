@@ -131,11 +131,14 @@ export const DEFAULT_PREFERENCES: Preferences = {
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
 };
 
+// Only whitespace is stripped, and an empty value falls back to the bundled
+// default. "Monaco" is deliberately NOT treated as a retired sentinel here: it
+// was the pre-v1 default, but it is also a real installed family, and this
+// function runs on every user commit. That rewrite belongs to migration 9, which
+// sees the legacy value once.
 export function normalizeTerminalFontFamily(value: string | undefined): string {
   const fontFamily = value?.trim() ?? "";
-  if (!fontFamily || fontFamily.toLowerCase() === "monaco") {
-    return DEFAULT_MONO_FONT_FAMILY;
-  }
+  if (!fontFamily) return DEFAULT_MONO_FONT_FAMILY;
   return fontFamily;
 }
 
