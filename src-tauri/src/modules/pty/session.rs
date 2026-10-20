@@ -179,6 +179,7 @@ pub fn spawn(
             let mut filtered: Vec<u8> = Vec::with_capacity(READ_BUF);
             let mut da_filter = DaFilter::new();
             let mut dropped_bytes: u64 = 0;
+            let mut logged_mouse = false;
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => break,
@@ -186,6 +187,23 @@ pub fn spawn(
                         if !first_byte_r.load(Ordering::Relaxed) {
                             first_byte_r.store(true, Ordering::Release);
                             log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
+                        }
+                        // TEMP wheel debug: confirm the app toggles mouse/alt
+                        // tracking and that the sequences reach Kite intact.
+                        if !logged_mouse {
+                            let chunk = &buf[..n];
+                            let has = |needle: &[u8]| {
+                                chunk.windows(needle.len()).any(|w| w == needle)
+                            };
+                            if has(b"[?1000h")
+                                || has(b"[?1002h")
+                                || has(b"[?1003h")
+                                || has(b"[?1006h")
+                                || has(b"[?1049h")
+                            {
+                                log::info!("[wheeldbg] app enabled mouse/alt tracking");
+                                logged_mouse = true;
+                            }
                         }
                         filtered.clear();
                         da_filter.process(&buf[..n], &mut filtered, |reply| {

@@ -162,6 +162,16 @@ just before the drain. Avoid reading layout from parked `display:none` slots.
 Cursor styling is shared between xterm native rendering and the overlay
 implementation.
 
+Mouse encoding is saved alongside SerializeAddon output by `terminalMouse.ts`,
+since the addon only saves the tracking mode. That module also forwards SGR
+wheel events during DOM capture and subscribes to xterm's `onBinary` for legacy
+mouse reports. On the alternate screen with no wheel reporting it maps wheel
+notches to PageUp/PageDown, because xterm's own fallback would send arrow keys
+that TUI agents treat as input history. PTY input accepts text or raw bytes;
+pending startup input keeps mixed input in order within a byte cap. Optional
+`VITE_KITE_WHEEL_DEBUG=true` diagnostics log wheel metadata only, never keyboard
+or paste contents.
+
 ## Themes
 
 The app theme engine is custom, not `next-themes`. `ThemeProvider` and

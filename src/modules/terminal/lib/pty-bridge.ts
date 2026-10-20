@@ -1,7 +1,11 @@
-import { invoke, Channel } from "@tauri-apps/api/core";
 import { currentWorkspaceEnv } from "@/modules/workspace";
-
-const textEncoder = new TextEncoder();
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { encodePtyInput, type PtyInput } from "./ptyInput";
+import {
+  traceTerminalWheel,
+  wheelDiagnosticsEnabled,
+  wheelReportDirection,
+} from "./wheelDiagnostics";
 
 export type PtyHandlers = {
   onData: (bytes: Uint8Array) => void;
@@ -10,7 +14,7 @@ export type PtyHandlers = {
 
 export type PtySession = {
   id: number;
-  write: (data: string) => Promise<void>;
+  write: (data: PtyInput) => Promise<void>;
   resize: (cols: number, rows: number) => Promise<void>;
   close: () => Promise<void>;
 };
@@ -61,7 +65,22 @@ export async function openPty(
   return {
     id,
     // Raw bytes + id header: no JSON round-trip on the per-keystroke path.
-    write: (data) => invoke("pty_write", textEncoder.encode(data), { headers }),
+    write: (data) => {
+      const bytes = encodePtyInput(data);
+      const direction = wheelDiagnosticsEnabled()
+        ? wheelReportDirection(bytes)
+        : null;
+      if (direction) traceTerminalWheel("pty-write", { ptyId: id, direction });
+      const writing = invoke<void>("pty_write", bytes, { headers });
+      if (!direction) return writing;
+      return writing.then(
+        () => traceTerminalWheel("pty-written", { ptyId: id, direction }),
+        (error) => {
+          traceTerminalWheel("pty-error", { ptyId: id, direction });
+          throw error;
+        },
+      );
+    },
     resize: (c, r) => invoke("pty_resize", { id, cols: c, rows: r }),
     close: async () => {
       if (closed) return;

@@ -12,6 +12,7 @@ import {
   registerThemeQueryHandler,
 } from "./osc-handlers";
 import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
+import { PendingPtyInput, type PtyInput } from "./ptyInput";
 import {
   acquireSlot,
   applyCursorPreferences,
@@ -61,7 +62,7 @@ type Session = {
   container: HTMLDivElement | null;
   snapshot: string | null;
   dormantRing: DormantRing;
-  pendingInput: string;
+  pendingInput: PendingPtyInput;
   hasSlot: boolean;
   themeMode: TerminalThemeMode;
   // True if the slot was in alt-screen mode (TUI like vim, htop, dofek)
@@ -77,24 +78,16 @@ type Session = {
 
 const sessions = new Map<number, Session>();
 
-const PENDING_INPUT_MAX = 256 * 1024;
-
-// Input typed before the pty attaches is queued and flushed on attach. Cap the
-// queue so a large paste into a still-spawning pane can't grow it without bound.
-function queuePendingInput(s: Session, data: string): void {
-  if (s.pendingInput.length + data.length > PENDING_INPUT_MAX) return;
-  s.pendingInput += data;
-}
-
-function writeToSession(leafId: number, data: string): boolean {
+function writeToSession(leafId: number, data: PtyInput): boolean {
   const s = sessions.get(leafId);
   if (!s || s.shellExited) return false;
   if (s.pty) {
-    void s.pty.write(data);
+    void s.pty.write(data).catch(() => {
+      console.warn("[kite] PTY input failed for leaf", leafId);
+    });
     return true;
   }
-  queuePendingInput(s, data);
-  return true;
+  return s.pendingInput.push(data);
 }
 
 /**
@@ -188,11 +181,12 @@ configureRendererPool({
       writeToPty: (data) => {
         // Shell spawn failed (bad cwd, missing binary): Enter retries.
         if (s.spawnFailed) {
-          if (data.includes("\r")) void respawnSession(leafId);
+          if (typeof data === "string" && data.includes("\r")) {
+            void respawnSession(leafId);
+          }
           return;
         }
-        if (s.pty) void s.pty.write(data);
-        else queuePendingInput(s, data);
+        writeToSession(leafId, data);
       },
       resizePty: (cols, rows) => {
         s.cols = cols;
@@ -263,7 +257,7 @@ function ensureSession(
     container: null,
     snapshot: null,
     dormantRing: new DormantRing(),
-    pendingInput: "",
+    pendingInput: new PendingPtyInput(),
     hasSlot: false,
     themeMode,
     altScreenAtRelease: false,
@@ -341,7 +335,7 @@ async function openPtyForSession(
       onExit: (code) => {
         s.shellExited = true;
         s.pty = null;
-        s.pendingInput = "";
+        s.pendingInput.clear();
         s.commandRunning = false;
         const slot = getSlotForLeaf(leafId);
         if (slot) slot.term.options.disableStdin = true;
@@ -458,10 +452,8 @@ function attachSession(
           return;
         }
         s.pty = pty;
-        if (s.pendingInput) {
-          void pty.write(s.pendingInput);
-          s.pendingInput = "";
-        }
+        const pendingInput = s.pendingInput.drain();
+        if (pendingInput) writeToSession(leafId, pendingInput);
         if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
       })
       .catch((e) => {
@@ -488,7 +480,7 @@ async function respawnSession(leafId: number, cwd?: string): Promise<void> {
   s.dormantRing = new DormantRing();
   s.shellExited = false;
   s.pendingExit = null;
-  s.pendingInput = "";
+  s.pendingInput.clear();
   s.altScreenAtRelease = false;
   s.commandRunning = false;
   s.spawnFailed = false;
@@ -519,10 +511,8 @@ async function respawnSession(leafId: number, cwd?: string): Promise<void> {
     return;
   }
   s.pty = pty;
-  if (s.pendingInput) {
-    void pty.write(s.pendingInput);
-    s.pendingInput = "";
-  }
+  const pendingInput = s.pendingInput.drain();
+  if (pendingInput) writeToSession(leafId, pendingInput);
   if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
 }
 
@@ -556,7 +546,7 @@ export function disposeSession(leafId: number): void {
   s.snapshot = null;
   s.pty?.close();
   s.pty = null;
-  s.pendingInput = "";
+  s.pendingInput.clear();
   sessions.delete(leafId);
 }
 
@@ -692,10 +682,7 @@ export function useTerminalSession({
 
   const write = useCallback(
     (data: string) => {
-      const s = sessions.get(leafId);
-      if (!s || s.shellExited) return;
-      if (s.pty) void s.pty.write(data);
-      else queuePendingInput(s, data);
+      writeToSession(leafId, data);
     },
     [leafId],
   );

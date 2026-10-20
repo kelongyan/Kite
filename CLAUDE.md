@@ -56,7 +56,9 @@ filesystem directly — everything goes through Tauri commands registered in
 `src-tauri/src/lib.rs` (snake_case: `pty_open`, `list_subdirs`,
 `workspace_authorize`, …). PTY data streams as `Channel<ArrayBuffer>` — raw
 binary, no base64 overhead. `pty_write` goes further: raw request body plus an
-`x-pty-id` header, so a keystroke costs no JSON round-trip.
+`x-pty-id` header, so a keystroke costs no JSON round-trip. Text input is UTF-8;
+xterm `onBinary` mouse reports stay raw bytes, including in the bounded startup
+input queue.
 
 `WorkspaceRegistry` is bookkeeping, not a sandbox. `authorize` accepts any
 canonicalizable path, `is_authorized` has no non-test caller, and `list_subdirs`
@@ -114,6 +116,16 @@ home rather than inheriting the active tab's cwd.
 - **`src-tauri/tests/`** call the command functions directly as plain Rust; no Tauri runtime needed.
 - **Tailwind v4 config lives in `src/styles/globals.css`** (CSS-based, not tailwind.config).
 - **Theme engine is custom**, not `next-themes`; six built-ins under `src/modules/theme/themes/`. Legacy `terax-*` store keys are read-only migration fallbacks; new state is written under `kite-*`.
+
+- **Mouse encoding is part of the terminal snapshot.** SerializeAddon preserves
+  tracking mode but omits SGR / SGR_PIXELS, so `terminalMouse.ts` appends the
+  encoding mode. Its capture listener forwards SGR wheels before xterm's private
+  coordinate checks; other encodings stay on xterm's native paths. Untracked
+  alternate screens page with PageUp/PageDown instead of xterm's arrow fallback,
+  which TUI agents read as input history.
+- **Wheel diagnostics are opt-in.** `VITE_KITE_WHEEL_DEBUG=true` enables DOM,
+  handler and PTY-write stage logs containing only mouse metadata. Never log
+  keyboard or paste contents.
 
 ## Testing requirements
 

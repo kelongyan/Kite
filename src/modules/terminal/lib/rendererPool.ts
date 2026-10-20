@@ -52,6 +52,7 @@ import {
   terminalWordNavigationSequence,
 } from "./keymap";
 import { formatOscColorReply } from "./osc-handlers";
+import type { PtyInput } from "./ptyInput";
 import {
   isNoopSynchronizedOutputFrame,
   shouldDropNoopSynchronizedOutput,
@@ -60,6 +61,16 @@ import {
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
+import {
+  bindTerminalMouseInput,
+  serializeTerminalMouseEncoding,
+  terminalMouseEncoding,
+} from "./terminalMouse";
+import {
+  bindWheelDiagnostics,
+  traceTerminalWheel,
+  wheelDiagnosticsEnabled,
+} from "./wheelDiagnostics";
 
 const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -76,7 +87,7 @@ export type SlotAdapter = {
 };
 
 type LeafBridge = {
-  writeToPty(data: string): void;
+  writeToPty(data: PtyInput): void;
   resizePty(cols: number, rows: number): void;
   // Force a SIGWINCH on the underlying PTY at the given dims. Implemented
   // as a +1 row / restore bump because the Linux kernel suppresses winsize
@@ -103,6 +114,7 @@ export type Slot = {
   retainedLeafId: number | null;
   parked: boolean;
   oscDisposers: (() => void)[];
+  inputDisposers: (() => void)[];
   observer: ResizeObserver | null;
   fitTimer: ReturnType<typeof setTimeout> | null;
   ptyTimer: ReturnType<typeof setTimeout> | null;
@@ -201,6 +213,7 @@ function setWindowActive(active: boolean): void {
 
 export function configureRendererPool(a: SlotAdapter): void {
   adapter = a;
+  bindWheelDiagnostics();
   bindWindowActivityListeners();
   bindReducedMotionListener();
 }
@@ -371,6 +384,7 @@ function createSlot(): Slot {
     retainedLeafId: null,
     parked: false,
     oscDisposers: [],
+    inputDisposers: [],
     observer: null,
     fitTimer: null,
     ptyTimer: null,
@@ -508,6 +522,32 @@ function createSlot(): Slot {
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
   });
 
+  slot.inputDisposers.push(
+    bindTerminalMouseInput(
+      term,
+      (data) => {
+        const leafId = slot.currentLeafId;
+        if (leafId === null) return false;
+        const bridge = adapter?.resolveLeaf(leafId);
+        if (!bridge) return false;
+        bridge.writeToPty(data);
+        return true;
+      },
+      (event, forwarded) => {
+        if (!wheelDiagnosticsEnabled()) return;
+        traceTerminalWheel("handler", {
+          slotId: slot.id,
+          leafId: slot.currentLeafId,
+          deltaY: event.deltaY,
+          deltaMode: event.deltaMode,
+          tracking: term.modes.mouseTrackingMode,
+          encoding: terminalMouseEncoding(term),
+          forwarded,
+        });
+      },
+    ),
+  );
+
   bindSlotImeAnchorSync(slot);
   bindSlotCursorControlInterceptors(slot);
   bindSlotCursorOverlaySync(slot);
@@ -516,7 +556,6 @@ function createSlot(): Slot {
 }
 
 type PickResult = { slot: Slot; previousLeafId: number | null };
-
 function isAltScreen(s: Slot): boolean {
   try {
     return s.term.buffer.active.type === "alternate";
@@ -1501,7 +1540,9 @@ function serializeSlot(slot: Slot): SerializeOutput {
       SNAPSHOT_SCROLLBACK_CAP,
       usePreferencesStore.getState().terminalScrollback,
     );
-    snapshot = slot.serializeAddon.serialize({ scrollback: cap });
+    snapshot =
+      slot.serializeAddon.serialize({ scrollback: cap }) +
+      serializeTerminalMouseEncoding(slot.term);
   } catch (e) {
     console.warn("[kite] serialize failed:", e);
   }
@@ -1626,6 +1667,8 @@ function disposeSlot(slot: Slot): void {
     } catch {}
   }
   slot.oscDisposers = [];
+  for (const d of slot.inputDisposers) d();
+  slot.inputDisposers = [];
   for (const d of slot.imeDisposers) {
     try {
       d();
