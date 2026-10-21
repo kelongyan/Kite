@@ -1,5 +1,3 @@
-pub mod tree;
-
 use std::path::Path;
 
 /// The single canonical-to-display conversion: forward slashes, Windows

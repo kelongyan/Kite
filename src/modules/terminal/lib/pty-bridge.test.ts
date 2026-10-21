@@ -9,9 +9,6 @@ vi.mock("@tauri-apps/api/core", () => ({
     onmessage = () => {};
   },
 }));
-vi.mock("@/modules/workspace", () => ({
-  currentWorkspaceEnv: () => ({ kind: "local" }),
-}));
 
 beforeEach(() => {
   invoke.mockReset();
@@ -27,6 +24,17 @@ afterEach(() => {
 describe("PTY raw input IPC", () => {
   it("UTF-8 encodes text and passes mouse bytes unchanged with the PTY header", async () => {
     const pty = await openPty(80, 24, { onData: () => {} });
+    const openCall = invoke.mock.calls.find(
+      ([command]) => command === "pty_open",
+    );
+    expect(openCall?.[1]).toMatchObject({
+      cols: 80,
+      rows: 24,
+      cwd: null,
+      shell: null,
+      themeMode: null,
+    });
+    expect(openCall?.[1]).not.toHaveProperty("workspace");
     await pty.write("中文");
     expect(invoke).toHaveBeenLastCalledWith(
       "pty_write",

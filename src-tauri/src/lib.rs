@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{fs, pty, workspace};
+use modules::{launch, pty};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 #[cfg(target_os = "macos")]
@@ -280,7 +280,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_dir = parse_launch_dir();
-    workspace::init_launch_cwd(cli_dir.as_deref());
+    launch::init_launch_cwd(cli_dir.as_deref());
 
     let builder = tauri::Builder::default();
     #[cfg(all(
@@ -298,8 +298,6 @@ pub fn run() {
             Some(Path::new(&cwd)),
         );
         if let Some(ref dir) = launch_dir {
-            let registry = app.state::<workspace::WorkspaceRegistry>();
-            let _ = registry.authorize(dir);
             let _ = app.emit("kite:open-launch-dir", dir);
         }
         if let Some(window) = app.get_webview_window("main") {
@@ -353,14 +351,6 @@ pub fn run() {
             Ok(())
         })
         .manage(pty::PtyState::default())
-        .manage({
-            let registry = workspace::WorkspaceRegistry::default();
-            workspace::bootstrap_registry(&registry);
-            if let Some(ref launch_dir) = cli_dir {
-                let _ = registry.authorize(launch_dir);
-            }
-            registry
-        })
         .manage(LaunchDir(Mutex::new(cli_dir)))
         .invoke_handler(tauri::generate_handler![
             pty::pty_open,
@@ -371,11 +361,6 @@ pub fn run() {
             pty::pty_has_foreground_process,
             pty::pty_has_foreground_job,
             pty::pty_list_shells,
-            fs::tree::list_subdirs,
-            workspace::wsl_list_distros,
-            workspace::wsl_home,
-            workspace::workspace_authorize,
-            workspace::workspace_current_dir,
             get_launch_dir,
             open_settings_window,
         ])

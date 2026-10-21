@@ -37,10 +37,10 @@ cargo clippy --all-targets --locked -- -D warnings
 - **`CONPTY_LIFECYCLE_LOCK`** (`src-tauri/src/modules/pty/session.rs`) serializes ConPTY create *and* close on Windows. Removing it lets overlapping pseudoconsole lifecycle calls corrupt a new console so its shell never pumps output.
 - **The renderer pool is 5 slots, shared across all tabs**, while a tab allows 4 panes. Cross-tab eviction is normal and handled.
 - **Path separators**: frontend uses forward slashes; `homeDir()` on Windows returns backslashes — normalize at the frontend boundary.
-- **Tauri commands are `snake_case`** (`pty_open`, `list_subdirs`, `workspace_authorize`, etc.).
+- **Tauri commands are `snake_case`** (`pty_open`, `get_launch_dir`, `open_settings_window`, etc.).
 - **Tabs stay mounted when hidden** — PTYs keep state. Do not assume unmount-on-switch. Tabs are not persisted across launches.
-- **`WorkspaceRegistry` is bookkeeping, not a sandbox**: `is_authorized` has no non-test caller and `list_subdirs` reads whatever path the webview sends. The enforced boundary is CSP + capabilities + `sanitize_shell_override` + `validate_wsl_distro_name`.
-- **No file explorer or sidebar** — the window is header, terminal surface, statusbar. Directory navigation is the statusbar cwd breadcrumb.
+- **Enforced boundary** is CSP + capabilities + `sanitize_shell_override` (a shell override must match an enumerated shell).
+- **No file explorer, sidebar, or statusbar** — the window is the header plus the terminal surface.
 - **`src-tauri/tests/`** call the command functions directly as plain Rust; no Tauri runtime needed.
 - **`tsc --noEmit`** for type-checking (separate from Vite's bundler).
 - **`pnpm analyze:eager`** traces heavy dependencies in the eager graph — useful for bundle regression checks.
@@ -50,8 +50,8 @@ cargo clippy --all-targets --locked -- -D warnings
 
 | Path | Purpose |
 |------|---------|
-| `src/modules/<area>/` | Feature modules (terminal, tabs, theme, statusbar, etc.) |
-| `src-tauri/src/modules/` | Rust backend (pty, fs, workspace, proc) |
+| `src/modules/<area>/` | Feature modules (terminal, tabs, theme, etc.) |
+| `src-tauri/src/modules/` | Rust backend (pty, launch, fs, proc) |
 | `src/styles/globals.css` | Tailwind v4 config and theme CSS variables |
 | `src/components/ui/` | shadcn/ui components (linted, covered by dead-code scans) |
 | `scripts/eager-graph.mjs` | Eager import tracer for bundle analysis |

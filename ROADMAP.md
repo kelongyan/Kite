@@ -14,8 +14,8 @@ release commitment.
    justify its memory and bundle cost.
 2. **Terminal first.** PTY fidelity, xterm correctness, TUI compatibility, and
    shell integration are core product behavior.
-3. **Cross-platform parity.** macOS, Linux, Windows, and WSL should offer the
-   same essential workflows.
+3. **Cross-platform parity.** macOS, Linux, and Windows should offer the same
+   essential workflows.
 4. **Security by default.** Path validation, OSC trust boundaries, and narrow
    IPC capabilities remain mandatory.
 5. **Focused scope.** Kite complements dedicated IDEs and browsers instead of
@@ -31,7 +31,6 @@ release commitment.
 - [x] OSC 7 cwd tracking and OSC 133 prompt boundaries
 - [x] Web links, true color, and configurable cursor rendering
 - [x] OSC 52 clipboard writes with a size cap
-- [x] Local and WSL workspace environments
 
 ### Themes
 
@@ -39,7 +38,7 @@ release commitment.
 
 ### Platform
 
-- [x] macOS, Linux packages, Windows NSIS, and WSL integration
+- [x] macOS and Linux packages, plus Windows NSIS
 - [x] Native title-bar behavior per platform
 - [x] Windows child-process cleanup through Job Objects
 - [x] Manual GitHub releases
@@ -48,8 +47,8 @@ release commitment.
 
 The code editor, Markdown preview, Git source-control panel, SFTP client,
 block-mode terminals, and the file-explorer sidebar were removed to keep Kite a
-simple terminal tool. They are not planned to return. Directory navigation is
-the statusbar cwd breadcrumb.
+simple terminal tool. The statusbar cwd breadcrumb and the WSL workspace
+environment were removed for the same reason. They are not planned to return.
 
 ## Next Priorities
 
@@ -62,7 +61,7 @@ the statusbar cwd breadcrumb.
 ## Wanted Contributions
 
 - Cross-platform PTY, shell, and rendering bug fixes
-- Security tests for the WSL path layer and the IPC surface
+- Security tests for the IPC surface
 - Focused bundle or memory improvements backed by measurements
 - Accessibility fixes for keyboard-heavy workflows
 - Terminal and application themes

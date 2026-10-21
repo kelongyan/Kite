@@ -14,7 +14,7 @@ Kite is an open-source, lightweight, cross-platform terminal emulator.
 - Frontend: React 19, TypeScript, Vite, xterm.js
 - Package manager: pnpm only
 - Bundle id: `app.kelongyan.kite`
-- Platforms: macOS, Linux, Windows, including WSL workspaces
+- Platforms: macOS, Linux, Windows
 
 Common gates:
 
@@ -42,8 +42,8 @@ cargo nextest run --locked
 - Architecture: put new logic in pure, dependency-light functions and keep
   Tauri commands and React components thin.
 
-Changes to terminal spawning, the workspace and WSL path layer, or the IPC
-surface need tests that lock the relevant invariant.
+Changes to terminal spawning, launch-directory resolution, or the IPC surface
+need tests that lock the relevant invariant.
 
 ## Conventions
 
@@ -65,23 +65,14 @@ Backend command groups:
 
 - `pty::*`: open, write, resize, close, close-all, foreground-process and
   foreground-job checks, shell list.
-- `fs::tree::list_subdirs`: subdirectory listing for the statusbar cwd
-  breadcrumb.
-- `workspace::*`: authorization, current directory, WSL list and home.
 - `get_launch_dir`: drains the CLI launch directory on first read.
 - `open_settings_window`: creates or focuses the separate settings webview.
 
 Do not add a command only to expose an internal helper.
 
-`WorkspaceRegistry` records canonicalized directories the app has touched. It
-is a bookkeeping registry, not a sandbox: `authorize` accepts any path that
-canonicalizes, and `is_authorized` currently has no non-test caller. A cwd
-handed to `pty_open` is registered rather than checked against existing roots
-(`authorize_user_spawn_cwd`), and `list_subdirs` reads whatever path the webview
-passes. Treat the enforced boundary as: the CSP, the capability allowlist,
-`sanitize_shell_override` (a shell override must match an enumerated shell), and
-`validate_wsl_distro_name` (every `wsl.exe` argv). A process spawned in the PTY
-is unconstrained by design.
+Treat the enforced boundary as: the CSP, the capability allowlist, and
+`sanitize_shell_override` (a shell override must match an enumerated shell). A
+process spawned in the PTY is unconstrained by design.
 
 ## PTY And Shell Integration
 
@@ -103,7 +94,7 @@ Platform rules:
 - Each Windows session uses a Job Object with kill-on-close so child process
   trees do not survive Kite unexpectedly.
 - Generated init scripts are written atomically under
-  `~/.cache/kite/shell-integration/` (WSL writes into the distro's own home).
+  `~/.cache/kite/shell-integration/`.
 - `da_filter` answers DA1/DA2 and a single startup cursor-position query inline,
   because a shell may query before any renderer slot exists to reply.
 
@@ -136,14 +127,12 @@ sibling instead of nesting, which keeps resize handles aligned.
 
 - `terminal`: xterm sessions, split panes, renderer pool, OSC.
 - `tabs`: tab source of truth, switcher, pane-aware close behavior.
-- `workspace`: Local and WSL environment selection.
 - `theme`: built-in/custom themes.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
-- `header`, `statusbar`, `i18n`: application chrome.
+- `header`, `i18n`: application chrome.
 
-There is no file explorer or sidebar. The window is header, terminal surface,
-statusbar. Directory navigation is the statusbar cwd breadcrumb, which sends
-`cd` to the focused terminal.
+There is no file explorer, sidebar, or statusbar. The window is the header plus
+the terminal surface.
 
 `i18n` currently ships one locale, `zh-CN`, with no locale switching.
 `usePreferencesStore.init()` is what hydrates preferences from disk and
@@ -208,7 +197,7 @@ legacy import extension.
 - `tab.cwd` originates from OSC 7 and uses forward slashes. Rust filesystem
   callers must accept or normalize both separators on Windows.
 - `homeDir()` returns backslashes on Windows; normalize at the frontend
-  boundary to prevent file-tree resets.
+  boundary so cwd comparisons stay stable.
 - xterm WebGL uses a fixed glyph atlas. CJK fallback fonts can misalign; users
   can disable WebGL or choose a monospaced CJK font.
 - OSC 7 is honored only between commands. Command stdout is untrusted, so a

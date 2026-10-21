@@ -20,9 +20,7 @@ import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
-  setDefaultWorkspaceEnv,
   setRestoreWindowState,
-  setShowHidden,
   setTerminalCjkFontFamily,
   setTerminalFontFamily,
   setTerminalFontSize,
@@ -81,7 +79,6 @@ export function GeneralSection() {
   const { mode, setMode } = useTheme();
 
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
-  const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
@@ -92,8 +89,6 @@ export function GeneralSection() {
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalShell = usePreferencesStore((s) => s.terminalShell);
   const [shells, setShells] = useState<ShellInfo[]>([]);
-  const [wslDistros, setWslDistros] = useState<{ name: string }[]>([]);
-  const defaultWorkspaceEnv = usePreferencesStore((s) => s.defaultWorkspaceEnv);
   const terminalLetterSpacing = usePreferencesStore(
     (s) => s.terminalLetterSpacing,
   );
@@ -104,9 +99,6 @@ export function GeneralSection() {
   useEffect(() => {
     void invoke<ShellInfo[]>("pty_list_shells")
       .then(setShells)
-      .catch(() => {});
-    void invoke<{ name: string }[]>("wsl_list_distros")
-      .then(setWslDistros)
       .catch(() => {});
   }, []);
 
@@ -163,18 +155,6 @@ export function GeneralSection() {
               {Math.round(zoomLevel * 100)}%
             </span>
           </div>
-        </SettingRow>
-      </SettingGroup>
-
-      <SettingGroup title={g.pathNav.title}>
-        <SettingRow
-          title={g.pathNav.showHiddenDirs}
-          description={g.pathNav.showHiddenDirsDescription}
-        >
-          <Switch
-            checked={showHidden}
-            onCheckedChange={(v) => void setShowHidden(v)}
-          />
         </SettingRow>
       </SettingGroup>
 
@@ -261,9 +241,7 @@ export function GeneralSection() {
           description={
             shells.find((s) => s.path === terminalShell)?.integrated === false
               ? g.terminal.shellUnavailableDescription
-              : wslDistros.length > 0
-                ? g.terminal.shellWithWslDescription
-                : g.terminal.shellDescription
+              : g.terminal.shellDescription
           }
         >
           <Select
@@ -290,50 +268,6 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-        {(wslDistros.length > 0 || defaultWorkspaceEnv !== "local") && (
-          <SettingRow
-            title={g.terminal.workspaceEnvironment}
-            description={g.terminal.workspaceEnvironmentDescription}
-          >
-            <Select
-              value={defaultWorkspaceEnv}
-              onValueChange={(v) => void setDefaultWorkspaceEnv(v)}
-            >
-              <SelectTrigger
-                value={defaultWorkspaceEnv}
-                className="h-8 w-40 text-[12px]"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local" className="text-[12px]">
-                  {g.terminal.workspaceEnvWindows}
-                </SelectItem>
-                {wslDistros.map((d) => (
-                  <SelectItem
-                    key={d.name}
-                    value={`wsl:${d.name}`}
-                    className="text-[12px]"
-                  >
-                    {g.terminal.workspaceEnvWsl}: {d.name}
-                  </SelectItem>
-                ))}
-                {defaultWorkspaceEnv.startsWith("wsl:") &&
-                  !wslDistros.some(
-                    (d) => `wsl:${d.name}` === defaultWorkspaceEnv,
-                  ) && (
-                    <SelectItem
-                      value={defaultWorkspaceEnv}
-                      className="text-[12px]"
-                    >
-                      {defaultWorkspaceEnv.slice("wsl:".length)} (
-                      {g.terminal.unavailable})
-                    </SelectItem>
-                  )}
-              </SelectContent>
-            </Select>
-          </SettingRow>
-        )}
         <SettingRow
           title={
             <span className="inline-flex items-center gap-1.5">

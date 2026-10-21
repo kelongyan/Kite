@@ -76,9 +76,9 @@ Kite positions itself as **lightweight, fast, production-grade**. Every PR is re
 - `cargo clippy --all-targets --locked -- -D warnings` clean, `cargo fmt` applied
 - `pnpm test` and `cargo nextest run --locked` pass
 - `pnpm build && pnpm size` within the size-limit budgets
-- No perf regressions in known hot paths: terminal renderer, PTY stream, file explorer
+- No perf regressions in known hot paths: terminal renderer, PTY stream, tab and pane transitions
 - No new heavy dependencies (>50KB gzip in client bundle, >5MB compiled on Rust side) without justification
-- Platform parity preserved (macOS / Linux / Windows / WSL still work)
+- Platform parity preserved (macOS / Linux / Windows still work)
 - Security review for changes to file system access, process spawn, IPC commands
 
 If you're not sure how to measure perf or what counts as a hot path, ask in an issue. Better to confirm than get bounced.
@@ -91,7 +91,7 @@ So if your change touches behavior in any of these load-bearing paths, the PR mu
 
 - **Shell/terminal spawn**: what shell launches, with which cwd, env, and login flags. A "fix" here can stop terminals from starting entirely.
 - **Shell override validation**: `sanitize_shell_override` must keep spawns limited to enumerated shells.
-- **WSL path layer**: distro-name validation (both accept and reject), drvfs and UNC mapping, output decoding.
+- **Launch-directory resolution**: CLI and second-instance launch paths, plus cwd fallback.
 - **IPC command surface**: anything the webview can invoke.
 - **Pure logic with wide reach**: cwd inheritance, tab/split tree transforms, OSC/prompt parsing, dormant-ring overflow behavior.
 

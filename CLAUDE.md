@@ -52,19 +52,16 @@ Kite is a Tauri 2 desktop app: **Rust backend** (`src-tauri/`) + **React 19 / Ty
 ### Process boundary
 
 Rust owns all OS access. The webview never touches shells, processes, or the
-filesystem directly — everything goes through Tauri commands registered in
-`src-tauri/src/lib.rs` (snake_case: `pty_open`, `list_subdirs`,
-`workspace_authorize`, …). PTY data streams as `Channel<ArrayBuffer>` — raw
-binary, no base64 overhead. `pty_write` goes further: raw request body plus an
-`x-pty-id` header, so a keystroke costs no JSON round-trip. Text input is UTF-8;
-xterm `onBinary` mouse reports stay raw bytes, including in the bounded startup
-input queue.
+filesystem directly: everything goes through Tauri commands registered in
+`src-tauri/src/lib.rs` (snake_case: `pty_open`, `get_launch_dir`,
+`open_settings_window`, ...). PTY data streams as `Channel<ArrayBuffer>`, raw
+binary with no base64 overhead. `pty_write` goes further: raw request body plus
+an `x-pty-id` header, so a keystroke costs no JSON round-trip. Text input is
+UTF-8; xterm `onBinary` mouse reports stay raw bytes, including in the bounded
+startup input queue.
 
-`WorkspaceRegistry` is bookkeeping, not a sandbox. `authorize` accepts any
-canonicalizable path, `is_authorized` has no non-test caller, and `list_subdirs`
-reads whatever path the webview sends. What is actually enforced:
-CSP, the capability allowlist, `sanitize_shell_override` (an override must match
-an enumerated shell), and `validate_wsl_distro_name`.
+What is actually enforced: the CSP, the capability allowlist, and
+`sanitize_shell_override` (an override must match an enumerated shell).
 
 ### Frontend modules (`src/modules/`)
 
@@ -75,19 +72,18 @@ an enumerated shell), and `validate_wsl_distro_name`.
 | `settings` | Preferences Zustand store and types (UI lives in `src/settings/`) |
 | `shortcuts` | Global keyboard shortcut registry |
 | `command-palette` | Mod+P palette |
-| `workspace` | Workspace root path and environment context |
-| `theme` / `statusbar` / `header` / `i18n` | Layout and UI chrome |
+| `theme` / `header` / `i18n` | Layout and UI chrome |
 
-There is no file explorer or sidebar: the window is header, terminal surface,
-statusbar. Directory navigation is the statusbar cwd breadcrumb, which sends `cd`
-to the focused terminal.
+There is no file explorer, sidebar, or statusbar: the window is the header plus
+the terminal surface.
 
 `i18n` ships a single locale (`zh-CN`) and has no switching.
 
 ### Rust backend modules (`src-tauri/src/modules/`)
 
-`pty` (PTY sessions via portable-pty), `fs` (subdirectory listing for the
-statusbar breadcrumb, plus the canonical path helper), `workspace`, `proc`.
+`pty` (PTY sessions via portable-pty), `launch` (launch directory and AppImage
+environment helpers), `fs` (canonical path helper), `proc` (parent-process
+lookup for launch logging).
 
 ### Tab system
 
@@ -113,7 +109,7 @@ home rather than inheriting the active tab's cwd.
 - **OSC 7 is only honored between commands.** Command stdout is untrusted (remote SSH, `cat` of a hostile file), so the cwd handler returns early while `inCommand` is set.
 - **Path separators**: `tab.cwd` originates from OSC 7 and uses forward slashes; `homeDir()` on Windows returns backslashes. Normalize at the frontend boundary — Rust fs callers must accept both `/` and `\`.
 - **Shell bootstrap scripts** (`src-tauri/src/modules/pty/scripts/`) emit OSC 7 (cwd tracking) and OSC 133 A/B/C/D (prompt/command boundaries). Generated copies are written atomically under `~/.cache/kite/shell-integration/`.
-- **`src-tauri/tests/`** call the command functions directly as plain Rust; no Tauri runtime needed.
+- **Rust tests** live in `#[cfg(test)]` modules next to the code; no Tauri runtime is needed.
 - **Tailwind v4 config lives in `src/styles/globals.css`** (CSS-based, not tailwind.config).
 - **Theme engine is custom**, not `next-themes`; six built-ins under `src/modules/theme/themes/`. Legacy `terax-*` store keys are read-only migration fallbacks; new state is written under `kite-*`.
 
@@ -129,7 +125,7 @@ home rather than inheriting the active tab's cwd.
 
 ## Testing requirements
 
-Changes to these load-bearing paths **must add or extend a test** that locks the invariant: shell/terminal spawn, the workspace and WSL path layer (including the reject side of the distro-name validator), IPC command surface, and pure logic with wide reach (cwd inheritance, tab/split tree transforms, OSC/prompt parsing). UI rendering and themes do not need tests.
+Changes to these load-bearing paths **must add or extend a test** that locks the invariant: shell/terminal spawn, launch-directory resolution, the IPC command surface, and pure logic with wide reach (cwd inheritance, tab/split tree transforms, OSC/prompt parsing). UI rendering and themes do not need tests.
 
 Known gap: `src/modules/terminal/lib/panes.ts` has no tests despite being on that list.
 

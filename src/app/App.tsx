@@ -1,11 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getLaunchDir } from "@/lib/launchDir";
-import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { native } from "@/lib/native";
 import { CommandPalette, createCommandItems } from "@/modules/command-palette";
 import { useMessages } from "@/modules/i18n";
 import { Header } from "@/modules/header";
@@ -15,7 +13,6 @@ import {
   type ShortcutHandlers,
   type ShortcutId,
 } from "@/modules/shortcuts";
-import { StatusBar } from "@/modules/statusbar";
 import {
   TabSwitcherHud,
   useTabs,
@@ -26,19 +23,17 @@ import {
 import {
   clearFocusedTerminal,
   disposeSession,
-  findLeafCwd,
   hasLeaf,
   leafIds,
   type TerminalPaneHandle,
   useTerminalFileDrop,
 } from "@/modules/terminal";
 import { ThemeProvider } from "@/modules/theme";
-import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
 import { WorkspaceSurface } from "./components/WorkspaceSurface";
+import { useHomeLocation } from "./hooks/useHomeLocation";
 import { useTabCloseGuards } from "./hooks/useTabCloseGuards";
-import { useWorkspaceSwitcher } from "./hooks/useWorkspaceSwitcher";
 
 export default function App() {
   const messages = useMessages();
@@ -67,12 +62,6 @@ export default function App() {
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
-  const activeTerminalTab = useMemo(() => {
-    const t = tabs.find((x) => x.id === activeId);
-    return t && t.kind === "terminal" ? t : null;
-  }, [tabs, activeId]);
-  const activeLeafId = activeTerminalTab?.activeLeafId ?? null;
-
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
@@ -86,35 +75,17 @@ export default function App() {
     terminalRefs.current.clear();
   }, []);
 
-  const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
-  const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
-  const {
-    home,
-    homeResolved,
-    launchCwd,
-    launchCwdResolved,
-    switchWorkspace,
-    openLocalWorkspace,
-  } = useWorkspaceSwitcher({
-    workspaceEnv,
-    setWorkspaceEnv,
+  const { home, homeResolved, launchCwd, openLaunchDir } = useHomeLocation({
     resetWorkspace,
     clearWorkspaceState,
   });
-
-  const handleWorkspaceChange = useCallback(
-    async (env: WorkspaceEnv) => {
-      await switchWorkspace(env);
-    },
-    [switchWorkspace],
-  );
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | null = null;
 
     void listen<string>("kite:open-launch-dir", (event) => {
-      void openLocalWorkspace(event.payload);
+      openLaunchDir(event.payload);
     }).then((dispose) => {
       if (disposed) {
         dispose();
@@ -127,13 +98,13 @@ export default function App() {
       disposed = true;
       unlisten?.();
     };
-  }, [openLocalWorkspace]);
+  }, [openLaunchDir]);
 
   useEffect(() => {
-    if (launchCwdResolved && (launchCwd !== null || homeResolved)) {
+    if (launchCwd !== null || homeResolved) {
       markBooted();
     }
-  }, [launchCwdResolved, launchCwd, homeResolved, markBooted]);
+  }, [launchCwd, homeResolved, markBooted]);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => {
@@ -201,24 +172,6 @@ export default function App() {
   const openNewTab = useCallback(() => {
     newTab(inheritedCwdForNewTab());
   }, [newTab, inheritedCwdForNewTab]);
-
-  const sendCd = useCallback(
-    (path: string) => {
-      if (activeLeafId === null) return;
-      const term = terminalRefs.current.get(activeLeafId);
-      if (!term) return;
-      term.write(`cd ${quoteShellArg(path)}\r`);
-      term.focus();
-    },
-    [activeLeafId],
-  );
-
-  const activeTerminalLeafCwd =
-    activeTab?.kind === "terminal"
-      ? (findLeafCwd(activeTab.paneTree, activeTab.activeLeafId) ??
-        activeTab.cwd ??
-        null)
-      : null;
 
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
@@ -296,16 +249,9 @@ export default function App() {
     [],
   );
 
-  const authorizedCwds = useRef(new Set<string>());
   const handleTerminalCwd = useCallback(
     (leafId: number, cwd: string) => {
       setLeafCwd(leafId, cwd);
-      if (cwd && !authorizedCwds.current.has(cwd)) {
-        authorizedCwds.current.add(cwd);
-        native.workspaceAuthorize(cwd).catch(() => {
-          authorizedCwds.current.delete(cwd);
-        });
-      }
     },
     [setLeafCwd],
   );
@@ -398,15 +344,6 @@ export default function App() {
               />
             </div>
           </main>
-
-          {!zenMode && (
-            <StatusBar
-              cwd={activeTerminalLeafCwd}
-              home={home}
-              onCd={sendCd}
-              onWorkspaceChange={handleWorkspaceChange}
-            />
-          )}
 
           <Toaster position="bottom-right" />
 

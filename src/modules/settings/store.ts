@@ -27,7 +27,6 @@ export type Preferences = {
   theme: ThemePref;
   themeId: string;
   restoreWindowState: boolean;
-  showHidden: boolean;
   terminalWebglEnabled: boolean;
   terminalCursorShape: TerminalCursorShape;
   terminalCursorAnimation: TerminalCursorAnimation;
@@ -40,9 +39,7 @@ export type Preferences = {
   terminalLetterSpacing: number;
   terminalFontSize: number;
   terminalScrollback: number;
-  lastWslDistro: string | null;
   zoomLevel: number;
-  defaultWorkspaceEnv: string;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
 };
 
@@ -51,8 +48,6 @@ const LEGACY_STORE_PATH = "terax-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
-const KEY_SHOW_HIDDEN = "showHidden";
-const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION =
   "terminalCursorSmoothCaretAnimation";
@@ -63,9 +58,7 @@ const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
-const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
-const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_VERSION = "_version";
 const REMOVED_BACKGROUND_KEYS = [
@@ -81,6 +74,12 @@ const REMOVED_EDITOR_KEYS = [
   "editorWordWrap",
   "editorAutoSave",
   "editorAutoSaveDelay",
+] as const;
+const REMOVED_WORKSPACE_KEYS = [
+  "showHidden",
+  "showHiddenDirectories",
+  "lastWslDistro",
+  "defaultWorkspaceEnv",
 ] as const;
 const REMOVED_SHORTCUT_IDS = [
   "search.focus",
@@ -111,7 +110,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   themeId: DEFAULT_THEME_ID,
   restoreWindowState: true,
-  showHidden: false,
   terminalWebglEnabled: true,
   terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
   terminalCursorAnimation: DEFAULT_TERMINAL_CURSOR_ANIMATION,
@@ -125,9 +123,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
-  lastWslDistro: null,
   zoomLevel: 1.0,
-  defaultWorkspaceEnv: "local",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
 };
 
@@ -269,6 +265,9 @@ export async function loadPreferences(): Promise<Preferences> {
   for (const key of REMOVED_EDITOR_KEYS) {
     if (map.delete(key)) migrated = true;
   }
+  for (const key of REMOVED_WORKSPACE_KEYS) {
+    if (map.delete(key)) migrated = true;
+  }
   if (removeRetiredShortcuts(map)) migrated = true;
   if (migrated) {
     map.set(KEY_VERSION, SETTINGS_VERSION);
@@ -279,6 +278,9 @@ export async function loadPreferences(): Promise<Preferences> {
       await store.delete(key);
     }
     for (const key of REMOVED_EDITOR_KEYS) {
+      await store.delete(key);
+    }
+    for (const key of REMOVED_WORKSPACE_KEYS) {
       await store.delete(key);
     }
     for (const [k, v] of map) {
@@ -296,10 +298,6 @@ export async function loadPreferences(): Promise<Preferences> {
     restoreWindowState:
       get<boolean>(KEY_RESTORE_WINDOW) ??
       DEFAULT_PREFERENCES.restoreWindowState,
-    showHidden:
-      get<boolean>(KEY_SHOW_HIDDEN) ??
-      get<boolean>(LEGACY_KEY_SHOW_HIDDEN_DIRS) ??
-      DEFAULT_PREFERENCES.showHidden,
     terminalWebglEnabled:
       get<boolean>(KEY_TERMINAL_WEBGL_ENABLED) ??
       DEFAULT_PREFERENCES.terminalWebglEnabled,
@@ -332,13 +330,7 @@ export async function loadPreferences(): Promise<Preferences> {
       get<number>(KEY_TERMINAL_SCROLLBACK) ??
         DEFAULT_PREFERENCES.terminalScrollback,
     ),
-    lastWslDistro:
-      get<string | null>(KEY_LAST_WSL_DISTRO) ??
-      DEFAULT_PREFERENCES.lastWslDistro,
     zoomLevel: get<number>(KEY_ZOOM_LEVEL) ?? DEFAULT_PREFERENCES.zoomLevel,
-    defaultWorkspaceEnv:
-      get<string>(KEY_DEFAULT_WORKSPACE_ENV) ??
-      DEFAULT_PREFERENCES.defaultWorkspaceEnv,
     shortcuts:
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
@@ -351,10 +343,6 @@ export async function setTheme(value: ThemePref): Promise<void> {
 
 export async function setThemeId(value: string): Promise<void> {
   await writePref(KEY_THEME_ID, normalizeThemeId(value));
-}
-
-export async function setShowHidden(value: boolean): Promise<void> {
-  await writePref(KEY_SHOW_HIDDEN, value);
 }
 
 export async function setTerminalWebglEnabled(value: boolean): Promise<void> {
@@ -425,20 +413,12 @@ export async function setTerminalScrollback(value: number): Promise<void> {
   await writePref(KEY_TERMINAL_SCROLLBACK, clampScrollback(value));
 }
 
-export async function setLastWslDistro(value: string | null): Promise<void> {
-  await writePref(KEY_LAST_WSL_DISTRO, value);
-}
-
 export async function setZoomLevel(value: number): Promise<void> {
   await writePref(KEY_ZOOM_LEVEL, value);
 }
 
 export async function setRestoreWindowState(value: boolean): Promise<void> {
   await writePref(KEY_RESTORE_WINDOW, value);
-}
-
-export async function setDefaultWorkspaceEnv(value: string): Promise<void> {
-  await writePref(KEY_DEFAULT_WORKSPACE_ENV, value);
 }
 
 export async function setShortcuts(
@@ -461,7 +441,6 @@ export async function onPreferencesChange(
     [KEY_THEME]: "theme",
     [KEY_THEME_ID]: "themeId",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
-    [KEY_SHOW_HIDDEN]: "showHidden",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION]:
       "terminalCursorSmoothCaretAnimation",
@@ -472,9 +451,7 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_LETTER_SPACING]: "terminalLetterSpacing",
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",
-    [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
-    [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",
     [KEY_SHORTCUTS]: "shortcuts",
   };
   // Same-process writes still fire onChange immediately; cross-window writes

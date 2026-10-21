@@ -28,7 +28,7 @@
 
 ---
 
-Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面终端模拟器。它提供多标签、分屏的原生终端体验，界面只有标签栏、终端和状态栏，让你在一个干净的窗口里专注跑命令。
+Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面终端模拟器。它提供多标签、分屏的原生终端体验，界面只有标签栏和终端，让你在一个干净的窗口里专注跑命令。
 
 项目当前的定位是一个终端优先的高性能桌面终端模拟器。你可以继续使用熟悉的 shell 和本地工具，在统一轻量的工作环境中高效工作。
 
@@ -66,8 +66,7 @@ Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面
 ## 核心能力
 
 - **原生终端体验**：基于 `portable-pty` 与 xterm.js，支持多标签、分屏（每标签最多 4 个）、WebGL 渲染、链接识别、真彩色和后台输出。
-- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd、Git Bash 与 WSL。
-- **路径导航**：状态栏面包屑显示当前目录，点击任意层级即可向终端发送 `cd`。
+- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd 与 Git Bash。
 - **主题与字体**：内置与自定义主题体系，可按偏好切换工作台视觉风格。
 
 界面语言目前仅提供简体中文。

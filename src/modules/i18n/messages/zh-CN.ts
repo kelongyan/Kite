@@ -66,29 +66,11 @@ export const zhCN = {
       },
       status: {
         noThemes: "没有主题",
-        noWorkspaceRoot: "没有工作区根目录",
         typeAtLeast2Characters: "至少输入 2 个字符",
         noMatches: "没有匹配项",
         noCommandsFound: "没有找到命令。输入关键词继续筛选。",
       },
       back: "返回",
-    },
-    statusbar: {
-      cwd: {
-        noDirectory: "无目录",
-        home: "主目录",
-        loading: "加载中...",
-        noSubfolders: "没有子文件夹",
-        showParentFolders: "显示上级文件夹",
-      },
-      workspaceEnv: {
-        title: "工作区环境",
-        windowsLocal: "Windows 本地",
-        loadingWslDistros: "正在加载 WSL 发行版...",
-        wslUnavailable: "WSL 不可用",
-        noWslDistros: "未找到 WSL 发行版",
-        refresh: "刷新",
-      },
     },
     closeDialogs: {
       closeTerminalTitle: "关闭终端？",
@@ -119,12 +101,6 @@ export const zhCN = {
         title: "缩放",
         uiZoomLevel: "界面缩放比例",
       },
-      pathNav: {
-        title: "路径导航",
-        showHiddenDirs: "显示隐藏目录",
-        showHiddenDirsDescription:
-          "在状态栏的路径导航中包含以点开头的目录（.config、.cache）。",
-      },
       terminal: {
         title: "终端",
         useWebgl: "使用 WebGL 渲染器",
@@ -152,16 +128,8 @@ export const zhCN = {
         },
         shell: "集成终端 Shell",
         shellUnavailableDescription: "此 Shell 不支持目录跟踪。",
-        shellWithWslDescription:
-          "集成终端使用的 Shell。WSL 工作区会使用发行版默认 Shell。已打开的标签保持原 Shell。",
         shellDescription: "新终端标签使用的 Shell。已打开的标签保持原 Shell。",
         autoShell: "自动",
-        workspaceEnvironment: "工作区环境",
-        workspaceEnvironmentDescription:
-          "新终端运行的位置：Windows 或 WSL 发行版。已打开的标签保持原环境，可在状态栏切换。",
-        workspaceEnvWindows: "Windows",
-        workspaceEnvWsl: "WSL",
-        unavailable: "不可用",
         letterSpacing: "字距",
         letterSpacingDescription:
           "字符之间的额外横向间距（px）。负值可收紧 Nerd Fonts。",

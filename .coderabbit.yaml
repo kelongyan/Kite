@@ -106,7 +106,6 @@ reviews:
         CONPTY_LIFECYCLE_LOCK (it serializes ConPTY create and close) or the per-session
         Job Object without an equivalent guarantee (first-tab stability, no orphaned
         child processes). Session field order matters: _job must drop before master.
-        validate_wsl_distro_name must gate every wsl.exe argv, and
         sanitize_shell_override must keep spawns limited to enumerated shells.
         Question any new crate on bundle-size grounds.
     - path: "src/**/*.{ts,tsx}"

@@ -10,7 +10,6 @@ use tauri::{AppHandle, Manager};
 
 use super::da_filter::DaFilter;
 use super::shell_init;
-use crate::modules::workspace::WorkspaceEnv;
 
 // Flusher coalesces a short window after first-byte arrival so we send chunks,
 // not single bytes. MAX_IDLE is only a safety net for missed signals.
@@ -102,7 +101,6 @@ pub fn spawn(
     cols: u16,
     rows: u16,
     cwd: Option<String>,
-    workspace: WorkspaceEnv,
     shell: Option<String>,
     theme_mode: Option<String>,
     on_data: Channel<Response>,
@@ -120,7 +118,7 @@ pub fn spawn(
     };
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
-    let cmd = shell_init::build_command(cwd, workspace, shell, theme_mode)?;
+    let cmd = shell_init::build_command(cwd, shell, theme_mode)?;
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 

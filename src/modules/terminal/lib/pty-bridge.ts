@@ -1,4 +1,3 @@
-import { currentWorkspaceEnv } from "@/modules/workspace";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { encodePtyInput, type PtyInput } from "./ptyInput";
 import {
@@ -52,7 +51,6 @@ export async function openPty(
     cols,
     rows,
     cwd: cwd ?? null,
-    workspace: currentWorkspaceEnv(),
     shell: shell ?? null,
     themeMode: themeMode ?? null,
     onData,

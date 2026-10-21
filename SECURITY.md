@@ -20,7 +20,7 @@ Until `1.0.0`, only the latest minor gets security fixes.
 
 ## What's in scope
 
-- The Rust backend in `src-tauri/` (PTY, filesystem listing, workspace and WSL path handling, IPC, plugins)
+- The Rust backend in `src-tauri/` (PTY, launch-directory handling, IPC, plugins)
 - The frontend in `src/` — anywhere untrusted input lands (terminal output, OSC sequences, imported theme files)
 - Release artifacts on GitHub
 

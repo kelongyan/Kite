@@ -6,8 +6,4 @@ export {
   leafHasForegroundProcess,
 } from "./lib/useTerminalSession";
 export { useTerminalFileDrop } from "./lib/useTerminalFileDrop";
-export {
-  findLeafCwd,
-  hasLeaf,
-  leafIds,
-} from "./lib/panes";
+export { hasLeaf, leafIds } from "./lib/panes";
