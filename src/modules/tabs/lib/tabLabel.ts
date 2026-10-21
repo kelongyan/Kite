@@ -36,6 +36,42 @@ function terminalFallbackTitle(title: string): string {
     : TERMINAL_DEFAULT_TITLE;
 }
 
+/**
+ * Tab-bar label for a terminal tab: the full cwd with the home directory
+ * collapsed to `~`. Custom titles still win.
+ */
+export function pathLabelFor(
+  t: Tab,
+  options: TabLabelOptions = {},
+): string {
+  if (t.customTitle) return t.customTitle;
+  if (!t.cwd || options.homeResolved === false) {
+    return terminalFallbackTitle(t.title);
+  }
+  return displayPath(t.cwd, options.home);
+}
+
+export function displayPath(cwd: string, home?: string | null): string {
+  const path = normalizeDisplayPath(cwd);
+  if (!home) return path;
+  const homePath = normalizeDisplayPath(home);
+  if (!homePath) return path;
+
+  const caseInsensitive =
+    /^[A-Za-z]:/.test(path) || /^[A-Za-z]:/.test(homePath);
+  const left = caseInsensitive ? path.toLowerCase() : path;
+  const right = caseInsensitive ? homePath.toLowerCase() : homePath;
+
+  if (left === right) return "~";
+  if (right === "/") return path === "/" ? "~" : `~${path}`;
+  const prefix = right.endsWith("/") ? right : `${right}/`;
+  if (left.startsWith(prefix)) {
+    const rest = path.slice(homePath.length);
+    return rest.startsWith("/") ? `~${rest}` : `~/${rest}`;
+  }
+  return path;
+}
+
 export function isTerminalLabelResolving(
   t: Tab,
   options: TabLabelOptions = {},
@@ -58,6 +94,16 @@ function normalizePathForCompare(path: string): string {
   normalized = normalized.replace(/\/+$/, "");
   if (!normalized && path.trim().startsWith("/")) return "/";
   return normalized;
+}
+
+function normalizeDisplayPath(path: string): string {
+  const trimmed = path.trim();
+  let normalized = trimmed.replace(/\\/g, "/");
+  if (/^\/[A-Za-z]:/.test(normalized)) normalized = normalized.slice(1);
+  const stripped = normalized.replace(/\/+$/, "");
+  if (!stripped) return trimmed.startsWith("/") ? "/" : "";
+  if (/^[A-Za-z]:$/.test(stripped)) return `${stripped}/`;
+  return stripped;
 }
 
 function isRootPath(path: string): boolean {

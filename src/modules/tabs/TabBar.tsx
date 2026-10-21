@@ -17,6 +17,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  type CSSProperties,
   Fragment,
   useCallback,
   useEffect,
@@ -24,7 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { isTerminalLabelResolving, labelFor } from "./lib/tabLabel";
+import { isTerminalLabelResolving, pathLabelFor } from "./lib/tabLabel";
 import type { Tab } from "./lib/useTabs";
 
 type Props = {
@@ -218,12 +219,12 @@ export function TabBar({
                       data-tab-id={t.id}
                       className={cn(
                         "flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-accent text-xs text-foreground",
-                        compact ? "px-1.5" : "px-2",
+                        compact ? "w-40 px-1.5" : "w-52 px-2",
                       )}
                     >
                       <TabIcon starting={terminalStarting} />
                       <TabRenameInput
-                        initial={labelFor(t, tabLabelOptions)}
+                        initial={pathLabelFor(t, tabLabelOptions)}
                         onCommit={(value) => {
                           onRename(t.id, value);
                           setEditingId(null);
@@ -307,18 +308,13 @@ export function TabBar({
                       : "text-muted-foreground hover:text-foreground/80 dark:text-muted-foreground",
                     draggingId === t.id && "opacity-50",
                     compact
-                      ? "px-1.5!"
+                      ? "w-40 px-1.5!"
                       : tabs.length === 1
-                        ? "px-2!"
-                        : "ps-2! pe-1!",
+                        ? "w-52 px-2!"
+                        : "w-52 ps-2! pe-1!",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex min-w-0 items-center gap-1.5",
-                      compact ? "max-w-48" : "max-w-80",
-                    )}
-                  >
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
                     <TabIcon starting={terminalStarting} />
                     <TabLabel
                       tab={t}
@@ -430,10 +426,13 @@ function TabLabel({
   homeResolved?: boolean;
 }) {
   const options = { home, homeResolved };
-  const label = labelFor(tab, options);
+  const label = pathLabelFor(tab, options);
   const resolving = isTerminalLabelResolving(tab, options);
   const [settled, setSettled] = useState(false);
   const wasResolving = useRef(resolving);
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
 
   useEffect(() => {
     const hadBeenResolving = wasResolving.current;
@@ -444,16 +443,50 @@ function TabLabel({
     return () => window.clearTimeout(id);
   }, [resolving]);
 
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const measure = () => {
+      setOverflow(Math.max(0, Math.ceil(inner.scrollWidth - outer.clientWidth)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(outer);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
+
+  const marqueeStyle =
+    overflow > 0
+      ? ({
+          "--kite-tab-label-shift": `-${overflow}px`,
+          "--kite-tab-marquee-duration": `${Math.max(3, overflow / 50)}s`,
+        } as CSSProperties)
+      : undefined;
+
   return (
-    <span className="truncate">
+    <span
+      ref={outerRef}
+      className="block min-w-0 flex-1 overflow-hidden text-left"
+    >
       <span
         className={cn(
-          "kite-tab-label-text inline-block max-w-full truncate align-bottom",
+          "kite-tab-label-text inline-block whitespace-nowrap align-bottom",
           resolving && "kite-tab-label-text-loading",
           settled && "kite-tab-label-text-settled",
         )}
       >
-        {label}
+        <span
+          ref={innerRef}
+          className={cn(
+            "inline-block whitespace-nowrap",
+            overflow > 0 && "kite-tab-label-marquee",
+          )}
+          style={marqueeStyle}
+        >
+          {label}
+        </span>
       </span>
     </span>
   );
@@ -515,7 +548,7 @@ function TabRenameInput({
       defaultValue={initial}
       aria-label={messages.renameTab}
       className={cn(
-        "w-28 min-w-0 rounded-sm bg-background px-1 text-xs text-foreground",
+        "w-full min-w-0 flex-1 rounded-sm bg-background px-1 text-xs text-foreground",
         "outline-none ring-1 ring-border focus:ring-ring",
       )}
       onKeyDown={(e) => {

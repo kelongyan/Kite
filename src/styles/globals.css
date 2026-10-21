@@ -430,6 +430,17 @@ html *::-webkit-scrollbar {
   animation: kite-tab-label-settle 210ms var(--ease-premium);
 }
 
+.kite-tab-label-marquee {
+  transform: translateX(0);
+  transition: transform 180ms var(--ease-soft);
+}
+
+.group:hover .kite-tab-label-marquee {
+  transform: translateX(var(--kite-tab-label-shift, 0));
+  transition-duration: var(--kite-tab-marquee-duration, 6s);
+  transition-timing-function: linear;
+}
+
 .kite-tab-terminal-resolving {
   overflow: hidden;
 }
@@ -627,6 +638,11 @@ html *::-webkit-scrollbar {
   }
   .kite-tab-label-text {
     transition: none;
+  }
+  .kite-tab-label-marquee,
+  .group:hover .kite-tab-label-marquee {
+    transition: none;
+    transform: none;
   }
   .kite-terminal-cursor-overlay-motion {
     transition: none;

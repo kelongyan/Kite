@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelFor } from "./tabLabel";
+import { displayPath, labelFor, pathLabelFor } from "./tabLabel";
 import type { TerminalTab } from "./useTabs";
 
 function terminalTab(over: Partial<TerminalTab> = {}): TerminalTab {
@@ -82,5 +82,82 @@ describe("labelFor (terminal tabs)", () => {
 
   it("handles Windows-style cwd separators", () => {
     expect(labelFor(terminalTab({ cwd: "C:\\Users\\me\\proj" }))).toBe("proj");
+  });
+});
+
+describe("pathLabelFor (tab bar)", () => {
+  it("shows the full path", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "/Users/me/projects/kite" })),
+    ).toBe("/Users/me/projects/kite");
+  });
+
+  it("collapses the home directory to ~", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "/Users/me" }), { home: "/Users/me" }),
+    ).toBe("~");
+  });
+
+  it("collapses paths inside home to ~/...", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "/Users/me/projects/kite" }), {
+        home: "/Users/me/",
+      }),
+    ).toBe("~/projects/kite");
+  });
+
+  it("does not collapse a sibling directory with a shared prefix", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "/Users/me2/projects" }), {
+        home: "/Users/me",
+      }),
+    ).toBe("/Users/me2/projects");
+  });
+
+  it("normalizes Windows separators and drive casing for ~", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "c:\\Users\\me\\proj" }), {
+        home: "C:/Users/me",
+      }),
+    ).toBe("~/proj");
+  });
+
+  it("keeps the root label", () => {
+    expect(pathLabelFor(terminalTab({ cwd: "/" }))).toBe("/");
+    expect(pathLabelFor(terminalTab({ cwd: "D:\\" }))).toBe("D:/");
+  });
+
+  it("keeps custom titles", () => {
+    expect(
+      pathLabelFor(
+        terminalTab({
+          cwd: "/Users/me/projects/kite",
+          customTitle: "Server",
+        }),
+        { home: "/Users/me" },
+      ),
+    ).toBe("Server");
+  });
+
+  it("falls back to the title without a cwd", () => {
+    expect(pathLabelFor(terminalTab({ title: "private" }))).toBe("private");
+  });
+
+  it("stays neutral while home is still resolving", () => {
+    expect(
+      pathLabelFor(terminalTab({ cwd: "/Users/me/projects" }), {
+        homeResolved: false,
+      }),
+    ).toBe("Terminal");
+  });
+});
+
+describe("displayPath", () => {
+  it("leaves paths outside home unchanged", () => {
+    expect(displayPath("/opt/kite", "/Users/me")).toBe("/opt/kite");
+  });
+
+  it("normalizes backslashes and trailing separators", () => {
+    expect(displayPath("C:\\Users\\me\\proj\\", "C:/Users/me")).toBe("~/proj");
   });
 });
