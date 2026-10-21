@@ -89,8 +89,6 @@ export function Header({
         {!IS_MAC && <span className="mx-1 h-full w-px shrink-0 bg-border/70" />}
       </div>
 
-      {!IS_MAC && <span className="mx-1 h-full w-px shrink-0 bg-border/70" />}
-
       {IS_MAC && <span className="mr-1 h-full w-px shrink-0 bg-border/70" />}
 
       <div
