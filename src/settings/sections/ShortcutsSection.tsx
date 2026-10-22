@@ -351,7 +351,10 @@ function Recorder({
 
   return (
     <div className="flex items-center gap-2 rounded bg-accent/50 px-2 py-1 text-[11px] ring-1 ring-accent">
-      <span className="animate-pulse font-medium">{messages.recording}</span>
+      <span className="flex items-center gap-1.5 font-medium">
+        <span aria-hidden className="kite-recording-dot bg-destructive" />
+        {messages.recording}
+      </span>
       <span className="text-muted-foreground">{messages.escToCancel}</span>
     </div>
   );

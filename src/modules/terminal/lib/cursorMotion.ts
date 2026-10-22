@@ -33,7 +33,8 @@ export const DEFAULT_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION: TerminalCursorSmoot
 
 export const TERMINAL_CURSOR_MOTION_INTENT_MS = 220;
 export const TERMINAL_CURSOR_MOTION_SUPPRESS_MS = 220;
-export const TERMINAL_CURSOR_MOTION_TRANSITION_MS = 72;
+// Must match --dur-cursor in globals.css.
+export const TERMINAL_CURSOR_MOTION_TRANSITION_MS = 64;
 export const TERMINAL_CURSOR_MOTION_HIDDEN_GRACE_MS = 140;
 
 // A hidden terminal cursor's position is only ever a guess derived from a

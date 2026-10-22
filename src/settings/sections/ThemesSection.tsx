@@ -97,35 +97,45 @@ export function ThemesSection() {
         void handleThemeFiles(e.dataTransfer.files);
       }}
     >
-      <div className="flex items-center justify-between">
-        <SectionHeader
-          title={themeMessages.title}
-          description={themeMessages.description}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-[11px]"
-          onClick={onPickThemeFile}
-        >
-          {themeMessages.theme.importTheme}
-        </Button>
-      </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".kite-theme,.terax-theme,.json,application/json"
-        className="hidden"
-        onChange={(e) => {
-          void handleThemeFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      {importError ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11.5px] text-destructive">
-          {importError}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <SectionHeader
+            title={themeMessages.title}
+            description={themeMessages.description}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            onClick={onPickThemeFile}
+          >
+            {themeMessages.theme.importTheme}
+          </Button>
         </div>
-      ) : null}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".kite-theme,.terax-theme,.json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            void handleThemeFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <div
+          className="kite-reveal"
+          data-state={importError ? "open" : "closed"}
+        >
+          <div>
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11.5px] text-destructive"
+            >
+              {importError ?? ""}
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         {themes.map((t) => {
           const v =
@@ -141,7 +151,7 @@ export function ThemesSection() {
             <div
               key={t.id}
               className={cn(
-                "group/theme flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all focus-within:ring-1 focus-within:ring-foreground/20",
+                "group/theme flex items-center gap-3 rounded-lg border p-2.5 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
                 selected
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
@@ -188,7 +198,7 @@ export function ThemesSection() {
                 </div>
               </button>
               {selected ? (
-                <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                <span className="kite-theme-check flex size-4.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
                   <HugeiconsIcon
                     icon={Tick02Icon}
                     size={10}

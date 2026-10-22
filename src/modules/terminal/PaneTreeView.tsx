@@ -3,6 +3,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useMessages } from "@/modules/i18n";
 import { Fragment } from "react";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { leafIds, type PaneNode } from "./lib/panes";
@@ -81,10 +82,11 @@ export function PaneTreeView(props: Props) {
 
 function DropOverlay({ leafId }: { leafId: number }) {
   const active = useTerminalDropStore((s) => s.targetLeafId === leafId);
+  const messages = useMessages();
   if (!active) return null;
   return (
-    <div className="pointer-events-none absolute inset-2 grid place-items-center rounded-lg border border-primary/45 bg-background/70 text-xs font-medium text-foreground shadow-lg backdrop-blur-sm">
-      Drop file path here
+    <div className="kite-drop-overlay pointer-events-none absolute inset-2 grid place-items-center rounded-lg border border-primary/45 bg-background/70 text-xs font-medium text-foreground shadow-lg">
+      {messages.common.dropFileHint}
     </div>
   );
 }

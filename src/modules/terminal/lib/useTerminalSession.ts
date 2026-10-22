@@ -2,7 +2,7 @@ import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DormantRing } from "./dormantRing";
 import {
   createShellIntegrationState,
@@ -43,6 +43,7 @@ import {
 type Callbacks = {
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
+  onFirstData?: () => void;
 };
 
 type Session = {
@@ -73,6 +74,7 @@ type Session = {
   // the terminal, so the leaf must keep its live grid while hidden.
   commandRunning: boolean;
   hiddenReleaseTimer: ReturnType<typeof setTimeout> | null;
+  started: boolean;
   spawnFailed: boolean;
 };
 
@@ -263,6 +265,7 @@ function ensureSession(
     altScreenAtRelease: false,
     commandRunning: false,
     hiddenReleaseTimer: null,
+    started: false,
     spawnFailed: false,
   };
   sessions.set(leafId, session);
@@ -278,6 +281,10 @@ function ensureSession(
 function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   const s = sessions.get(leafId);
   if (!s) return;
+  if (!s.started) {
+    s.started = true;
+    s.callbacks.onFirstData?.();
+  }
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
@@ -439,6 +446,7 @@ function attachSession(
   if (!s || s.disposed) return;
   s.callbacks = callbacks;
   s.container = container;
+  if (s.started) callbacks.onFirstData?.();
 
   if (s.visibleNow) bindLeafToSlot(leafId, s);
 
@@ -581,6 +589,9 @@ export function useTerminalSession({
   initialCwdRef.current = initialCwd;
   const themeModeRef = useRef(themeMode);
   themeModeRef.current = themeMode;
+  const [started, setStarted] = useState(
+    () => sessions.get(leafId)?.started ?? false,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -596,6 +607,7 @@ export function useTerminalSession({
       attachSession(leafId, node, {
         onExit: (c) => cbRef.current.onExit?.(c),
         onCwd: (c) => cbRef.current.onCwd?.(c),
+        onFirstData: () => setStarted(true),
       });
       if (s.visibleNow && s.focusedNow) focusSlot(leafId);
     });
@@ -725,6 +737,32 @@ export function useTerminalSession({
     applyPoolTheme();
   }, []);
 
+  const getSelectionAnchor = useCallback((): {
+    x: number;
+    y: number;
+  } | null => {
+    const s = sessions.get(leafId);
+    if (!s) return null;
+    const slot = getLiveSlotForLeaf(leafId) ?? getSlotForLeaf(leafId);
+    if (!slot) return null;
+    const pos = slot.term.getSelectionPosition();
+    if (!pos) return null;
+    const screen = slot.term.element?.querySelector<HTMLElement>(
+      ".xterm-screen",
+    );
+    if (!screen) return null;
+    const rect = screen.getBoundingClientRect();
+    const cols = slot.term.cols;
+    const rows = slot.term.rows;
+    if (cols <= 0 || rows <= 0) return null;
+    const row = pos.end.y - slot.term.buffer.active.viewportY;
+    if (row < 0 || row >= rows) return null;
+    return {
+      x: rect.left + (pos.end.x + 0.5) * (rect.width / cols),
+      y: rect.top + (row + 1) * (rect.height / rows),
+    };
+  }, [leafId]);
+
   return useMemo(
     () => ({
       write,
@@ -732,8 +770,18 @@ export function useTerminalSession({
       getBuffer,
       getSelection,
       applyTheme,
+      started,
+      getSelectionAnchor,
     }),
-    [write, focus, getBuffer, getSelection, applyTheme],
+    [
+      write,
+      focus,
+      getBuffer,
+      getSelection,
+      applyTheme,
+      started,
+      getSelectionAnchor,
+    ],
   );
 }
 

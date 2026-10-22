@@ -966,7 +966,6 @@ function syncSlotCursorOverlay(slot: Slot): void {
       hasOwner,
       hasLiveLeaf: leafId !== null,
       parked: slot.parked,
-      focused,
       windowActive,
       cursorVisible: true,
       hostVisible: slot.host.style.visibility !== "hidden",
@@ -1049,7 +1048,8 @@ function syncSlotCursorOverlay(slot: Slot): void {
     scheduleSlotCursorOverlayMotionEnd(slot);
   }
   const useMotionClass =
-    animateMotion || (sameGrid && now <= slot.cursorMotionTransitionUntil);
+    focused &&
+    (animateMotion || (sameGrid && now <= slot.cursorMotionTransitionUntil));
 
   syncSlotCursorOverlayMask(
     slot,
@@ -1080,7 +1080,10 @@ function syncSlotCursorOverlay(slot: Slot): void {
     "kite-terminal-cursor-overlay-visual",
     `kite-terminal-cursor-overlay-${cursorAnimation}`,
     `kite-terminal-cursor-overlay-${cursorShape}`,
-  ].join(" ");
+    focused ? "" : "kite-terminal-cursor-overlay-inactive",
+  ]
+    .filter(Boolean)
+    .join(" ");
   if (overlay.className !== overlayClassName) {
     overlay.className = overlayClassName;
   }
@@ -1095,6 +1098,11 @@ function syncSlotCursorOverlay(slot: Slot): void {
   );
   setOverlayStyle(overlay.style, "width", `${box.width}px`);
   setOverlayStyle(overlay.style, "height", `${box.height}px`);
+  setOverlayStyle(
+    overlay.style,
+    "willChange",
+    useMotionClass ? "transform" : "",
+  );
   slot.cursorOverlayLastGrid = nextGrid;
 }
 
@@ -1213,7 +1221,8 @@ function setOverlayStyle(
     | "top"
     | "transform"
     | "width"
-    | "height",
+    | "height"
+    | "willChange",
   value: string,
 ): void {
   if (style[property] !== value) style[property] = value;
@@ -1304,7 +1313,10 @@ function hideSlotCursorOverlayMask(slot: Slot): void {
 function hideSlotCursorOverlay(slot: Slot): void {
   cancelSlotCursorOverlayHiddenGrace(slot);
   cancelSlotCursorOverlayMotionEnd(slot);
-  if (slot.cursorOverlay) slot.cursorOverlay.style.display = "none";
+  if (slot.cursorOverlay) {
+    slot.cursorOverlay.style.display = "none";
+    slot.cursorOverlay.style.willChange = "";
+  }
   slot.cursorOverlayLastGrid = null;
   slot.cursorFallbackGrid = null;
   hideSlotCursorOverlayMask(slot);
@@ -1926,7 +1938,6 @@ export function applyCursorPreferences(
   for (const slot of slots) {
     if (enteringOverlay) {
       clearXtermCursorStyleOverride(slot.term);
-      slot.term.options.cursorBlink = true;
     }
     if (theme) {
       slot.term.options.theme = theme;

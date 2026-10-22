@@ -60,7 +60,6 @@ export type TerminalCursorOverlayVisibilityInput = {
   hasOwner: boolean;
   hasLiveLeaf: boolean;
   parked: boolean;
-  focused: boolean;
   windowActive: boolean;
   cursorVisible: boolean;
   hostVisible: boolean;
@@ -185,7 +184,6 @@ export function shouldShowTerminalCursorOverlay(
     input.hasLiveLeaf &&
     input.cursorVisible &&
     !input.parked &&
-    input.focused &&
     input.windowActive &&
     input.hostVisible
   );

@@ -1,3 +1,4 @@
+import { useMessages } from "@/modules/i18n";
 import { useTheme } from "@/modules/theme";
 import {
   forwardRef,
@@ -8,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { CopiedBubble } from "./CopiedBubble";
 import { useTerminalSession } from "./lib/useTerminalSession";
 
@@ -42,12 +44,18 @@ export const TerminalPane = memo(
     },
     ref,
   ) {
+    const messages = useMessages();
     const containerRef = useRef<HTMLDivElement>(null);
     const mousePosRef = useRef({ x: 0, y: 0 });
-    const [copiedPos, setCopiedPos] = useState<{ x: number; y: number } | null>(
-      null,
-    );
-    const clearCopied = useCallback(() => setCopiedPos(null), []);
+    const [copied, setCopied] = useState<{
+      x: number;
+      y: number;
+      seq: number;
+    } | null>(null);
+    const copiedSeqRef = useRef(0);
+    const [copiedNotice, setCopiedNotice] = useState("");
+    const noticeTimerRef = useRef<number | null>(null);
+    const clearCopied = useCallback(() => setCopied(null), []);
     const { resolvedMode, themeId, customThemes } = useTheme();
 
     const session = useTerminalSession({
@@ -79,13 +87,44 @@ export const TerminalPane = memo(
       [session],
     );
 
-    // Show "Copied" bubble at the last mouse-up position when a copy fires.
+    // Copy feedback: anchor at the selection end when possible, then the pane
+    // center, then the last mouse-up. The visual bubble remounts per copy so
+    // repeated copies restart the animation; the live region is permanent so
+    // screen readers are not cut off when the bubble unmounts.
     useEffect(() => {
       const el = containerRef.current;
       if (!el) return;
-      const handler = () => setCopiedPos({ ...mousePosRef.current });
+      const handler = () => {
+        const anchor = session.getSelectionAnchor();
+        const rect = containerRef.current?.getBoundingClientRect();
+        const fallback = mousePosRef.current;
+        setCopied({
+          x: anchor?.x ?? (rect ? rect.left + rect.width / 2 : fallback.x),
+          y: anchor?.y ?? (rect ? rect.top + rect.height / 2 : fallback.y),
+          seq: ++copiedSeqRef.current,
+        });
+        setCopiedNotice("");
+        if (noticeTimerRef.current !== null) {
+          window.clearTimeout(noticeTimerRef.current);
+        }
+        noticeTimerRef.current = window.setTimeout(() => {
+          setCopiedNotice(messages.common.copied);
+          noticeTimerRef.current = window.setTimeout(() => {
+            setCopiedNotice("");
+            noticeTimerRef.current = null;
+          }, 3000);
+        }, 20);
+      };
       el.addEventListener("terminal:copied", handler);
       return () => el.removeEventListener("terminal:copied", handler);
+    }, [messages.common.copied, session]);
+
+    useEffect(() => {
+      return () => {
+        if (noticeTimerRef.current !== null) {
+          window.clearTimeout(noticeTimerRef.current);
+        }
+      };
     }, []);
 
     const hideStyle = {
@@ -95,17 +134,39 @@ export const TerminalPane = memo(
 
     return (
       <>
-        <div
-          ref={containerRef}
-          className="zoom-exempt h-full w-full"
-          style={hideStyle}
-          onMouseUp={(e) => {
-            mousePosRef.current = { x: e.clientX, y: e.clientY };
-          }}
-        />
-        {copiedPos && (
-          <CopiedBubble x={copiedPos.x} y={copiedPos.y} onDone={clearCopied} />
-        )}
+        <div className="relative h-full w-full">
+          <div
+            ref={containerRef}
+            className="zoom-exempt h-full w-full"
+            style={hideStyle}
+            onMouseUp={(e) => {
+              mousePosRef.current = { x: e.clientX, y: e.clientY };
+            }}
+          />
+          {!session.started && (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center bg-background/70 text-[11px] text-muted-foreground">
+              {messages.common.startingShell}
+            </div>
+          )}
+        </div>
+        <span
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {copiedNotice}
+        </span>
+        {copied &&
+          createPortal(
+            <CopiedBubble
+              key={copied.seq}
+              x={copied.x}
+              y={copied.y}
+              onDone={clearCopied}
+            />,
+            document.body,
+          )}
       </>
     );
   }),

@@ -6,7 +6,7 @@ import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
 import { CommandIcon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 type Props = {
   tabs: Tab[];
@@ -24,7 +24,8 @@ type Props = {
   homeResolved?: boolean;
 };
 
-const COMPACT_WIDTH = 720;
+const COMPACT_ENTER = 700;
+const COMPACT_EXIT = 740;
 
 export function Header({
   tabs,
@@ -42,14 +43,41 @@ export function Header({
   const messages = useMessages();
   const shellMessages = messages.mainShell;
   const rootRef = useRef<HTMLDivElement>(null);
+  const compactRef = useRef(false);
   const [compact, setCompact] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+
+    const pulseLabels = () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+      }
+      for (const node of el.querySelectorAll<HTMLElement>(
+        ".kite-tab-label-text",
+      )) {
+        node.animate?.(
+          [{ opacity: 0.55 }, { opacity: 1 }],
+          { duration: 120, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+        );
+      }
+    };
+
+    const update = (width: number) => {
+      const next = compactRef.current
+        ? width < COMPACT_EXIT
+        : width < COMPACT_ENTER;
+      if (next === compactRef.current) return;
+      compactRef.current = next;
+      setCompact(next);
+      pulseLabels();
+    };
+
+    update(el.getBoundingClientRect().width);
+
     const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      setCompact(w < COMPACT_WIDTH);
+      update(entries[0]?.contentRect.width ?? 0);
     });
     ro.observe(el);
     return () => ro.disconnect();

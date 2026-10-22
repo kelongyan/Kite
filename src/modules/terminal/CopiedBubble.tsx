@@ -1,20 +1,5 @@
+import { useMessages } from "@/modules/i18n";
 import { useEffect, useRef } from "react";
-
-// Inject the keyframe once into the document head; avoids a separate CSS file.
-let styleInjected = false;
-function injectStyle() {
-  if (styleInjected) return;
-  styleInjected = true;
-  const el = document.createElement("style");
-  el.textContent = `
-@keyframes terminal-copied {
-  0%   { opacity: 0; transform: translateX(-50%) translateY(4px);  }
-  12%  { opacity: 1; transform: translateX(-50%) translateY(0);    }
-  72%  { opacity: 1; transform: translateX(-50%) translateY(0);    }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-}`;
-  document.head.appendChild(el);
-}
 
 type Props = {
   x: number;
@@ -23,6 +8,7 @@ type Props = {
 };
 
 export function CopiedBubble({ x, y, onDone }: Props) {
+  const messages = useMessages();
   // Keep a ref to onDone so the timeout always calls the latest version
   // without the effect needing to re-run (and restart the timer).
   const onDoneRef = useRef(onDone);
@@ -31,26 +17,21 @@ export function CopiedBubble({ x, y, onDone }: Props) {
   });
 
   useEffect(() => {
-    injectStyle();
-    const id = setTimeout(() => onDoneRef.current(), 1300);
-    return () => clearTimeout(id);
+    const id = window.setTimeout(() => onDoneRef.current(), 1200);
+    return () => window.clearTimeout(id);
   }, []);
 
   return (
     <div
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
+      aria-hidden="true"
       style={{
         position: "fixed",
         left: x,
         top: y - 40,
-        transform: "translateX(-50%)",
-        animation: "terminal-copied 1.3s ease-out forwards",
-        pointerEvents: "none",
         zIndex: 9999,
+        pointerEvents: "none",
       }}
-      className="flex items-center gap-1 rounded border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm"
+      className="kite-copied-bubble flex items-center gap-1 rounded border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm"
     >
       {/* checkmark icon */}
       <svg
@@ -68,7 +49,7 @@ export function CopiedBubble({ x, y, onDone }: Props) {
           strokeLinejoin="round"
         />
       </svg>
-      Copied
+      {messages.common.copied}
     </div>
   );
 }

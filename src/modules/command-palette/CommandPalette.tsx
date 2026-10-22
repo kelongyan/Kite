@@ -82,21 +82,25 @@ export function CommandPalette({
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
-      if (!next) resetPalette();
       onOpenChange(next);
     },
-    [onOpenChange, resetPalette],
+    [onOpenChange],
   );
+
+  const focusInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLInputElement>('[data-slot="command-input"]')
+        ?.focus();
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setPage("root");
-    const handle = window.setTimeout(() => {
-      document.getElementById("kite-command-palette-input")?.focus();
-    }, 0);
-    return () => window.clearTimeout(handle);
-  }, [open]);
+    focusInput();
+  }, [open, focusInput]);
 
   useEffect(() => {
     if (!inThemes || !value.startsWith("theme:")) return;
@@ -121,14 +125,16 @@ export function CommandPalette({
     setPage("themes");
     setQuery("");
     setValue("");
-  }, []);
+    focusInput();
+  }, [focusInput]);
 
   const exitThemes = useCallback(() => {
     previewThemeId(null);
     setPage("root");
     setQuery("");
     setValue("");
-  }, [previewThemeId]);
+    focusInput();
+  }, [previewThemeId, focusInput]);
 
   const runCommand = useCallback(
     (item: PaletteItem) => {
@@ -151,13 +157,22 @@ export function CommandPalette({
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!inThemes) return;
-      if (e.key === "Escape" || (e.key === "Backspace" && query.length === 0)) {
+      if (e.key === "Backspace" && query.length === 0) {
         e.preventDefault();
         e.stopPropagation();
         exitThemes();
       }
     },
     [inThemes, query, exitThemes],
+  );
+
+  const onEscapeKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!inThemes) return;
+      event.preventDefault();
+      exitThemes();
+    },
+    [inThemes, exitThemes],
   );
 
   const placeholder = inThemes
@@ -168,6 +183,8 @@ export function CommandPalette({
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
+      onCloseAutoFocus={resetPalette}
+      onEscapeKeyDown={onEscapeKeyDown}
       title={messages.title}
       description={messages.description}
       className="top-1/2 w-[min(680px,calc(100vw-32px))] -translate-y-1/2"
@@ -180,14 +197,16 @@ export function CommandPalette({
         onKeyDown={onKeyDown}
       >
         <CommandInput
-          id="kite-command-palette-input"
           value={query}
           onValueChange={setQuery}
           placeholder={placeholder}
           autoFocus
         />
         <ScrollArea className="max-h-[420px]">
-          <CommandList className="max-h-none overflow-visible pr-3">
+          <CommandList
+            key={page}
+            className="kite-command-page-in max-h-none overflow-visible pr-3"
+          >
             {inThemes ? (
               <CommandGroup heading={messages.headings.themes}>
                 <CommandItem

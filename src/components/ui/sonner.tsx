@@ -8,12 +8,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={resolvedMode}
       className="toaster group"
+      duration={3000}
       style={
         {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--border-radius": "1rem",
         } as React.CSSProperties
       }
       {...props}

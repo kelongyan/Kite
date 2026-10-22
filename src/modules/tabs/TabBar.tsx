@@ -43,6 +43,14 @@ type Props = {
   compact?: boolean;
 };
 
+type DragGhost = {
+  tabId: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export function TabBar({
   tabs,
   activeId,
@@ -64,23 +72,60 @@ export function TabBar({
   const drag = useRef<{
     pointerId: number;
     startX: number;
+    startY: number;
     fromId: number;
     active: boolean;
+    rect?: DOMRect;
   } | null>(null);
+  const prevIdsRef = useRef<number[]>(tabs.map((t) => t.id));
+  const [pillMoving, setPillMoving] = useState(true);
+  const [ghost, setGhost] = useState<DragGhost | null>(null);
+  const ghostRafRef = useRef<number | null>(null);
+  const ghostPosRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollRef = useRef<{
+    raf: number | null;
+    dir: -1 | 0 | 1;
+    x: number;
+  }>({ raf: null, dir: 0, x: 0 });
 
-  // Play the enter animation only for tabs opened after the first paint, never
-  // the restored set and never on switch/reorder (triggers are keyed, so they
-  // don't remount then). The ref is seeded with the initial ids on first render.
+  // Play the enter animation only for tabs opened after the first paint. The
+  // animation is self-terminating: the id stays in `entering` until
+  // animationend, so a cwd update or parent re-render cannot cut it short.
   const seenRef = useRef<Set<number> | null>(null);
-  const firstRender = seenRef.current === null;
-  let seen = seenRef.current;
-  if (seen === null) {
-    seen = new Set(tabs.map((t) => t.id));
-    seenRef.current = seen;
-  }
-  useEffect(() => {
+  if (seenRef.current === null) {
     seenRef.current = new Set(tabs.map((t) => t.id));
+  }
+  const [entering, setEntering] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+
+  useEffect(() => {
+    const seen = seenRef.current;
+    if (seen === null) return;
+    const added = tabs.filter((t) => !seen.has(t.id)).map((t) => t.id);
+    seenRef.current = new Set(tabs.map((t) => t.id));
+    if (added.length === 0) return;
+    setEntering((prev) => {
+      const next = new Set(prev);
+      for (const id of added) next.add(id);
+      return next;
+    });
   }, [tabs]);
+
+  useEffect(() => {
+    if (entering.size === 0) return;
+    const id = window.setTimeout(() => setEntering(new Set<number>()), 400);
+    return () => window.clearTimeout(id);
+  }, [entering]);
+
+  const clearEntering = useCallback((id: number) => {
+    setEntering((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   // Single shared pill slides to the active tab instead of each tab toggling
   // its own background. Measured relative to the list (its offsetParent) so it
@@ -100,6 +145,23 @@ export function TabBar({
   useLayoutEffect(() => {
     measurePill();
   }, [measurePill, activeId, tabs]);
+
+  // Closing or reordering changes the strip geometry. Suppress the pill
+  // transition for one frame so it lands on the new position instead of
+  // sliding from a stale one.
+  useLayoutEffect(() => {
+    const prev = prevIdsRef.current;
+    const next = tabs.map((t) => t.id);
+    prevIdsRef.current = next;
+    if (prev.length === 0) return;
+    const removed = prev.some((id) => !next.includes(id));
+    const reordered =
+      prev.length === next.length && prev.some((id, i) => id !== next[i]);
+    if (!removed && !reordered) return;
+    setPillMoving(false);
+    const raf = requestAnimationFrame(() => setPillMoving(true));
+    return () => cancelAnimationFrame(raf);
+  }, [tabs]);
 
   useEffect(() => {
     const list = listRef.current;
@@ -129,12 +191,76 @@ export function TabBar({
     return els.length;
   };
 
+  const stopAutoScroll = () => {
+    if (autoScrollRef.current.raf !== null) {
+      cancelAnimationFrame(autoScrollRef.current.raf);
+    }
+    autoScrollRef.current = { raf: null, dir: 0, x: 0 };
+  };
+
+  const startAutoScroll = () => {
+    const st = autoScrollRef.current;
+    if (st.raf !== null) return;
+    const tick = () => {
+      const el = scrollRef.current;
+      if (!el || autoScrollRef.current.dir === 0) {
+        autoScrollRef.current.raf = null;
+        return;
+      }
+      el.scrollLeft += autoScrollRef.current.dir * 8;
+      setDropGap(gapAtX(autoScrollRef.current.x));
+      autoScrollRef.current.raf = requestAnimationFrame(tick);
+    };
+    st.raf = requestAnimationFrame(tick);
+  };
+
+  const updateAutoScroll = (clientX: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const edge = 24;
+    const dir =
+      clientX < rect.left + edge ? -1 : clientX > rect.right - edge ? 1 : 0;
+    autoScrollRef.current.dir = dir;
+    autoScrollRef.current.x = clientX;
+    if (dir === 0) {
+      if (autoScrollRef.current.raf !== null) {
+        cancelAnimationFrame(autoScrollRef.current.raf);
+        autoScrollRef.current.raf = null;
+      }
+    } else {
+      startAutoScroll();
+    }
+  };
+
+  const scheduleGhost = (x: number, y: number) => {
+    ghostPosRef.current = { x, y };
+    if (ghostRafRef.current !== null) return;
+    ghostRafRef.current = requestAnimationFrame(() => {
+      ghostRafRef.current = null;
+      const pos = ghostPosRef.current;
+      if (!pos) return;
+      setGhost((g) => (g ? { ...g, x: pos.x, y: pos.y } : g));
+    });
+  };
+
+  const clearGhost = () => {
+    if (ghostRafRef.current !== null) {
+      cancelAnimationFrame(ghostRafRef.current);
+      ghostRafRef.current = null;
+    }
+    ghostPosRef.current = null;
+    setGhost(null);
+  };
+
   const endDrag = (currentTarget: HTMLElement) => {
     const st = drag.current;
     if (st) currentTarget.releasePointerCapture?.(st.pointerId);
     drag.current = null;
     setDraggingId(null);
     setDropGap(null);
+    stopAutoScroll();
+    clearGhost();
     document.body.style.userSelect = "";
   };
 
@@ -160,6 +286,18 @@ export function TabBar({
     active?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeId]);
 
+  useEffect(() => {
+    return () => {
+      if (ghostRafRef.current !== null) {
+        cancelAnimationFrame(ghostRafRef.current);
+      }
+      if (autoScrollRef.current.raf !== null) {
+        cancelAnimationFrame(autoScrollRef.current.raf);
+      }
+      document.body.style.userSelect = "";
+    };
+  }, []);
+
   return (
     <div
       ref={scrollRef}
@@ -183,9 +321,8 @@ export function TabBar({
                   ? {
                       width: pill.width,
                       transform: `translate(${pill.left}px, -50%)`,
-                      transitionProperty: pillReady
-                        ? "transform, width"
-                        : "none",
+                      transitionProperty:
+                        pillReady && pillMoving ? "transform, width" : "none",
                       transitionDuration: "var(--dur-base)",
                       transitionTimingFunction: "var(--ease-premium)",
                     }
@@ -194,7 +331,8 @@ export function TabBar({
             />
             {tabs.map((t, i) => {
               const isActive = t.id === activeId;
-              const isNew = !firstRender && !seen.has(t.id);
+              const isEntering =
+                entering.has(t.id) || !seenRef.current?.has(t.id);
               const tabLabelOptions = { home, homeResolved };
               const terminalStarting = isTerminalLabelResolving(
                 t,
@@ -251,6 +389,7 @@ export function TabBar({
                     drag.current = {
                       pointerId: e.pointerId,
                       startX: e.clientX,
+                      startY: e.clientY,
                       fromId: t.id,
                       active: false,
                     };
@@ -262,10 +401,25 @@ export function TabBar({
                     if (!st.active) {
                       if (Math.abs(e.clientX - st.startX) < 4) return;
                       st.active = true;
+                      st.rect = e.currentTarget.getBoundingClientRect();
                       setDraggingId(st.fromId);
+                      setGhost({
+                        tabId: st.fromId,
+                        x: st.rect.left,
+                        y: st.rect.top,
+                        width: st.rect.width,
+                        height: st.rect.height,
+                      });
                       document.body.style.userSelect = "none";
                     }
                     e.preventDefault();
+                    if (st.rect) {
+                      scheduleGhost(
+                        st.rect.left + (e.clientX - st.startX),
+                        st.rect.top + (e.clientY - st.startY),
+                      );
+                    }
+                    updateAutoScroll(e.clientX);
                     setDropGap(gapAtX(e.clientX));
                   }}
                   onPointerUp={(e) => {
@@ -278,6 +432,14 @@ export function TabBar({
                     endDrag(e.currentTarget);
                   }}
                   onPointerCancel={(e) => endDrag(e.currentTarget)}
+                  onAnimationEnd={(e) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      e.animationName.includes("kite-tab-in")
+                    ) {
+                      clearEntering(t.id);
+                    }
+                  }}
                   onAuxClick={(e) => {
                     if (e.button === 1 && tabs.length > 1) {
                       e.preventDefault();
@@ -300,8 +462,8 @@ export function TabBar({
                     }
                   }}
                   className={cn(
-                    "group relative z-[1] h-7 shrink-0 justify-between gap-1.5 rounded-md bg-transparent text-xs transition-colors data-active:bg-transparent dark:data-active:bg-transparent",
-                    isNew && "kite-tab-in",
+                    "group relative z-[1] h-7 shrink-0 justify-between gap-1.5 rounded-md bg-transparent text-xs data-active:bg-transparent dark:data-active:bg-transparent",
+                    isEntering && "kite-tab-in",
                     terminalStarting && "kite-tab-terminal-resolving",
                     isActive
                       ? "text-foreground dark:text-foreground"
@@ -331,7 +493,7 @@ export function TabBar({
                         e.stopPropagation();
                         onClose(t.id);
                       }}
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:opacity-100 group-hover:opacity-60"
+                      className="rounded p-0.5 opacity-0 transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)] hover:bg-accent hover:opacity-100 group-hover:opacity-60"
                     >
                       <HugeiconsIcon
                         icon={Cancel01Icon}
@@ -403,6 +565,30 @@ export function TabBar({
           <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={2} />
         </Button>
       </div>
+      {ghost && (() => {
+        const gTab = tabs.find((t) => t.id === ghost.tabId);
+        if (!gTab) return null;
+        const gLabel = pathLabelFor(gTab, { home, homeResolved });
+        const gStarting = isTerminalLabelResolving(gTab, {
+          home,
+          homeResolved,
+        });
+        return (
+          <div
+            className="pointer-events-none fixed left-0 top-0 z-[90]"
+            style={{
+              transform: `translate3d(${ghost.x}px, ${ghost.y}px, 0)`,
+              width: ghost.width,
+              height: ghost.height,
+            }}
+          >
+            <div className="kite-tab-drag-ghost flex h-full items-center gap-1.5 rounded-md border border-border bg-popover px-2 text-xs text-foreground shadow-2xl ring-1 ring-foreground/5">
+              <TabIcon starting={gStarting} />
+              <span className="min-w-0 flex-1 truncate">{gLabel}</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -411,7 +597,7 @@ function DropIndicator() {
   return (
     <span
       aria-hidden
-      className="my-0.5 w-0.5 shrink-0 self-stretch rounded-full bg-primary"
+      className="kite-drop-indicator my-0.5 w-0.5 shrink-0 self-stretch rounded-full bg-primary"
     />
   );
 }
@@ -428,20 +614,9 @@ function TabLabel({
   const options = { home, homeResolved };
   const label = pathLabelFor(tab, options);
   const resolving = isTerminalLabelResolving(tab, options);
-  const [settled, setSettled] = useState(false);
-  const wasResolving = useRef(resolving);
   const outerRef = useRef<HTMLSpanElement>(null);
   const innerRef = useRef<HTMLSpanElement>(null);
   const [overflow, setOverflow] = useState(0);
-
-  useEffect(() => {
-    const hadBeenResolving = wasResolving.current;
-    wasResolving.current = resolving;
-    if (!hadBeenResolving || resolving) return;
-    setSettled(true);
-    const id = window.setTimeout(() => setSettled(false), 160);
-    return () => window.clearTimeout(id);
-  }, [resolving]);
 
   useLayoutEffect(() => {
     const outer = outerRef.current;
@@ -461,20 +636,23 @@ function TabLabel({
     overflow > 0
       ? ({
           "--kite-tab-label-shift": `-${overflow}px`,
-          "--kite-tab-marquee-duration": `${Math.max(3, overflow / 50)}s`,
+          "--kite-tab-marquee-duration": `${Math.max(2, overflow / 24)}s`,
         } as CSSProperties)
       : undefined;
 
   return (
     <span
       ref={outerRef}
-      className="block min-w-0 flex-1 overflow-hidden text-left"
+      title={overflow > 0 ? label : undefined}
+      className={cn(
+        "block min-w-0 flex-1 overflow-hidden text-left",
+        overflow > 0 && "kite-tab-label-mask",
+      )}
     >
       <span
         className={cn(
           "kite-tab-label-text inline-block whitespace-nowrap align-bottom",
           resolving && "kite-tab-label-text-loading",
-          settled && "kite-tab-label-text-settled",
         )}
       >
         <span

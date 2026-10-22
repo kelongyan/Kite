@@ -13,7 +13,15 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import {
+  type JSX,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
@@ -52,6 +60,51 @@ export function SettingsApp() {
   const init = usePreferencesStore((s) => s.init);
   const ActiveSection = TABS.find((t) => t.id === active)?.component;
 
+  const mainRef = useRef<HTMLElement>(null);
+  const tabsListRef = useRef<HTMLDivElement>(null);
+  const [indicator, setIndicator] = useState<{
+    left: number;
+    width: number;
+  } | null>(null);
+  const [indicatorReady, setIndicatorReady] = useState(false);
+
+  const measureIndicator = useCallback(() => {
+    const list = tabsListRef.current;
+    const activeTrigger = list?.querySelector<HTMLElement>(
+      '[data-state="active"]',
+    );
+    setIndicator(
+      activeTrigger
+        ? { left: activeTrigger.offsetLeft, width: activeTrigger.offsetWidth }
+        : null,
+    );
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the active section changes.
+  useLayoutEffect(() => {
+    measureIndicator();
+  }, [measureIndicator, active]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset scroll when the active section changes.
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [active]);
+
+  useEffect(() => {
+    const list = tabsListRef.current;
+    if (!list) return;
+    const ro = new ResizeObserver(measureIndicator);
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, [measureIndicator]);
+
+  useEffect(() => {
+    if (indicator && !indicatorReady) {
+      const raf = requestAnimationFrame(() => setIndicatorReady(true));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [indicator, indicatorReady]);
+
   const navigationValue = useMemo(() => ({ setActiveTab: setActive }), []);
 
   useEffect(() => {
@@ -89,12 +142,30 @@ export function SettingsApp() {
           className="flex-1 items-center select-none"
           data-tauri-drag-region
         >
-          <TabsList className="mx-auto h-7 bg-muted/40 px-2">
+          <TabsList
+            ref={tabsListRef}
+            className="relative mx-auto h-7 bg-muted/40 px-2"
+          >
+            {indicator && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-0 h-6 rounded-full bg-background shadow-sm ring-1 ring-foreground/5"
+                style={{
+                  width: indicator.width,
+                  transform: `translate(${indicator.left}px, -50%)`,
+                  transitionProperty: indicatorReady
+                    ? "transform, width"
+                    : "none",
+                  transitionDuration: "var(--dur-base)",
+                  transitionTimingFunction: "var(--ease-premium)",
+                }}
+              />
+            )}
             {TABS.map((t) => (
               <TabsTrigger
                 key={t.id}
                 value={t.id}
-                className="h-6 gap-1.5 px-2.5 text-[11.5px]"
+                className="h-6 gap-1.5 px-2.5 text-[11.5px] data-active:bg-transparent dark:data-active:bg-transparent"
               >
                 <HugeiconsIcon icon={t.icon} size={12} strokeWidth={1.75} />
                 <span>{messages.settings.tabs[t.id]}</span>
@@ -105,9 +176,14 @@ export function SettingsApp() {
         {USE_CUSTOM_WINDOW_CONTROLS && <WindowControls closeOnly />}
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-7 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]">
+      <main
+        ref={mainRef}
+        className="min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-7 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]"
+      >
         <div className="mx-auto w-full max-w-160">
-          {ActiveSection && <ActiveSection />}
+          <div key={active} className="kite-settings-section">
+            {ActiveSection && <ActiveSection />}
+          </div>
         </div>
       </main>
 

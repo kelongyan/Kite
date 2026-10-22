@@ -337,24 +337,37 @@ html *::-webkit-scrollbar {
   display: none;
 }
 
-/* Motion tokens. Reduced-motion zeroes the durations as a global snap. */
+/* Motion tokens. Four durations, two curves. Reduced motion zeroes them. */
 :root {
+  --dur-instant: 80ms;
   --dur-fast: 160ms;
   --dur-base: 240ms;
   --dur-slow: 320ms;
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-distance-micro: 2px;
+  --motion-distance-popover: 6px;
+  --motion-distance-surface: 10px;
+  --motion-scale-press: 0.985;
+  --motion-scale-enter: 0.98;
+  --motion-scale-dialog: 0.97;
+  --dur-cursor: 64ms;
+}
+
+@theme inline {
+  --default-transition-duration: var(--dur-fast);
+  --default-transition-timing-function: var(--ease-soft);
 }
 
 /* Height auto<->0 reveal without JS measuring: animate the grid track from 0fr
  * to 1fr. The inner child must be the sole grid row with min-height:0. Used by
- * the workspace input bar. */
+ * settings validation hints and import errors. */
 .kite-reveal {
   display: grid;
   grid-template-rows: 0fr;
   transition:
-    grid-template-rows var(--dur-base) var(--ease-premium),
-    opacity var(--dur-base) var(--ease-premium);
+    grid-template-rows var(--dur-fast) var(--ease-premium),
+    opacity var(--dur-fast) var(--ease-premium);
   opacity: 0;
 }
 .kite-reveal[data-state="open"] {
@@ -366,78 +379,399 @@ html *::-webkit-scrollbar {
   overflow: hidden;
 }
 
-@keyframes kite-panel-in {
-  from {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-.kite-panel-in {
-  animation: kite-panel-in var(--dur-slow) var(--ease-premium);
+/* Theme swaps snap; see ThemeProvider. Two frames is enough to cover the
+ * class and CSS-variable application without letting color transitions run. */
+html[data-theme-swapping] *,
+html[data-theme-swapping] *::before,
+html[data-theme-swapping] *::after {
+  transition: none !important;
 }
 
 @keyframes kite-tab-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.kite-tab-in {
+  animation: kite-tab-in var(--dur-fast) var(--ease-premium) both;
+}
+
+@keyframes kite-hud-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
   }
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
-.kite-tab-in {
-  animation: kite-tab-in var(--dur-base) var(--ease-premium);
+.kite-hud-in {
+  animation: kite-hud-in var(--dur-fast) var(--ease-premium) both;
 }
 
-.kite-tab-label-text {
-  transition:
-    opacity 160ms var(--ease-soft),
-    transform 180ms var(--ease-premium),
-    filter 180ms var(--ease-soft);
-  will-change: opacity, transform;
-}
-
-.kite-tab-label-text-loading {
-  opacity: 0.68;
-  filter: saturate(0.88);
-  transform: translateY(1px);
-}
-
-@keyframes kite-tab-label-settle {
+@keyframes kite-drop-indicator-in {
   from {
-    opacity: 0.74;
-    filter: saturate(0.9);
-    transform: translateY(1px) scale(0.985);
-  }
-  70% {
-    opacity: 1;
-    filter: saturate(1.03);
-    transform: translateY(0) scale(1.01);
+    opacity: 0;
+    transform: scaleY(0.6);
   }
   to {
     opacity: 1;
-    filter: saturate(1);
+    transform: scaleY(1);
+  }
+}
+.kite-drop-indicator {
+  transform-origin: center;
+  animation: kite-drop-indicator-in var(--dur-instant) var(--ease-soft) both;
+}
+
+@keyframes kite-drop-overlay-in {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.kite-drop-overlay {
+  animation: kite-drop-overlay-in var(--dur-fast) var(--ease-premium) both;
+}
+
+@keyframes kite-copied-bubble {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  86% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+}
+.kite-copied-bubble {
+  animation: kite-copied-bubble 1.2s var(--ease-soft) both;
+}
+
+@keyframes kite-settings-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.kite-settings-section {
+  animation: kite-settings-section-in var(--dur-fast) var(--ease-premium) both;
+}
+
+@keyframes kite-theme-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.kite-theme-check {
+  animation: kite-theme-check-in var(--dur-fast) var(--ease-premium) both;
+}
+
+@keyframes kite-recording-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.kite-recording-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  animation: kite-recording-pulse 1.4s var(--ease-soft) infinite;
+}
+
+@keyframes kite-tab-ghost-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.kite-tab-drag-ghost {
+  animation: kite-tab-ghost-in var(--dur-fast) var(--ease-premium) both;
+}
+
+/* Shared overlay motion. Primitives apply these classes and let Radix
+ * data-state drive the enter/exit keyframes. Tooltip emits delayed-open and
+ * instant-open instead of open, so collect all three states here once. */
+@keyframes kite-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kite-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.kite-overlay-motion[data-state="open"],
+.kite-overlay-motion[data-state="delayed-open"],
+.kite-overlay-motion[data-state="instant-open"] {
+  animation: kite-overlay-in var(--dur-fast) var(--ease-soft) both;
+}
+
+.kite-overlay-motion[data-state="closed"] {
+  animation: kite-overlay-out var(--dur-fast) var(--ease-soft) both;
+}
+
+@keyframes kite-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(var(--kite-dialog-scale, 0.98));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kite-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(2px) scale(0.99);
+  }
+}
+
+.kite-dialog-motion[data-state="open"],
+.kite-dialog-motion[data-state="delayed-open"],
+.kite-dialog-motion[data-state="instant-open"] {
+  animation: kite-dialog-in var(--dur-base) var(--ease-premium) both;
+}
+
+.kite-dialog-motion[data-state="closed"] {
+  animation: kite-dialog-out var(--dur-fast) var(--ease-soft) both;
+}
+
+.kite-dialog-motion-alert {
+  --kite-dialog-scale: 0.97;
+}
+
+@keyframes kite-command-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
 }
 
-.kite-tab-label-text-settled {
-  animation: kite-tab-label-settle 210ms var(--ease-premium);
+@keyframes kite-command-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+.kite-command-motion[data-state="open"],
+.kite-command-motion[data-state="delayed-open"],
+.kite-command-motion[data-state="instant-open"] {
+  animation: kite-command-in var(--dur-base) var(--ease-premium) 20ms both;
+}
+
+@keyframes kite-command-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.kite-command-page-in {
+  animation: kite-command-page-in var(--dur-fast) var(--ease-premium) both;
+}
+
+.kite-command-motion[data-state="closed"] {
+  animation: kite-command-out var(--dur-fast) var(--ease-soft) both;
+}
+
+@keyframes kite-popover-in {
+  from {
+    opacity: 0;
+    transform: translate3d(
+        var(--kite-enter-x, 0),
+        var(--kite-enter-y, var(--motion-distance-micro)),
+        0
+      )
+      scale(var(--motion-scale-enter));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes kite-popover-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(
+        var(--kite-exit-x, 0),
+        var(--kite-exit-y, 1px),
+        0
+      )
+      scale(0.99);
+  }
+}
+
+.kite-popover-motion {
+  transform-origin: var(
+    --radix-tooltip-content-transform-origin,
+    var(
+      --radix-select-content-transform-origin,
+      var(
+        --radix-context-menu-content-transform-origin,
+        var(--radix-popover-content-transform-origin, center)
+      )
+    )
+  );
+}
+
+.kite-popover-motion[data-state="open"],
+.kite-popover-motion[data-state="delayed-open"],
+.kite-popover-motion[data-state="instant-open"] {
+  animation: kite-popover-in var(--dur-fast) var(--ease-premium) both;
+}
+
+.kite-popover-motion[data-state="closed"] {
+  animation: kite-popover-out var(--dur-instant) var(--ease-soft) both;
+}
+
+.kite-popover-motion[data-side="top"] {
+  --kite-enter-y: 2px;
+  --kite-exit-y: 1px;
+}
+
+.kite-popover-motion[data-side="bottom"] {
+  --kite-enter-y: -2px;
+  --kite-exit-y: -1px;
+}
+
+.kite-popover-motion[data-side="left"] {
+  --kite-enter-x: 2px;
+  --kite-exit-x: 1px;
+  --kite-enter-y: 0;
+  --kite-exit-y: 0;
+}
+
+.kite-popover-motion[data-side="right"] {
+  --kite-enter-x: -2px;
+  --kite-exit-x: -1px;
+  --kite-enter-y: 0;
+  --kite-exit-y: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-sonner-toast] {
+    transition-duration: var(--dur-fast) !important;
+    transition-timing-function: var(--ease-premium) !important;
+  }
+}
+
+.kite-tab-label-text {
+  transition: opacity var(--dur-fast) var(--ease-soft);
+}
+
+.kite-tab-label-text-loading {
+  opacity: 0.7;
+}
+
+.kite-tab-label-mask {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0,
+    #000 calc(100% - 8px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    #000 0,
+    #000 calc(100% - 8px),
+    transparent 100%
+  );
+}
+
+.group:hover .kite-tab-label-mask {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 6px,
+    #000 calc(100% - 6px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 6px,
+    #000 calc(100% - 6px),
+    transparent 100%
+  );
 }
 
 .kite-tab-label-marquee {
   transform: translateX(0);
-  transition: transform 180ms var(--ease-soft);
+  transition: transform 200ms var(--ease-soft);
 }
 
 .group:hover .kite-tab-label-marquee {
   transform: translateX(var(--kite-tab-label-shift, 0));
-  transition-duration: var(--kite-tab-marquee-duration, 6s);
+  transition-duration: var(--kite-tab-marquee-duration, 2s);
+  transition-delay: 300ms;
   transition-timing-function: linear;
 }
 
@@ -458,41 +792,36 @@ html *::-webkit-scrollbar {
     color-mix(in oklch, var(--color-primary) 28%, transparent),
     transparent
   );
-  opacity: 0.75;
+  opacity: 0;
   transform: translateX(-55%);
-  animation: kite-tab-terminal-resolving-line 1.6s var(--ease-premium) infinite;
+  animation: kite-tab-terminal-resolving-line 700ms var(--ease-premium) 1 both;
 }
 
 @keyframes kite-tab-terminal-resolving-line {
-  from {
+  0% {
+    opacity: 0;
     transform: translateX(-55%);
   }
-  to {
+  20% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
     transform: translateX(55%);
   }
 }
 
-@keyframes kite-terminal-tab-icon-starting {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scale(1);
-  }
-}
-
 .kite-terminal-tab-icon-starting {
-  filter: saturate(0.9);
-  animation: kite-terminal-tab-icon-starting 1.4s var(--ease-soft) infinite;
+  opacity: 0.6;
 }
 
 @keyframes kite-terminal-cursor-smooth {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.6;
   }
   50% {
     opacity: 1;
@@ -502,12 +831,10 @@ html *::-webkit-scrollbar {
 @keyframes kite-terminal-cursor-expand {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scaleY(0.25);
+    opacity: 0.6;
   }
   50% {
     opacity: 1;
-    transform: scaleY(1);
   }
 }
 
@@ -534,7 +861,6 @@ html *::-webkit-scrollbar {
   top: 0;
   pointer-events: none;
   contain: strict;
-  will-change: transform;
 }
 
 .kite-terminal-cursor-overlay-motion {
@@ -546,92 +872,68 @@ html *::-webkit-scrollbar {
   height: 100%;
   background: var(--terminal-cursor);
   pointer-events: none;
-  will-change: opacity, transform;
 }
 
 /* NOTE: while moving, do NOT switch the visual to `animation: none`. Removing
    and re-matching an animation restarts it from 0%, so every keystroke (which
    toggles the motion class on the parent) would relight the pulse at its
    dimmest frame and the cursor would flicker at typing speed. The 64ms glide
-   is far shorter than the 1.1s pulse, so letting the pulse run through it is
+   is far shorter than the 1.3s pulse, so letting the pulse run through it is
    visually identical and never restarts it. */
 
 .kite-terminal-cursor-overlay-smooth {
-  animation: kite-terminal-cursor-smooth 1.1s var(--ease-soft) infinite;
+  animation: kite-terminal-cursor-smooth 1.3s var(--ease-soft) infinite;
 }
 
 .kite-terminal-cursor-overlay-expand {
-  transform-origin: center;
-  animation: kite-terminal-cursor-expand 1.1s var(--ease-soft) infinite;
+  animation: kite-terminal-cursor-expand 1.3s var(--ease-soft) infinite;
 }
 
-@keyframes kite-terminal-cursor-preview-blink {
-  0%,
-  48% {
-    opacity: 1;
-  }
-  52%,
-  100% {
-    opacity: 0.25;
-  }
-}
-
-@keyframes kite-terminal-cursor-preview-smooth {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes kite-terminal-cursor-preview-expand {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scaleY(0.25);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
-
-.kite-terminal-cursor-preview-blink {
-  animation: kite-terminal-cursor-preview-blink 1.1s steps(1, end) infinite;
-}
-.kite-terminal-cursor-preview-smooth {
-  animation: kite-terminal-cursor-preview-smooth 1.1s var(--ease-soft) infinite;
-}
-.kite-terminal-cursor-preview-expand {
-  transform-origin: center;
-  animation: kite-terminal-cursor-preview-expand 1.1s var(--ease-soft) infinite;
+.kite-terminal-cursor-overlay-inactive {
+  animation: none !important;
+  opacity: 0.45;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --dur-instant: 0.01ms;
     --dur-fast: 0.01ms;
     --dur-base: 0.01ms;
     --dur-slow: 0.01ms;
+    --dur-cursor: 0.01ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
   .kite-reveal {
     transition: none;
   }
   .kite-tab-label-text,
-  .kite-tab-label-text-loading,
-  .kite-tab-label-text-settled,
   .kite-tab-terminal-resolving::after,
-  .kite-terminal-tab-icon-starting,
-  .kite-terminal-cursor-preview-blink,
-  .kite-terminal-cursor-preview-smooth,
-  .kite-terminal-cursor-preview-expand,
   .kite-terminal-cursor-overlay-smooth,
   .kite-terminal-cursor-overlay-expand {
     animation: none;
     opacity: 1;
     filter: none;
     transform: none;
+  }
+  .kite-tab-label-text-loading {
+    opacity: 0.6;
+  }
+  .kite-terminal-tab-icon-starting {
+    opacity: 0.6;
+  }
+  .kite-tab-label-mask,
+  .group:hover .kite-tab-label-mask {
+    -webkit-mask-image: none;
+    mask-image: none;
   }
   .kite-tab-terminal-resolving::after {
     display: none;
@@ -646,5 +948,22 @@ html *::-webkit-scrollbar {
   }
   .kite-terminal-cursor-overlay-motion {
     transition: none;
+  }
+  .kite-terminal-cursor-overlay-visual {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .kite-terminal-cursor-overlay-visual.kite-terminal-cursor-overlay-inactive {
+    opacity: 0.45 !important;
+  }
+  .kite-copied-bubble {
+    animation: none !important;
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  .kite-recording-dot {
+    animation: none !important;
+    opacity: 1;
   }
 }

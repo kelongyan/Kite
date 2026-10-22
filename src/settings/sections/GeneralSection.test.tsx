@@ -64,6 +64,7 @@ describe("GeneralSection", () => {
     expect(html).toContain("未匹配到字体名");
     expect(html).toContain("JetBrains Mono: 未匹配到字体名");
     expect(html.match(/role="status"/g)).toHaveLength(1);
+    expect(html).toContain('data-state="open"');
   });
 
   it("stays quiet when every committed family resolves", () => {
@@ -73,5 +74,7 @@ describe("GeneralSection", () => {
 
     expect(html).not.toContain("未匹配到字体名");
     expect(html).not.toContain('role="status"');
+    expect(html).not.toContain('data-state="open"');
+    expect(html).toContain('data-state="closed"');
   });
 });

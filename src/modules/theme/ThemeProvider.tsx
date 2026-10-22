@@ -148,6 +148,27 @@ export function ThemeProvider({
 
   const resolvedMode: "dark" | "light" =
     mode === "system" ? (systemDark ? "dark" : "light") : mode;
+  const effectiveId = previewId ?? themeId;
+
+  // Theme swaps are intentionally instant: CSS variables and the xterm theme
+  // do not update in the same frame. Disable color transitions for two frames
+  // so the chrome snaps with the terminal instead of crossfading partially.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run the swap guard when the theme inputs change.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.themeSwapping = "true";
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        delete root.dataset.themeSwapping;
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      delete root.dataset.themeSwapping;
+    };
+  }, [resolvedMode, effectiveId, customThemes]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -155,7 +176,6 @@ export function ThemeProvider({
     root.classList.add(resolvedMode);
   }, [resolvedMode]);
 
-  const effectiveId = previewId ?? themeId;
   useEffect(() => {
     if (effectiveId === DEFAULT_THEME_ID) {
       clearTheme();

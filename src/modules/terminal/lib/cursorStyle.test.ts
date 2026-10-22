@@ -119,14 +119,13 @@ describe("terminal cursor style preferences", () => {
     expect(terminalCursorMaskColor(cursorMaskCell({ chars: "x" }))).toBeNull();
   });
 
-  it("shows the overlay cursor only for a focused visible live leaf", () => {
+  it("shows the overlay cursor for a visible live leaf", () => {
     expect(
       shouldShowTerminalCursorOverlay({
         strategy: "overlay",
         hasOwner: true,
         hasLiveLeaf: true,
         parked: false,
-        focused: true,
         windowActive: true,
         cursorVisible: true,
         hostVisible: true,
@@ -140,7 +139,6 @@ describe("terminal cursor style preferences", () => {
       hasOwner: true,
       hasLiveLeaf: true,
       parked: false,
-      focused: true,
       windowActive: true,
       cursorVisible: true,
       hostVisible: true,
@@ -159,9 +157,6 @@ describe("terminal cursor style preferences", () => {
       false,
     );
     expect(
-      shouldShowTerminalCursorOverlay({ ...visible, focused: false }),
-    ).toBe(false);
-    expect(
       shouldShowTerminalCursorOverlay({ ...visible, windowActive: false }),
     ).toBe(false);
     expect(
@@ -179,7 +174,6 @@ describe("terminal cursor style preferences", () => {
         hasOwner: true,
         hasLiveLeaf: true,
         parked: false,
-        focused: true,
         windowActive: true,
         cursorVisible: false,
         hostVisible: true,

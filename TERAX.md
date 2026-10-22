@@ -161,6 +161,41 @@ pending startup input keeps mixed input in order within a byte cap. Optional
 `VITE_KITE_WHEEL_DEBUG=true` diagnostics log wheel metadata only, never keyboard
 or paste contents.
 
+## Motion
+
+Motion tokens live in `src/styles/globals.css`:
+
+- Durations: `--dur-instant` 80ms, `--dur-fast` 160ms, `--dur-base` 240ms,
+  `--dur-slow` 320ms.
+- Curves: `--ease-premium` for entrances, `--ease-soft` for state changes and
+  exits.
+- Tailwind's default transition duration and timing function point at
+  `--dur-fast` and `--ease-soft`.
+
+Overlay primitives share classes instead of raw `duration-100` or
+`zoom-in-95`:
+
+- `.kite-overlay-motion` for scrims.
+- `.kite-dialog-motion`, with `.kite-dialog-motion-alert` for alert dialogs.
+- `.kite-command-motion` for the command palette.
+- `.kite-popover-motion` for tooltips, selects, context menus, and popovers.
+  It handles Radix Tooltip's `delayed-open` and `instant-open` states.
+
+Rules:
+
+- Animate transform, opacity, and colors only. The tab pill's width is the one
+  layout exception.
+- Never animate terminal content, xterm canvases, PTY output, pane geometry, or
+  theme switching.
+- No infinite loops except the terminal cursor and the shortcut recording dot.
+- `prefers-reduced-motion` is handled globally; the cursor overlay is kept
+  visible explicitly.
+- Cursor motion uses `--dur-cursor` (64ms) for both the CSS glide and the JS
+  motion window. Overlay pulses run at 1.3s with a 0.6 floor. An unfocused
+  visible pane keeps a static 0.45 overlay cursor instead of disappearing.
+- Use the tokens. Do not add raw millisecond values or cubic-bezier literals
+  outside `globals.css`.
+
 ## Themes
 
 The app theme engine is custom, not `next-themes`. `ThemeProvider` and

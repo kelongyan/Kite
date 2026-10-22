@@ -1,6 +1,9 @@
 export const zhCN = {
   common: {
     cancel: "取消",
+    copied: "已复制",
+    startingShell: "正在启动 shell",
+    dropFileHint: "把文件路径拖到这里",
   },
   mainShell: {
     header: {

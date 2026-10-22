@@ -116,7 +116,7 @@ export function GeneralSection() {
               aria-pressed={mode === o.id}
               onClick={() => setMode(o.id)}
               className={cn(
-                "group flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg border bg-card transition-all",
+                "group flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg border bg-card transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)]",
                 mode === o.id
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
@@ -176,7 +176,7 @@ export function GeneralSection() {
             <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {TERMINAL_FONT_SIZES.map((size) => (
                 <SelectItem
                   key={size}
@@ -203,7 +203,7 @@ export function GeneralSection() {
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {TERMINAL_FONT_WEIGHTS.map((w) => (
                 <SelectItem
                   key={w.value}
@@ -227,7 +227,7 @@ export function GeneralSection() {
             <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {LETTER_SPACINGS.map((v) => (
                 <SelectItem key={v} value={String(v)} className="text-[12px]">
                   {v > 0 ? `+${v}` : v} px
@@ -256,7 +256,7 @@ export function GeneralSection() {
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               <SelectItem value={SHELL_AUTO} className="text-[12px]">
                 {g.terminal.autoShell}
               </SelectItem>
@@ -272,7 +272,7 @@ export function GeneralSection() {
           title={
             <span className="inline-flex items-center gap-1.5">
               {g.terminal.useWebgl}
-              <TooltipProvider delayDuration={200}>
+              <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -312,7 +312,7 @@ export function GeneralSection() {
             <SelectTrigger size="sm" className="h-8 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {TERMINAL_SCROLLBACK_PRESETS.map((lines) => (
                 <SelectItem
                   key={lines}
@@ -455,11 +455,21 @@ function FontFamilyField({
           }
         }}
       />
-      {unmatched.length > 0 && (
-        <p role="status" className="text-[10.5px] leading-tight text-destructive">
-          {unmatched.join(", ")}: {unmatchedHint}
-        </p>
-      )}
+      <div
+        className="kite-reveal"
+        data-state={unmatched.length > 0 ? "open" : "closed"}
+      >
+        <div>
+          {unmatched.length > 0 ? (
+            <p
+              role="status"
+              className="text-[10.5px] leading-tight text-destructive"
+            >
+              {unmatched.join(", ")}: {unmatchedHint}
+            </p>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
