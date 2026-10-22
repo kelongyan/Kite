@@ -92,7 +92,7 @@ export function ShortcutsSection() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <SectionHeader
           title={shortcutMessages.title}
@@ -101,7 +101,7 @@ export function ShortcutsSection() {
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 px-2.5 text-[11px]"
+          className="h-7 gap-1.5 px-2.5 text-[11px]"
           onClick={() => setResetDialogOpen(true)}
         >
           <HugeiconsIcon
@@ -124,7 +124,7 @@ export function ShortcutsSection() {
           placeholder={shortcutMessages.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-9 pl-9 text-[12.5px]"
+          className="h-8 pl-9 text-[12.5px]"
         />
       </div>
 
@@ -206,7 +206,7 @@ function ShortcutRow({
   const hasBindings = bindings && bindings.length > 0;
 
   return (
-    <div className="group flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30">
+    <div className="group flex items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30">
       <div className="flex flex-col gap-0.5">
         <span className="text-[12.5px] font-medium">
           {messages.actions[shortcut.id]}

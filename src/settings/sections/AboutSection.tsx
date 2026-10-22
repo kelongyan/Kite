@@ -40,10 +40,10 @@ export function AboutSection() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <SectionHeader title={aboutMessages.title} description="" />
 
-      <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/60 p-5">
+      <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/60 p-4">
         <img src="/logo.png" alt="" className="size-12" draggable={false} />
         <div className="flex min-w-0 flex-col">
           <span className="text-[15px] font-semibold tracking-tight">

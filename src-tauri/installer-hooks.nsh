@@ -1,20 +1,9 @@
-; Tauri's generated installer.nsi unconditionally defines MUI_FINISHPAGE_RUN
-; (see below), so the finish page always shows a "Run Kite" checkbox. This file
-; is included BEFORE those defines, so we can make that checkbox unchecked by
-; default — the user has to opt in to launch Kite after install.
+; "Open in Kite" shell verbs for folders, folder backgrounds, and drives.
+; HKCU matches installer currentUser scope. %V = clicked path.
+; NoWorkingDirectory keeps Explorer from overriding %V (System32 on Drive).
 ;
-;   installer.nsi (generated):
-;     !include installer-hooks.nsh     <- this file
-;     ...
-;     !define MUI_FINISHPAGE_RUN
-;     !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-;
-; Define BOTH the NOTCHECKED variant (checkbox off by default) and a benign RUN
-; text (shown alongside the checkbox). MUI_FINISHPAGE_RUN_CHECKED would override
-; NOTCHECKED — never define it here.
-!define MUI_FINISHPAGE_RUN_NOTCHECKED
-!define MUI_FINISHPAGE_RUN_TEXT "$(^Name) will start after installation."
-!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+; The NSIS finish page keeps both "Run Kite" and "Create Desktop Shortcut"
+; checked by default.
 
 !macro NSIS_HOOK_POSTINSTALL
   ; Belt-and-suspenders: even if the finish-page checkbox is ever re-enabled,

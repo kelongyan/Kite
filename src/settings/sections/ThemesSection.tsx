@@ -87,7 +87,7 @@ export function ThemesSection() {
   return (
     <section
       aria-label={themeMessages.theme.title}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-5"
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "copy";
@@ -151,7 +151,7 @@ export function ThemesSection() {
             <div
               key={t.id}
               className={cn(
-                "group/theme flex items-center gap-3 rounded-lg border p-2.5 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
+                "group/theme flex items-center gap-2.5 rounded-lg border p-2 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
                 selected
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
@@ -164,7 +164,7 @@ export function ThemesSection() {
                 className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none"
               >
                 <div
-                  className="flex h-10 w-14 shrink-0 flex-col justify-center gap-1 rounded-md border border-border/40 px-1.5"
+                  className="flex h-9 w-12 shrink-0 flex-col justify-center gap-1 rounded-md border border-border/40 px-1.5"
                   style={{ background: swatchBg }}
                 >
                   <div className="flex items-center gap-1">
@@ -187,7 +187,7 @@ export function ThemesSection() {
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[12.5px] font-medium">
+                  <span className="truncate text-[12px] font-medium">
                     {t.name}
                   </span>
                   {t.description ? (

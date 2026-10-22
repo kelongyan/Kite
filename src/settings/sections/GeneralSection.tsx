@@ -103,7 +103,7 @@ export function GeneralSection() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <SectionHeader title={g.title} description={g.description} />
 
       <div className="flex flex-col gap-2">
@@ -116,14 +116,14 @@ export function GeneralSection() {
               aria-pressed={mode === o.id}
               onClick={() => setMode(o.id)}
               className={cn(
-                "group flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg border bg-card transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)]",
+                "group flex h-16 flex-col items-center justify-center gap-1 rounded-lg border bg-card transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)]",
                 mode === o.id
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
               )}
             >
-              <HugeiconsIcon icon={o.icon} size={18} strokeWidth={1.5} />
-              <span className="text-[11.5px]">{g.appearance[o.id]}</span>
+              <HugeiconsIcon icon={o.icon} size={16} strokeWidth={1.5} />
+              <span className="text-[11px]">{g.appearance[o.id]}</span>
             </button>
           ))}
         </div>
@@ -173,7 +173,7 @@ export function GeneralSection() {
             value={String(terminalFontSize)}
             onValueChange={(v) => void setTerminalFontSize(Number(v))}
           >
-            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
+            <SelectTrigger size="sm" className="h-7 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -199,7 +199,7 @@ export function GeneralSection() {
           >
             <SelectTrigger
               value={terminalFontWeight}
-              className="h-8 w-28 text-[12px]"
+              className="h-7 w-28 text-[12px]"
             >
               <SelectValue />
             </SelectTrigger>
@@ -224,7 +224,7 @@ export function GeneralSection() {
             value={String(terminalLetterSpacing)}
             onValueChange={(v) => void setTerminalLetterSpacing(Number(v))}
           >
-            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
+            <SelectTrigger size="sm" className="h-7 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -252,7 +252,7 @@ export function GeneralSection() {
           >
             <SelectTrigger
               value={terminalShell || SHELL_AUTO}
-              className="h-8 w-40 text-[12px]"
+              className="h-7 w-40 text-[12px]"
             >
               <SelectValue />
             </SelectTrigger>
@@ -309,7 +309,7 @@ export function GeneralSection() {
             value={String(terminalScrollback)}
             onValueChange={(v) => void setTerminalScrollback(Number(v))}
           >
-            <SelectTrigger size="sm" className="h-8 w-36 text-[12px]">
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -430,7 +430,7 @@ function FontFamilyField({
         spellCheck={false}
         autoComplete="off"
         className={cn(
-          "h-8 rounded-3xl text-[12px]",
+          "h-7 rounded-lg text-[12px]",
           unmatched.length > 0 && "border-destructive/60",
         )}
         onChange={(e) => setDraft(e.target.value)}
