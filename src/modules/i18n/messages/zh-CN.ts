@@ -90,15 +90,11 @@ export const zhCN = {
     },
     general: {
       title: "通用",
-      description: "外观、终端和窗口行为。",
       appearance: {
         title: "外观",
         system: "跟随系统",
         light: "浅色",
         dark: "深色",
-        themesHint: "主题请前往",
-        themesTab: "主题",
-        themesHintSuffix: "标签页。",
       },
       zoom: {
         title: "缩放",
@@ -107,22 +103,14 @@ export const zhCN = {
       terminal: {
         title: "终端",
         useWebgl: "使用 WebGL 渲染器",
-        webglAria: "查看 WebGL 渲染器说明",
-        webglTooltip:
-          "xterm 的 WebGL 渲染器会把字形缓存到 GPU 纹理图集中。部分 macOS 环境下图集可能损坏，导致终端文字不可读。关闭后会回退到 DOM 渲染。CJK 字体回退在 WebGL 下也可能产生显示异常。",
-        webglDescription:
-          "硬件加速渲染。文字出现损坏、空白块或 CJK 对齐异常时可关闭。",
         fontFamily: "字体族",
         codeFontFamily: "代码字体",
         codeFontFamilyPlaceholder: "JetBrains Mono",
         cjkFontFamily: "中文字体",
         cjkFontFamilyPlaceholder: "Noto Sans SC",
-        fontFamilyHint:
-          "填写字体名，多个字体用英文逗号分隔；留空时使用 Kite 自带字体。",
         fontFamilyUnmatched:
           "未匹配到字体名，终端会改用自带字体。请填写字体族名，不要带字重或斜体后缀。",
         fontWeight: "字体粗细",
-        fontWeightDescription: "终端字符的粗细。",
         fontWeights: {
           normal: "常规",
           medium: "中等",
@@ -130,33 +118,22 @@ export const zhCN = {
           bold: "粗体",
         },
         shell: "集成终端 Shell",
-        shellUnavailableDescription: "此 Shell 不支持目录跟踪。",
-        shellDescription: "新终端标签使用的 Shell。已打开的标签保持原 Shell。",
         autoShell: "自动",
         letterSpacing: "字距",
-        letterSpacingDescription:
-          "字符之间的额外横向间距（px）。负值可收紧 Nerd Fonts。",
         fontSize: "字体大小",
-        fontSizeDescription: "终端文字大小。",
         scrollback: "回滚行数",
-        scrollbackDescription:
-          "每个终端保留的历史行数。数值越高占用内存越多（约 3 KB / 行）。",
         scrollbackLines: (lines: number) => `${lines} 行`,
       },
       startup: {
         title: "启动",
         restoreWindow: "恢复窗口位置和大小",
-        restoreWindowDescription:
-          "下次启动时回到上次关闭前的主窗口位置和大小。",
       },
     },
     themes: {
       title: "主题",
-      description: "应用主题。",
       theme: {
         title: "主题",
         importTheme: "导入 .kite-theme",
-        dragHint: "也可将 .kite-theme 文件拖入本页任意位置导入",
         failedToRead: "读取失败",
         removeTheme: (name: string) => `移除 ${name}`,
         removeThemeConfirm: "此操作无法撤销。",
@@ -166,7 +143,6 @@ export const zhCN = {
     },
     shortcuts: {
       title: "快捷键",
-      description: "查看和自定义键盘快捷键。",
       resetAll: "全部重置",
       searchPlaceholder: "搜索快捷键...",
       unassigned: "未分配",
@@ -206,12 +182,10 @@ export const zhCN = {
     },
     about: {
       title: "关于",
-      tagline: "开源桌面终端模拟器",
       build: "构建",
       bundleId: "Bundle ID",
       license: "许可证",
       sourceCode: "源代码",
-      updateChecksDisabled: "此个人 fork 已禁用更新检查。",
       actions: {
         viewOnGitHub: "在 GitHub 查看",
         reportIssue: "报告问题",

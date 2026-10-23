@@ -8,12 +8,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { findUnavailableFonts } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
@@ -38,7 +32,6 @@ import {
   ComputerIcon,
   Moon02Icon,
   Sun03Icon,
-  InformationCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -46,7 +39,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { SettingGroup, SettingGroupTitle } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
-import { useSettingsNavigation } from "../SettingsNavigationContext";
 
 const APPEARANCE: {
   id: ThemePref;
@@ -66,7 +58,7 @@ const TERMINAL_FONT_WEIGHTS = [
 
 const LETTER_SPACINGS = [-4, -3, -2, -1, 0, 1, 2, 3, 4] as const;
 
-type ShellInfo = { name: string; path: string; integrated: boolean };
+type ShellInfo = { name: string; path: string };
 const SHELL_AUTO = "auto";
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.0;
@@ -75,7 +67,6 @@ const ZOOM_STEP = 0.05;
 export function GeneralSection() {
   const messages = useMessages();
   const g = messages.settings.general;
-  const { setActiveTab } = useSettingsNavigation();
   const { mode, setMode } = useTheme();
 
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
@@ -104,11 +95,11 @@ export function GeneralSection() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionHeader title={g.title} description={g.description} />
+      <SectionHeader title={g.title} />
 
       <div className="flex flex-col gap-2">
         <SettingGroupTitle>{g.appearance.title}</SettingGroupTitle>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {APPEARANCE.map((o) => (
             <button
               key={o.id}
@@ -127,22 +118,11 @@ export function GeneralSection() {
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          {g.appearance.themesHint}{" "}
-          <button
-            type="button"
-            onClick={() => setActiveTab("themes")}
-            className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground/60"
-          >
-            {g.appearance.themesTab}
-          </button>{" "}
-          {g.appearance.themesHintSuffix}
-        </p>
       </div>
 
       <SettingGroup title={g.zoom.title}>
         <SettingRow title={g.zoom.uiZoomLevel}>
-          <div className="flex w-60 items-center gap-3">
+          <div className="flex w-56 items-center gap-3">
             <Slider
               value={[zoomLevel]}
               min={ZOOM_MIN}
@@ -165,15 +145,12 @@ export function GeneralSection() {
           onCodeCommit={(v) => void setTerminalFontFamily(v)}
           onCjkCommit={(v) => void setTerminalCjkFontFamily(v)}
         />
-        <SettingRow
-          title={g.terminal.fontSize}
-          description={g.terminal.fontSizeDescription}
-        >
+        <SettingRow title={g.terminal.fontSize}>
           <Select
             value={String(terminalFontSize)}
             onValueChange={(v) => void setTerminalFontSize(Number(v))}
           >
-            <SelectTrigger size="sm" className="h-7 w-28 text-[12px]">
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -189,17 +166,15 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-        <SettingRow
-          title={g.terminal.fontWeight}
-          description={g.terminal.fontWeightDescription}
-        >
+        <SettingRow title={g.terminal.fontWeight}>
           <Select
             value={terminalFontWeight}
             onValueChange={(v) => void setTerminalFontWeight(v)}
           >
             <SelectTrigger
+              size="sm"
               value={terminalFontWeight}
-              className="h-7 w-28 text-[12px]"
+              className="h-7 w-36 text-[12px]"
             >
               <SelectValue />
             </SelectTrigger>
@@ -216,15 +191,12 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-        <SettingRow
-          title={g.terminal.letterSpacing}
-          description={g.terminal.letterSpacingDescription}
-        >
+        <SettingRow title={g.terminal.letterSpacing}>
           <Select
             value={String(terminalLetterSpacing)}
             onValueChange={(v) => void setTerminalLetterSpacing(Number(v))}
           >
-            <SelectTrigger size="sm" className="h-7 w-28 text-[12px]">
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -236,14 +208,7 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-        <SettingRow
-          title={g.terminal.shell}
-          description={
-            shells.find((s) => s.path === terminalShell)?.integrated === false
-              ? g.terminal.shellUnavailableDescription
-              : g.terminal.shellDescription
-          }
-        >
+        <SettingRow title={g.terminal.shell}>
           <Select
             value={terminalShell || SHELL_AUTO}
             onValueChange={(v) =>
@@ -251,8 +216,9 @@ export function GeneralSection() {
             }
           >
             <SelectTrigger
+              size="sm"
               value={terminalShell || SHELL_AUTO}
-              className="h-7 w-40 text-[12px]"
+              className="h-7 w-36 text-[12px]"
             >
               <SelectValue />
             </SelectTrigger>
@@ -268,43 +234,14 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
-        <SettingRow
-          title={
-            <span className="inline-flex items-center gap-1.5">
-              {g.terminal.useWebgl}
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help bg-transparent p-0 text-muted-foreground/70"
-                      aria-label={g.terminal.webglAria}
-                    >
-                      <HugeiconsIcon
-                        icon={InformationCircleIcon}
-                        size={13}
-                        strokeWidth={1.5}
-                      />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-65 text-[11px]">
-                    {g.terminal.webglTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </span>
-          }
-          description={g.terminal.webglDescription}
-        >
+        <SettingRow title={g.terminal.useWebgl}>
           <Switch
+            aria-label={g.terminal.useWebgl}
             checked={terminalWebglEnabled}
             onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
           />
         </SettingRow>
-        <SettingRow
-          title={g.terminal.scrollback}
-          description={g.terminal.scrollbackDescription}
-        >
+        <SettingRow title={g.terminal.scrollback}>
           <Select
             value={String(terminalScrollback)}
             onValueChange={(v) => void setTerminalScrollback(Number(v))}
@@ -328,11 +265,9 @@ export function GeneralSection() {
       </SettingGroup>
 
       <SettingGroup title={g.startup.title}>
-        <SettingRow
-          title={g.startup.restoreWindow}
-          description={g.startup.restoreWindowDescription}
-        >
+        <SettingRow title={g.startup.restoreWindow}>
           <Switch
+            aria-label={g.startup.restoreWindow}
             checked={restoreWindowState}
             onCheckedChange={(v) => void setRestoreWindowState(v)}
           />
@@ -360,11 +295,8 @@ function FontFamilyInput({
   const terminalMessages = messages.settings.general.terminal;
 
   return (
-    <SettingRow
-      title={terminalMessages.fontFamily}
-      description={terminalMessages.fontFamilyHint}
-    >
-      <div className="grid w-[360px] grid-cols-2 gap-2">
+    <SettingRow title={terminalMessages.fontFamily}>
+      <div className="grid w-75 grid-cols-2 gap-3">
         <FontFamilyField
           label={terminalMessages.codeFontFamily}
           value={codeValue}

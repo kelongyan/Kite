@@ -9,12 +9,6 @@ vi.mock("@/modules/theme", () => ({
   }),
 }));
 
-vi.mock("@/settings/SettingsNavigationContext", () => ({
-  useSettingsNavigation: () => ({
-    setActiveTab: vi.fn(),
-  }),
-}));
-
 vi.mock("@/lib/fonts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/fonts")>();
   return { ...actual, findUnavailableFonts: vi.fn(() => []) };

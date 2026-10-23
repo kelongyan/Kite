@@ -187,7 +187,7 @@ export function CommandPalette({
       onEscapeKeyDown={onEscapeKeyDown}
       title={messages.title}
       description={messages.description}
-      className="top-1/2 w-[min(640px,calc(100vw-32px))] max-w-none -translate-y-1/2 sm:max-w-none"
+      className="top-1/2 w-[min(500px,calc(100vw-32px))] max-w-none -translate-y-1/2 sm:max-w-none"
     >
       <Command
         shouldFilter={false}

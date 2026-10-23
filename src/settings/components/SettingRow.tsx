@@ -3,32 +3,24 @@ import type { ReactNode } from "react";
 
 type Props = {
   title: ReactNode;
-  description?: string;
   children: React.ReactNode;
   className?: string;
 };
 
 /**
  * One row inside a SettingGroup. The group owns border, background, and
- * dividers; this component only lays out title/description against the
+ * dividers; this component only lays out the title against the
  * control, so it must not add chrome of its own.
  */
-export function SettingRow({ title, description, children, className }: Props) {
+export function SettingRow({ title, children, className }: Props) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 px-3 py-2",
+        "flex min-h-12 items-center justify-between gap-5 px-4 py-2.5",
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[12.5px] font-medium">{title}</span>
-        {description ? (
-          <span className="text-[10.5px] leading-relaxed text-muted-foreground">
-            {description}
-          </span>
-        ) : null}
-      </div>
+      <span className="min-w-0 text-[12.5px] font-medium">{title}</span>
       <div className="flex shrink-0 items-center">{children}</div>
     </div>
   );

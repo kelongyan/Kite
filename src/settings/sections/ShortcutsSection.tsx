@@ -94,10 +94,7 @@ export function ShortcutsSection() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <SectionHeader
-          title={shortcutMessages.title}
-          description={shortcutMessages.description}
-        />
+        <SectionHeader title={shortcutMessages.title} />
         <Button
           variant="outline"
           size="sm"
@@ -128,7 +125,7 @@ export function ShortcutsSection() {
         />
       </div>
 
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-5">
         {SHORTCUT_GROUPS.map((group) => {
           const items = filteredShortcuts.filter((s) => s.group === group);
           if (items.length === 0) return null;
@@ -206,7 +203,7 @@ function ShortcutRow({
   const hasBindings = bindings && bindings.length > 0;
 
   return (
-    <div className="group flex items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30">
+    <div className="group flex min-h-12 items-center justify-between gap-4 px-4 py-2.5 transition-colors hover:bg-muted/30">
       <div className="flex flex-col gap-0.5">
         <span className="text-[12.5px] font-medium">
           {messages.actions[shortcut.id]}
@@ -246,7 +243,7 @@ function ShortcutRow({
               )}
             </button>
 
-            <div className="flex items-center gap-1">
+            <div className="flex w-15 justify-end gap-1">
               {isModified && (
                 <Button
                   variant="ghost"

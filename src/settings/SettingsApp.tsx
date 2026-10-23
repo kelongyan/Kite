@@ -18,7 +18,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,7 +25,6 @@ import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
 import { ThemesSection } from "./sections/ThemesSection";
-import { SettingsNavigationContext } from "./SettingsNavigationContext";
 
 const TABS: {
   id: SettingsTab;
@@ -105,8 +103,6 @@ export function SettingsApp() {
     }
   }, [indicator, indicatorReady]);
 
-  const navigationValue = useMemo(() => ({ setActiveTab: setActive }), []);
-
   useEffect(() => {
     void init();
   }, [init]);
@@ -127,11 +123,10 @@ export function SettingsApp() {
   }, []);
 
   return (
-    <SettingsNavigationContext.Provider value={navigationValue}>
-      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header
         data-tauri-drag-region
-        className={`flex h-10 shrink-0 items-center border-b border-border/60 bg-card/60 select-none ${
+        className={`flex h-11 shrink-0 items-center border-b border-border/60 bg-card/60 select-none ${
           IS_MAC ? "pr-2 pl-20" : "pr-0 pl-3"
         }`}
       >
@@ -144,7 +139,7 @@ export function SettingsApp() {
         >
           <TabsList
             ref={tabsListRef}
-            className="relative mx-auto h-7 bg-muted/40 px-2"
+            className="relative mx-auto gap-0.5 bg-muted/40 px-1 group-data-horizontal/tabs:h-8"
           >
             {indicator && (
               <span
@@ -165,9 +160,13 @@ export function SettingsApp() {
               <TabsTrigger
                 key={t.id}
                 value={t.id}
-                className="h-6 gap-1.5 px-2.5 text-[11.5px] data-active:bg-transparent dark:data-active:bg-transparent"
+                className="h-6 gap-1.5 px-3 text-[11.5px] data-active:bg-transparent dark:data-active:bg-transparent"
               >
-                <HugeiconsIcon icon={t.icon} size={12} strokeWidth={1.75} />
+                <HugeiconsIcon
+                  icon={t.icon}
+                  className="size-3.5"
+                  strokeWidth={1.75}
+                />
                 <span>{messages.settings.tabs[t.id]}</span>
               </TabsTrigger>
             ))}
@@ -178,7 +177,7 @@ export function SettingsApp() {
 
       <main
         ref={mainRef}
-        className="min-h-0 flex-1 overflow-y-auto px-7 pt-5 pb-6 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]"
+        className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-7 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
       >
         <div className="mx-auto w-full max-w-160">
           <div key={active} className="kite-settings-section">
@@ -189,6 +188,5 @@ export function SettingsApp() {
 
       <Toaster position="bottom-right" />
     </div>
-    </SettingsNavigationContext.Provider>
   );
 }

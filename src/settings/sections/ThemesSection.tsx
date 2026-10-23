@@ -11,12 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
-import { useTheme } from "@/modules/theme";
+import { listBuiltinThemes, useTheme } from "@/modules/theme";
 import {
   deleteCustomTheme,
   saveCustomTheme,
 } from "@/modules/theme/customThemes";
-import { listBuiltinThemes } from "@/modules/theme/themes";
 import { validateTheme } from "@/modules/theme/validateTheme";
 import { DEFAULT_THEME_ID } from "@/modules/theme/types";
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
@@ -97,12 +96,9 @@ export function ThemesSection() {
         void handleThemeFiles(e.dataTransfer.files);
       }}
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <SectionHeader
-            title={themeMessages.title}
-            description={themeMessages.description}
-          />
+          <SectionHeader title={themeMessages.title} />
           <Button
             variant="outline"
             size="sm"
@@ -123,7 +119,7 @@ export function ThemesSection() {
           }}
         />
         <div
-          className="kite-reveal"
+          className="kite-reveal data-[state=open]:mt-3"
           data-state={importError ? "open" : "closed"}
         >
           <div>
@@ -136,7 +132,7 @@ export function ThemesSection() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         {themes.map((t) => {
           const v =
             t.variants[resolvedMode] ?? t.variants.dark ?? t.variants.light;
@@ -151,7 +147,7 @@ export function ThemesSection() {
             <div
               key={t.id}
               className={cn(
-                "group/theme flex items-center gap-2.5 rounded-lg border p-2 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
+                "group/theme flex min-h-15 items-center gap-3 rounded-lg border p-2.5 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
                 selected
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
@@ -186,16 +182,9 @@ export function ThemesSection() {
                     style={{ background: swatchFg, opacity: 0.55 }}
                   />
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[12px] font-medium">
-                    {t.name}
-                  </span>
-                  {t.description ? (
-                    <span className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-                      {t.description}
-                    </span>
-                  ) : null}
-                </div>
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                  {t.name}
+                </span>
               </button>
               {selected ? (
                 <span className="kite-theme-check flex size-4.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
@@ -226,10 +215,6 @@ export function ThemesSection() {
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        {themeMessages.theme.dragHint}
-      </p>
-
       <AlertDialog
         open={!!themeToDelete}
         onOpenChange={(open) => !open && setThemeToDelete(null)}

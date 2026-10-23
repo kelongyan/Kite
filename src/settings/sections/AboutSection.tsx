@@ -41,16 +41,13 @@ export function AboutSection() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionHeader title={aboutMessages.title} description="" />
+      <SectionHeader title={aboutMessages.title} />
 
       <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/60 p-4">
         <img src="/logo.png" alt="" className="size-12" draggable={false} />
         <div className="flex min-w-0 flex-col">
           <span className="text-[15px] font-semibold tracking-tight">
             {name}
-          </span>
-          <span className="text-[11px] text-muted-foreground">
-            {aboutMessages.tagline}
           </span>
           <span className="mt-1 font-mono text-[11px] text-muted-foreground select-text">
             v{version || "—"}
@@ -83,28 +80,23 @@ export function AboutSection() {
         </dd>
       </dl>
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void openUrl(REPO_URL)}
-            className="gap-1.5"
-          >
-            <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
-            {aboutMessages.actions.viewOnGitHub}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void openUrl(`${REPO_URL}/issues/new`)}
-          >
-            {aboutMessages.actions.reportIssue}
-          </Button>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          {aboutMessages.updateChecksDisabled}
-        </p>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void openUrl(REPO_URL)}
+          className="gap-1.5"
+        >
+          <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
+          {aboutMessages.actions.viewOnGitHub}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void openUrl(`${REPO_URL}/issues/new`)}
+        >
+          {aboutMessages.actions.reportIssue}
+        </Button>
       </div>
     </div>
   );
