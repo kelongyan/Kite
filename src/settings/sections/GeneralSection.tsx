@@ -186,11 +186,7 @@ export function GeneralSection() {
             value={terminalFontWeight}
             onValueChange={(v) => void setTerminalFontWeight(v)}
           >
-            <SelectTrigger
-              size="sm"
-              value={terminalFontWeight}
-              className="h-7 w-36 text-[12px]"
-            >
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -230,11 +226,7 @@ export function GeneralSection() {
               void setTerminalShell(v === SHELL_AUTO ? "" : v)
             }
           >
-            <SelectTrigger
-              size="sm"
-              value={terminalShell || SHELL_AUTO}
-              className="h-7 w-36 text-[12px]"
-            >
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">

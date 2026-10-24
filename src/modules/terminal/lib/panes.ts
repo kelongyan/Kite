@@ -90,12 +90,16 @@ export function splitLeaf(
       children: [tree, newLeaf],
     };
   }
-  return {
-    ...tree,
-    children: tree.children.map((c) =>
-      splitLeaf(c, targetId, newSplitId, newLeafId, dir, newCwd),
-    ),
-  };
+  // Preserve the original reference when the target lives elsewhere: the
+  // tree walk above already handled same-dir insertion, so reaching here
+  // with no changed child means the split missed entirely.
+  let changed = false;
+  const children = tree.children.map((c) => {
+    const u = splitLeaf(c, targetId, newSplitId, newLeafId, dir, newCwd);
+    if (u !== c) changed = true;
+    return u;
+  });
+  return changed ? { ...tree, children } : tree;
 }
 
 /**
@@ -108,10 +112,14 @@ export function removeLeaf(
 ): PaneNode | null {
   if (isLeaf(tree)) return tree.id === targetId ? null : tree;
   const newChildren: PaneNode[] = [];
+  let removed = false;
   for (const c of tree.children) {
     const r = removeLeaf(c, targetId);
+    if (r !== c) removed = true;
     if (r !== null) newChildren.push(r);
   }
+  // Untouched subtree keeps its reference so upstream memo comparisons hold.
+  if (!removed) return tree;
   if (newChildren.length === 0) return null;
   if (newChildren.length === 1) return newChildren[0];
   return { ...tree, children: newChildren };

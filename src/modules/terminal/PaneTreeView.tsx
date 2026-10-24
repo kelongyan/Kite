@@ -35,6 +35,9 @@ export function PaneTreeView(props: Props) {
     const focused = node.id === activeLeafId;
     const b = getBundle(node.id);
     return (
+      // A layout wrapper, not a control: it keeps the pane tree's active leaf
+      // in sync with DOM focus from any focus path.
+      // biome-ignore lint/a11y/noStaticElementInteractions: focus synchronization on a layout container, not an interactive control
       <div
         onMouseDownCapture={() => {
           if (!focused) onFocusLeaf(node.id);

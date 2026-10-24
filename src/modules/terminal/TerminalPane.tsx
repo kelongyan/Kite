@@ -135,6 +135,9 @@ export const TerminalPane = memo(
     return (
       <>
         <div className="relative h-full w-full">
+          {/* The xterm mount point; the handler only records the mouse
+           * position for the context menu, the terminal owns interaction. */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: passive mouse tracking on the xterm host, not an interactive control */}
           <div
             ref={containerRef}
             className="zoom-exempt h-full w-full"

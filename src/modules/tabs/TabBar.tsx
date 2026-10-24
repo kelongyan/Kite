@@ -142,6 +142,10 @@ export function TabBar({
     setPill(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
   }, []);
 
+  // activeId and tabs are geometry signals: the pill must re-measure when
+  // the active tab or the strip membership changes, even though the effect
+  // body only calls measurePill.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useLayoutEffect(() => {
     measurePill();
   }, [measurePill, activeId, tabs]);
@@ -485,13 +489,26 @@ export function TabBar({
                     />
                   </span>
                   {tabs.length > 1 && (
+                    // A nested <button> inside the Radix trigger button is
+                    // invalid HTML, so this stays a span; the role, tabIndex,
+                    // and key handling below keep it reachable and operable
+                    // from the keyboard.
+                    // biome-ignore lint/a11y/useSemanticElements: cannot nest a button inside the trigger button
                     <span
                       role="button"
+                      tabIndex={0}
                       aria-label={messages.closeTab}
                       data-no-drag
                       onClick={(e) => {
                         e.stopPropagation();
                         onClose(t.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onClose(t.id);
+                        }
                       }}
                       className="rounded p-0.5 opacity-0 transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)] hover:bg-accent hover:opacity-100 group-hover:opacity-60"
                     >
