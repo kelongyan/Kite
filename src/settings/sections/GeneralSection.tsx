@@ -9,12 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useFontCatalog, fontSuggestions } from "@/lib/fontCatalog";
-import {
-  ensureMonoFontsLoaded,
-  findUnavailableFonts,
-  measureCjkAlignment,
-  suggestAlignedCjkFont,
-} from "@/lib/fonts";
+import { findUnavailableFonts } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -41,7 +36,15 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { SettingGroup, SettingGroupTitle } from "../components/SettingGroup";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
@@ -299,70 +302,29 @@ function FontFamilyInput({
 }) {
   const messages = useMessages();
   const terminalMessages = messages.settings.general.terminal;
-
-  // Measure on the committed values (not drafts) so the hint describes the
-  // real render, matching the unmatched-fonts warning below. The probe needs
-  // the bundled faces loaded to measure what the terminal will actually use.
-  const [aligned, setAligned] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    void ensureMonoFontsLoaded().then(() => {
-      if (cancelled) return;
-      const result = measureCjkAlignment(codeValue, cjkValue);
-      setAligned(result?.ok ?? true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [codeValue, cjkValue]);
-
-  const cjkFix = aligned ? null : suggestAlignedCjkFont();
   const catalog = useFontCatalog();
 
   return (
-    <>
-      <SettingRow title={terminalMessages.fontFamily}>
-        <div className="grid w-75 grid-cols-2 gap-3">
-          <FontFamilyField
-            label={terminalMessages.codeFontFamily}
-            value={codeValue}
-            placeholder={terminalMessages.codeFontFamilyPlaceholder}
-            unmatchedHint={terminalMessages.fontFamilyUnmatched}
-            suggestions={fontSuggestions(catalog, "code")}
-            onCommit={onCodeCommit}
-          />
-          <FontFamilyField
-            label={terminalMessages.cjkFontFamily}
-            value={cjkValue}
-            placeholder={terminalMessages.cjkFontFamilyPlaceholder}
-            unmatchedHint={terminalMessages.fontFamilyUnmatched}
-            suggestions={fontSuggestions(catalog, "cjk")}
-            onCommit={onCjkCommit}
-          />
-        </div>
-      </SettingRow>
-      {!aligned && (
-        <div
-          role="status"
-          className="flex items-center gap-2 bg-amber-500/5 px-4 py-2 text-[10.5px] leading-tight text-amber-500"
-        >
-          <p className="min-w-0 flex-1">{terminalMessages.fontCjkMisaligned}</p>
-          {cjkFix && (
-            <button
-              type="button"
-              className="shrink-0 rounded-md border border-amber-500/50 px-2 py-0.5 hover:bg-amber-500/10"
-              onClick={() => {
-                setAligned(true);
-                onCodeCommit(cjkFix);
-                onCjkCommit(cjkFix);
-              }}
-            >
-              {terminalMessages.fontCjkFix(cjkFix)}
-            </button>
-          )}
-        </div>
-      )}
-    </>
+    <SettingRow title={terminalMessages.fontFamily}>
+      <div className="grid w-75 grid-cols-2 gap-3">
+        <FontFamilyField
+          label={terminalMessages.codeFontFamily}
+          value={codeValue}
+          placeholder={terminalMessages.codeFontFamilyPlaceholder}
+          unmatchedHint={terminalMessages.fontFamilyUnmatched}
+          suggestions={fontSuggestions(catalog, "code")}
+          onCommit={onCodeCommit}
+        />
+        <FontFamilyField
+          label={terminalMessages.cjkFontFamily}
+          value={cjkValue}
+          placeholder={terminalMessages.cjkFontFamilyPlaceholder}
+          unmatchedHint={terminalMessages.fontFamilyUnmatched}
+          suggestions={fontSuggestions(catalog, "cjk")}
+          onCommit={onCjkCommit}
+        />
+      </div>
+    </SettingRow>
   );
 }
 
@@ -384,7 +346,6 @@ function FontFamilyField({
   onCommit: (value: string) => void;
 }) {
   const id = useId();
-  const listId = `${id}-fonts`;
   const [draft, setDraft] = useState(value);
 
   // Set by Escape so the blur it triggers reverts instead of committing. A ref
@@ -403,14 +364,71 @@ function FontFamilyField({
   // so the warning describes the real render and does not nag per keystroke.
   const unmatched = useMemo(() => findUnavailableFonts(value), [value]);
 
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [panelRect, setPanelRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const filtered = useMemo(() => {
+    if (!editing) return suggestions;
+    const q = draft.trim().toLowerCase();
+    if (!q) return suggestions;
+    return suggestions.filter((s) => s.toLowerCase().includes(q));
+  }, [suggestions, editing, draft]);
+  // Keep the highlight reachable when the filtered set shrinks.
+  const items = filtered.slice(0, 60);
+
+  // The panel is portaled to the body: SettingGroup's overflow-hidden would
+  // clip an absolutely positioned child, and the rounded border would cut the
+  // popover mid-list. Position it from the input's live rect while open.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelRect(null);
+      return;
+    }
+    const measure = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPanelRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    };
+    measure();
+    // Scrolling the settings surface would detach the panel from the input;
+    // closing keeps the interaction honest instead of letting it float.
+    const closeOnScroll = () => setOpen(false);
+    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("resize", closeOnScroll);
+    return () => {
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", closeOnScroll);
+    };
+  }, [open]);
+
+  const pick = (family: string) => {
+    setDraft(family);
+    onCommit(family);
+    setOpen(false);
+  };
+
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="relative flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-[10.5px] text-muted-foreground">
         {label}
       </label>
       <Input
+        ref={inputRef}
         id={id}
-        list={listId}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-listbox` : undefined}
+        aria-autocomplete="list"
+        aria-activedescendant={
+          open && items[highlight] ? `${id}-opt-${highlight}` : undefined
+        }
         value={draft}
         placeholder={placeholder}
         spellCheck={false}
@@ -419,10 +437,18 @@ function FontFamilyField({
           "h-7 rounded-lg text-[12px]",
           unmatched.length > 0 && "border-destructive/60",
         )}
-        onChange={(e) => setDraft(e.target.value)}
-        onFocus={() => setEditing(true)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setHighlight(0);
+        }}
+        onFocus={() => {
+          setEditing(true);
+          setHighlight(0);
+          setOpen(true);
+        }}
         onBlur={() => {
           setEditing(false);
+          setOpen(false);
           if (reverted.current) {
             reverted.current = false;
             setDraft(value);
@@ -431,13 +457,35 @@ function FontFamilyField({
           }
         }}
         onKeyDown={(e) => {
+          if (open && items.length > 0) {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setHighlight((h) => (h + 1) % items.length);
+              return;
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlight((h) => (h - 1 + items.length) % items.length);
+              return;
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              pick(items[highlight]);
+              e.currentTarget.blur();
+              return;
+            }
+          }
           if (e.key === "Enter") {
             e.preventDefault();
             e.currentTarget.blur();
           } else if (e.key === "Escape") {
             e.preventDefault();
-            reverted.current = true;
-            e.currentTarget.blur();
+            if (open) {
+              setOpen(false);
+            } else {
+              reverted.current = true;
+              e.currentTarget.blur();
+            }
           }
         }}
       />
@@ -456,11 +504,53 @@ function FontFamilyField({
           ) : null}
         </div>
       </div>
-      <datalist id={listId}>
-        {suggestions.map((family) => (
-          <option key={family} value={family} />
-        ))}
-      </datalist>
+      {open &&
+        items.length > 0 &&
+        panelRect &&
+        createPortal(
+          <div
+            id={`${id}-listbox`}
+            role="listbox"
+            aria-label={label}
+            className="kite-popover-motion fixed z-50 max-h-56 overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-lg"
+            data-state="open"
+            data-side="bottom"
+            style={{
+              top: panelRect.top,
+              left: panelRect.left,
+              width: panelRect.width,
+            }}
+          >
+            {items.map((family, i) => (
+              <button
+                type="button"
+                key={family}
+                id={`${id}-opt-${i}`}
+                role="option"
+                aria-selected={i === highlight}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-[12px] outline-none",
+                  i === highlight && "bg-accent text-accent-foreground",
+                )}
+                style={{ fontFamily: `"${family}", monospace` }}
+                // mousedown so the pick lands before the input's blur commit.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pick(family);
+                }}
+                onMouseEnter={() => setHighlight(i)}
+              >
+                <span className="min-w-0 flex-1 truncate">{family}</span>
+                {family === value && (
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    ●
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

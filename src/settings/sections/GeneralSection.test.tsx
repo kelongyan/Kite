@@ -39,9 +39,9 @@ describe("GeneralSection", () => {
     expect(html).toContain('placeholder="Kite Mono"');
     expect(html).toContain('placeholder="Kite Sans SC"');
     expect(html).not.toContain("Aa 中文 123");
-    // The datalist is the suggestion source for the free-text field; with no
-    // catalog (SSR) it renders empty, keeping the input free-form.
-    expect(html.match(/<datalist/g)).toHaveLength(2);
+    // The custom suggestion popover only renders while a field is focused, so
+    // a static render has no listbox and the input stays free-form.
+    expect(html).not.toContain('role="listbox"');
     expect(html).not.toContain(">Cursor<");
     expect(html).not.toContain("Cursor preview");
     expect(html).not.toContain("Shape");
