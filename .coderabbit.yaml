@@ -154,7 +154,7 @@ knowledge_base:
   code_guidelines:
     enabled: true
     filePatterns:
-      - "**/TERAX.md"
+      - "**/KITE.md"
       - "**/CLAUDE.md"
       - "**/AGENTS.md"
   learnings:

@@ -309,7 +309,7 @@ HUD 的键盘操作必须即时：入场动画只作用于挂载，选中行的�
 - 设置页 5 个 Select 改为 `position="popper"`，删除无用的 `animate-none` / zoom / slide 类。
 - 移除 ScrollArea 中不会被使用的过渡。
 - 移除标签文字与光标 overlay 的常驻 `will-change`。
-- 把运动 token 与浮层配方写入 `TERAX.md`，防止新生成的 shadcn 组件重新引入 `duration-100` / `zoom-in-95`。
+- 把运动 token 与浮层配方写入架构参考文档（现 `KITE.md`），防止新生成的 shadcn 组件重新引入 `duration-100` / `zoom-in-95`。
 
 退出标准：所有浮层使用同一套时长与曲线；reduced-motion 规则覆盖浮层、Toast、复制提示、录制指示；`transition-all` 清零；Tooltip 与 Select 有真实入场。
 

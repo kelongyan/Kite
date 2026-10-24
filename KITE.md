@@ -1,4 +1,4 @@
-# TERAX.md
+# KITE.md
 
 The living architecture reference. Read it before making changes and keep it
 aligned with structural changes. Coding assistants pick it up through
@@ -169,8 +169,8 @@ Motion tokens live in `src/styles/globals.css`:
 
 - Durations: `--dur-instant` 80ms, `--dur-fast` 160ms, `--dur-base` 240ms,
   `--dur-slow` 320ms.
-- Curves: `--ease-premium` for entrances, `--ease-soft` for state changes and
-  exits.
+- Curves: `--ease-premium` for entrances, `--ease-soft` for state changes,
+  `--ease-exit` (accelerating) for exits so leaving never lingers.
 - Tailwind's default transition duration and timing function point at
   `--dur-fast` and `--ease-soft`.
 

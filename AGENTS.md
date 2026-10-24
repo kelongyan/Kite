@@ -4,7 +4,7 @@ Kite is a Tauri 2 desktop app: Rust backend (`src-tauri/`) + React 19 / TypeScri
 
 ## First reads
 
-- **`TERAX.md`** — living architecture reference. Read before making changes.
+- **`KITE.md`** — living architecture reference. Read before making changes.
 - **`CLAUDE.md`** — commands, architecture, conventions. Keep in sync.
 - **`src-tauri/src/lib.rs`** — all Tauri commands registered here.
 - **`src/app/App.tsx`** — frontend coordinator.

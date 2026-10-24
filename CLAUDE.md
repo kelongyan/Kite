@@ -141,6 +141,6 @@ Known gap: `src/modules/terminal/lib/panes.ts` has no tests despite being on tha
 
 ## Reference docs
 
-- `TERAX.md` — living architecture reference; read before making changes and keep it aligned with structural changes.
+- `KITE.md` — living architecture reference; read before making changes and keep it aligned with structural changes.
 - `ROADMAP.md` — scope and direction; read before opening anything non-trivial.
 - `CONTRIBUTING.md` — solo-maintained project; alignment matters more than volume, keep PRs focused.
