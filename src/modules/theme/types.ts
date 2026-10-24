@@ -67,7 +67,9 @@ const LEGACY_DEFAULT_THEME_ID = "terax-default";
 const RETIRED_BUILTIN_THEME_IDS = new Set([
   "caffeine",
   "kanagawa-dragon",
+  "night-owl",
   "sage",
+  "solarized",
   "tide",
 ]);
 

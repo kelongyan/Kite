@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getDefaultTheme, listBuiltinThemes } from "./themes";
-import { DEFAULT_THEME_ID, type ThemeVariant } from "./types";
+import {
+  DEFAULT_THEME_ID,
+  normalizeThemeId,
+  type ThemeVariant,
+} from "./types";
 import { validateTheme } from "./validateTheme";
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -31,6 +35,14 @@ describe("builtin themes", () => {
 
   it("resolves the default theme from the shipped list", () => {
     expect(getDefaultTheme().id).toBe(DEFAULT_THEME_ID);
+  });
+
+  it("falls back retired ids to the default theme", () => {
+    expect(listBuiltinThemes().map((t) => t.id)).not.toContain("night-owl");
+    expect(listBuiltinThemes().map((t) => t.id)).not.toContain("solarized");
+    expect(normalizeThemeId("night-owl")).toBe(DEFAULT_THEME_ID);
+    expect(normalizeThemeId("solarized")).toBe(DEFAULT_THEME_ID);
+    expect(normalizeThemeId("eva")).toBe("eva");
   });
 
   it("uses parseable colors everywhere", () => {

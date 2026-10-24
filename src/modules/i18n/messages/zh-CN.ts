@@ -209,6 +209,8 @@ export const zhCN = {
       title: "主题",
       theme: {
         title: "主题",
+        darkThemes: "深色",
+        lightThemes: "浅色",
         importTheme: "导入 .kite-theme",
         failedToRead: "读取失败",
         removeTheme: (name: string) => `移除 ${name}`,

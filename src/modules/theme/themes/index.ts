@@ -7,13 +7,12 @@ import { github } from "./github";
 import { gruvbox } from "./gruvbox";
 import { kanagawa } from "./kanagawa";
 import { kiteDefault } from "./kite-default";
+import { eva } from "./eva";
 import { monokai } from "./monokai";
-import { nightOwl } from "./night-owl";
 import { nord } from "./nord";
 import { oneDark } from "./one-dark";
 import { oneLight } from "./one-light";
 import { rosePine } from "./rose-pine";
-import { solarized } from "./solarized";
 import { tokyoNight } from "./tokyo-night";
 
 const BUILTIN: Theme[] = [
@@ -31,8 +30,7 @@ const BUILTIN: Theme[] = [
   everforest,
   kanagawa,
   monokai,
-  nightOwl,
-  solarized,
+  eva,
 ];
 
 const BY_ID = new Map<string, Theme>(BUILTIN.map((t) => [t.id, t]));
