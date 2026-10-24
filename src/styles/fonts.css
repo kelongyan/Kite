@@ -86,15 +86,31 @@
    "chinese-simplified" subset is shipped: it covers the whole CJK block in
    one 1.1 MB file, while the package's per-range slices total ~3.4 MB for
    the same coverage. Latin needs no entry here because the code font always
-   resolves those glyphs first. Bold CJK ships as its own face because the
-   WebGL atlas cannot synthesize a bold glyph for a face it never loaded.
-   woff2 only, matching the mono face above. */
+   resolves those glyphs first. Every weight the preferences offer ships as
+   its own face (400/500/600/700, matching Kite Mono's ladder) so 500/600
+   text renders true CJK weights instead of snapping to 700 next to latin
+   glyphs at the real weight, and the WebGL atlas never has to synthesize a
+   face it never loaded. woff2 only, matching the mono face above. */
 @font-face {
   font-family: 'Kite Sans SC';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
   src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Sans SC';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Sans SC';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-600-normal.woff2') format('woff2');
 }
 @font-face {
   font-family: 'Kite Sans SC';

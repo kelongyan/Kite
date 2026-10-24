@@ -11,11 +11,22 @@ vi.mock("@/modules/theme", () => ({
 
 vi.mock("@/lib/fonts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/fonts")>();
-  return { ...actual, findUnavailableFonts: vi.fn(() => []) };
+  return {
+    ...actual,
+    findUnavailableFonts: vi.fn(() => []),
+    measureCjkAlignment: vi.fn(() => null),
+    suggestAlignedCjkFont: vi.fn(() => null),
+  };
 });
 
 const findUnavailableFonts = vi.mocked(
   (await import("@/lib/fonts")).findUnavailableFonts,
+);
+const measureCjkAlignment = vi.mocked(
+  (await import("@/lib/fonts")).measureCjkAlignment,
+);
+const suggestAlignedCjkFont = vi.mocked(
+  (await import("@/lib/fonts")).suggestAlignedCjkFont,
 );
 
 describe("GeneralSection", () => {
@@ -69,8 +80,38 @@ describe("GeneralSection", () => {
     const html = renderToStaticMarkup(<GeneralSection />);
 
     expect(html).not.toContain("未匹配到字体名");
-    expect(html).not.toContain('role="status"');
+    expect(html).not.toContain("role=\"status\"");
     expect(html).not.toContain('data-state="open"');
+    expect(html).toContain('data-state="closed"');
+  });
+
+  it("hints when the code and CJK pair is not 2:1 aligned", () => {
+    measureCjkAlignment.mockImplementation(() => ({
+      ok: false,
+      codeAdvance: 8,
+      cjkAdvance: 15,
+      cell: 8,
+    }));
+    suggestAlignedCjkFont.mockReturnValue("Sarasa Mono SC");
+
+    const html = renderToStaticMarkup(<GeneralSection />);
+
+    expect(html).toContain("中文字体与代码字体未对齐");
+    expect(html).toContain("改用 Sarasa Mono SC");
+    expect(html).toContain('data-state="open"');
+  });
+
+  it("shows no alignment hint when the pair measures aligned", () => {
+    measureCjkAlignment.mockImplementation(() => ({
+      ok: true,
+      codeAdvance: 8,
+      cjkAdvance: 16,
+      cell: 8,
+    }));
+
+    const html = renderToStaticMarkup(<GeneralSection />);
+
+    expect(html).not.toContain("中文字体与代码字体未对齐");
     expect(html).toContain('data-state="closed"');
   });
 });

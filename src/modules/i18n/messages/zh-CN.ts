@@ -110,6 +110,8 @@ export const zhCN = {
         cjkFontFamilyPlaceholder: "Kite Sans SC",
         fontFamilyUnmatched:
           "未匹配到字体名，终端会改用自带字体。请填写字体族名，不要带字重或斜体后缀。",
+        cjkMisaligned: "中文字体与代码字体未对齐，汉字宽度可能不均匀。",
+        cjkMisalignedFix: (font: string) => `改用 ${font}`,
         fontWeight: "字体粗细",
         fontWeights: {
           normal: "常规",

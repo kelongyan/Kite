@@ -23,6 +23,10 @@ const CJK_FONT_CANDIDATES = [
   // or a Noto selection silently falls through on non-Linux systems.
   "Noto Sans SC",
   "Noto Serif SC",
+  // macOS defaults. Machines without them filter these out at resolve time,
+  // so listing both platforms costs nothing outside the probe.
+  "PingFang SC",
+  "Hiragino Sans GB",
   "Microsoft YaHei Mono",
   "Microsoft YaHei",
   "Microsoft YaHei UI",
@@ -78,7 +82,7 @@ function uniqueFontFamilies(families: string[]): string[] {
 }
 
 let monoReady: Promise<void> | null = null;
-let monoReadyWeight: string | null = null;
+const monoLoadedWeights = new Set<string>();
 
 function cssWeight(weight: string | undefined): string {
   // xterm accepts "normal"/"bold" or numeric strings; map the two keywords to
@@ -90,16 +94,18 @@ function cssWeight(weight: string | undefined): string {
 
 // Both bundled faces must be loaded before the terminal measures its first
 // cell: an unloaded face falls back and the glyph grid is mismeasured until a
-// relayout. The CJK face is loaded at the size the terminal uses so woff2
-// decompression is not paid twice. The preference weight is loaded alongside
-// the 400/700 pair because bold spans and the chosen weight can both be in
-// play; a repeated call with the same weight returns the cached promise.
+// relayout. A woff2 file decodes whole, so the size in the load spec is an
+// arbitrary trigger and every weight reuses the same bytes; only the weight
+// matters. The preference weight is loaded alongside the 400/700 pair because
+// bold spans and the chosen weight can both be in play. Loading is idempotent,
+// but each new weight still gets one settled pass; remembered weights return
+// the last promise without touching document.fonts again.
 export function ensureMonoFontsLoaded(weight?: string): Promise<void> {
   const w = cssWeight(weight);
-  if (monoReady && monoReadyWeight === w) return monoReady;
+  if (monoReady && monoLoadedWeights.has(w)) return monoReady;
   if (typeof document === "undefined" || !document.fonts?.load) {
     monoReady = Promise.resolve();
-    monoReadyWeight = w;
+    monoLoadedWeights.add(w);
     return monoReady;
   }
   const weights = w === "400" || w === "700" ? ["400", "700"] : ["400", "700", w];
@@ -109,8 +115,32 @@ export function ensureMonoFontsLoaded(weight?: string): Promise<void> {
       document.fonts.load(`${x} 14px "Kite Sans SC"`),
     ]),
   ).then(() => undefined);
-  monoReadyWeight = w;
+  monoLoadedWeights.add(w);
   return monoReady;
+}
+
+// Candidates the availability probe actually matches on this machine. Deep
+// fallback chains make the renderer probe every family per glyph and burn the
+// WebGL atlas faster; a machine typically has two to four of the candidates
+// installed, and the bundled "Kite Sans SC" always matches. Probed once per
+// document: the live document never changes within a window, while tests
+// swap it wholesale, and installs while the window is open are rare enough
+// to ignore (the font catalog takes the same stance).
+let installedCjkCache: { probedOn: Document | undefined; families: string[] } | null =
+  null;
+
+function installedCjkCandidates(): string[] {
+  const doc = typeof document === "undefined" ? undefined : document;
+  if (installedCjkCache && installedCjkCache.probedOn === doc) {
+    return installedCjkCache.families;
+  }
+  const installed = CJK_FONT_CANDIDATES.filter(isFontAvailable);
+  // A headless or stubbed probe can report every candidate missing; an empty
+  // chain would leave CJK text with no fallback at all, so keep the full list
+  // in that case. Real systems always match at least the bundled face.
+  const families = installed.length > 0 ? installed : [...CJK_FONT_CANDIDATES];
+  installedCjkCache = { probedOn: doc, families };
+  return families;
 }
 
 export function resolveFontFamily(
@@ -123,7 +153,7 @@ export function resolveFontFamily(
     ...(codeFamilies.length > 0 ? codeFamilies : [DEFAULT_MONO_FONT_FAMILY]),
     DEFAULT_MONO_FONT_FAMILY,
     ...cjkFamilies,
-    ...CJK_FONT_CANDIDATES,
+    ...installedCjkCandidates(),
     ...SYSTEM_MONO_FALLBACKS,
   ]);
   return families.map(formatFontFamily).join(", ");

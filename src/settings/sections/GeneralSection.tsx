@@ -5,11 +5,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useFontCatalog, fontSuggestions } from "@/lib/fontCatalog";
-import { findUnavailableFonts } from "@/lib/fonts";
+import {
+  findUnavailableFonts,
+  measureCjkAlignment,
+  suggestAlignedCjkFont,
+} from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -36,6 +41,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
+import type { ReactNode } from "react";
 import {
   useEffect,
   useId,
@@ -304,6 +310,20 @@ function FontFamilyInput({
   const terminalMessages = messages.settings.general.terminal;
   const catalog = useFontCatalog();
 
+  // Describes the committed pair, not in-progress text: like the unmatched
+  // probe, it must not nag on every keystroke. xterm lays CJK on two latin
+  // cells and cannot rescale fallback glyphs, so a non 2:1 pair renders
+  // uneven ideographs; the hint names the problem and offers the installed
+  // 2:1 face, if any.
+  const alignment = useMemo(
+    () => measureCjkAlignment(codeValue, cjkValue),
+    [codeValue, cjkValue],
+  );
+  const alignedSuggestion = useMemo(
+    () => (alignment && !alignment.ok ? suggestAlignedCjkFont() : null),
+    [alignment],
+  );
+
   return (
     <SettingRow title={terminalMessages.fontFamily}>
       <div className="grid w-75 grid-cols-2 gap-3">
@@ -322,6 +342,26 @@ function FontFamilyInput({
           unmatchedHint={terminalMessages.fontFamilyUnmatched}
           suggestions={fontSuggestions(catalog, "cjk")}
           onCommit={onCjkCommit}
+          extraHint={
+            alignment && !alignment.ok ? (
+              <p
+                role="status"
+                className="flex flex-wrap items-center gap-x-1.5 text-[10.5px] leading-tight text-destructive"
+              >
+                {terminalMessages.cjkMisaligned}
+                {alignedSuggestion && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="h-4.5 rounded-md px-1.5 text-[10.5px]"
+                    onClick={() => onCjkCommit(alignedSuggestion)}
+                  >
+                    {terminalMessages.cjkMisalignedFix(alignedSuggestion)}
+                  </Button>
+                )}
+              </p>
+            ) : null
+          }
         />
       </div>
     </SettingRow>
@@ -337,6 +377,7 @@ function FontFamilyField({
   unmatchedHint,
   suggestions,
   onCommit,
+  extraHint = null,
 }: {
   label: string;
   value: string;
@@ -344,6 +385,7 @@ function FontFamilyField({
   unmatchedHint: string;
   suggestions: string[];
   onCommit: (value: string) => void;
+  extraHint?: ReactNode;
 }) {
   const id = useId();
   const [draft, setDraft] = useState(value);
@@ -513,7 +555,9 @@ function FontFamilyField({
       />
       <div
         className="kite-reveal"
-        data-state={unmatched.length > 0 ? "open" : "closed"}
+        data-state={
+          unmatched.length > 0 || extraHint !== null ? "open" : "closed"
+        }
       >
         <div>
           {unmatched.length > 0 ? (
@@ -523,7 +567,9 @@ function FontFamilyField({
             >
               {unmatched.join(", ")}: {unmatchedHint}
             </p>
-          ) : null}
+          ) : (
+            extraHint
+          )}
         </div>
       </div>
       {open &&

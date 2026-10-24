@@ -10,7 +10,7 @@ import {
 } from "./fonts";
 
 const FALLBACK =
-  '"Kite Sans SC", "Sarasa Mono SC", "Sarasa Term SC", "Source Han Mono SC", "Source Han Sans SC", "LXGW WenKai Mono", "LXGW WenKai", "Noto Sans Mono CJK SC", "Noto Serif CJK SC", "Noto Sans SC", "Noto Serif SC", "Microsoft YaHei Mono", "Microsoft YaHei", "Microsoft YaHei UI", "DengXian", "SimHei", "SimSun", "FangSong", "KaiTi", "NSimSun", "SFMono-Regular", "Menlo", monospace';
+  '"Kite Sans SC", "Sarasa Mono SC", "Sarasa Term SC", "Source Han Mono SC", "Source Han Sans SC", "LXGW WenKai Mono", "LXGW WenKai", "Noto Sans Mono CJK SC", "Noto Serif CJK SC", "Noto Sans SC", "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei Mono", "Microsoft YaHei", "Microsoft YaHei UI", "DengXian", "SimHei", "SimSun", "FangSong", "KaiTi", "NSimSun", "SFMono-Regular", "Menlo", monospace';
 const DEFAULT_STACK = `"Kite Mono", ${FALLBACK}`;
 
 function withoutFallbackFamilies(...families: string[]): string {
@@ -61,6 +61,44 @@ describe("resolveFontFamily", () => {
 
   it("returns the default stack from detectMonoFontFamily", () => {
     expect(detectMonoFontFamily()).toBe(DEFAULT_STACK);
+  });
+});
+
+describe("resolveFontFamily fallback filtering", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // The bundled family always matches (document.fonts lists the @font-face),
+  // every other candidate measures as the baseline, i.e. not installed.
+  // The candidate cache keys on the live document, so each stub re-probes.
+  function stubOnlyBundledInstalled() {
+    const blankCanvas = { measureText: () => ({ width: 100 }), font: "" };
+    vi.stubGlobal("document", {
+      fonts: [{ family: '"Kite Sans SC"' }],
+      createElement: () => ({ getContext: () => blankCanvas }),
+    });
+  }
+
+  it("keeps only candidates the availability probe matches", () => {
+    stubOnlyBundledInstalled();
+    expect(resolveFontFamily("", "")).toBe(
+      '"Kite Mono", "Kite Sans SC", "SFMono-Regular", "Menlo", monospace',
+    );
+  });
+
+  it("keeps the full chain when the probe matches nothing at all", () => {
+    // jsdom-like: no @font-face list, canvas measures every family as the
+    // baseline. The chain must not collapse to nothing.
+    vi.stubGlobal("document", {
+      fonts: [],
+      createElement: () => ({
+        getContext: () => ({ measureText: () => ({ width: 100 }), font: "" }),
+      }),
+    });
+    expect(resolveFontFamily("Fira Code", "")).toBe(
+      `"Fira Code", "Kite Mono", ${FALLBACK}`,
+    );
   });
 });
 
