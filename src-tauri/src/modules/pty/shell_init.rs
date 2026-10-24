@@ -1,5 +1,6 @@
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use portable_pty::CommandBuilder;
 
@@ -19,6 +20,30 @@ fn claude_native_cursor_value() -> OsString {
 #[cfg(windows)]
 fn bashrc_script() -> &'static str {
     BASHRC_SCRIPT
+}
+
+// Shared by the unix and windows integration writers. The temp name carries
+// the pid and a sequence so two concurrent first-run spawns never race on the
+// same temp file; with a fixed name, the loser of the rename failed and
+// silently disabled shell integration for that session.
+static TMP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
+    if let Ok(existing) = fs::read_to_string(path) {
+        if existing == content {
+            return Ok(());
+        }
+    }
+    // Atomic replace: a parallel shell startup must never source a half-written file.
+    let mut tmp: OsString = path.as_os_str().to_owned();
+    let seq = TMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    tmp.push(format!(".__kite_tmp__{}-{}", std::process::id(), seq));
+    let tmp = PathBuf::from(tmp);
+    fs::write(&tmp, content).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("rename {} -> {}: {e}", tmp.display(), path.display())
+    })
 }
 
 pub fn build_command(
@@ -78,7 +103,7 @@ fn sanitize_shell_override(shell: Option<String>) -> Option<String> {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 pub struct ShellInfo {
     pub name: String,
     pub path: String,
@@ -87,10 +112,60 @@ pub struct ShellInfo {
     pub integrated: bool,
 }
 
+// The shell list backs the picker UI and `sanitize_shell_override`. It is
+// cached process-wide: enumerating runs `wsl.exe -l -q`, which can hang for
+// seconds on a machine with a wedged WSL service, and must never sit on the
+// boot or per-spawn path. A result whose WSL part failed is retried after
+// WSL_RETRY_TTL; a complete one is final, so a newly installed shell or a
+// new WSL distro needs an app restart to appear.
+static SHELL_LIST_CACHE: std::sync::RwLock<Option<ShellListCache>> =
+    std::sync::RwLock::new(None);
+
+struct ShellListCache {
+    shells: Vec<ShellInfo>,
+    at: std::time::Instant,
+    complete: bool,
+}
+
+const WSL_RETRY_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub fn list_shells() -> Vec<ShellInfo> {
+    {
+        let guard = SHELL_LIST_CACHE
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(hit) = shell_cache_hit(guard.as_ref()) {
+            return hit;
+        }
+    }
+    let mut guard = SHELL_LIST_CACHE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // Another thread may have enumerated while the write lock was awaited.
+    if let Some(hit) = shell_cache_hit(guard.as_ref()) {
+        return hit;
+    }
+    let (shells, complete) = enumerate_shells();
+    *guard = Some(ShellListCache {
+        shells: shells.clone(),
+        at: std::time::Instant::now(),
+        complete,
+    });
+    shells
+}
+
+fn shell_cache_hit(cache: Option<&ShellListCache>) -> Option<Vec<ShellInfo>> {
+    let cache = cache?;
+    if cache.complete || cache.at.elapsed() < WSL_RETRY_TTL {
+        return Some(cache.shells.clone());
+    }
+    None
+}
+
+fn enumerate_shells() -> (Vec<ShellInfo>, bool) {
     #[cfg(unix)]
     {
-        unix::list_shells()
+        (unix::list_shells(), true)
     }
     #[cfg(windows)]
     {
@@ -159,7 +234,6 @@ fn apply_common(
 
 #[cfg(unix)]
 mod unix {
-    use std::ffi::OsString;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -338,10 +412,10 @@ mod unix {
     fn prepare_zdotdir() -> Result<PathBuf, String> {
         let dir = integration_root()?.join("zsh");
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
-        write_if_changed(&dir.join(".zshenv"), ZSHENV)?;
-        write_if_changed(&dir.join(".zprofile"), ZPROFILE)?;
-        write_if_changed(&dir.join(".zshrc"), ZSHRC)?;
-        write_if_changed(&dir.join(".zlogin"), ZLOGIN)?;
+        super::write_if_changed(&dir.join(".zshenv"), ZSHENV)?;
+        super::write_if_changed(&dir.join(".zprofile"), ZPROFILE)?;
+        super::write_if_changed(&dir.join(".zshrc"), ZSHRC)?;
+        super::write_if_changed(&dir.join(".zlogin"), ZLOGIN)?;
         Ok(dir)
     }
 
@@ -349,7 +423,7 @@ mod unix {
         let dir = integration_root()?.join("bash");
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
         let rc = dir.join("bashrc");
-        write_if_changed(&rc, BASHRC)?;
+        super::write_if_changed(&rc, BASHRC)?;
         Ok(rc)
     }
 
@@ -357,7 +431,7 @@ mod unix {
         let home = dirs::home_dir().ok_or_else(|| "could not resolve home dir".to_string())?;
         let dir = home.join(".config").join("fish").join("conf.d");
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
-        write_if_changed(&dir.join("kite.fish"), FISH_INIT)?;
+        super::write_if_changed(&dir.join("kite.fish"), FISH_INIT)?;
         remove_legacy_fish_init(&dir.join("terax.fish"));
         Ok(())
     }
@@ -371,22 +445,6 @@ mod unix {
         }
     }
 
-    fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
-        if let Ok(existing) = fs::read_to_string(path) {
-            if existing == content {
-                return Ok(());
-            }
-        }
-        // Atomic replace: a parallel shell startup must never source a half-written file.
-        let mut tmp: OsString = path.as_os_str().to_owned();
-        tmp.push(".__kite_tmp__");
-        let tmp = PathBuf::from(tmp);
-        fs::write(&tmp, content).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-        fs::rename(&tmp, path).map_err(|e| {
-            let _ = fs::remove_file(&tmp);
-            format!("rename {} -> {}: {e}", tmp.display(), path.display())
-        })
-    }
 
     #[cfg(test)]
     mod tests {
@@ -450,7 +508,6 @@ mod unix {
 
 #[cfg(windows)]
 mod windows {
-    use std::ffi::OsString;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -545,7 +602,16 @@ mod windows {
         // apply_common sets TERM etc. and resolves the Windows cwd; wsl.exe
         // then maps its own working directory into the distro.
         super::apply_common(&mut cmd, cwd.clone(), theme_mode);
-        cmd.env("WSLENV", WSLENV_FORWARD);
+        // wsl.exe forwards only WSLENV-listed variables into the distro, so
+        // append ours to whatever the user already configured rather than
+        // replacing it (a user-set WSLENV may forward PATH or flags we need).
+        let wslenv = match std::env::var("WSLENV") {
+            Ok(existing) if !existing.trim().is_empty() => {
+                format!("{existing}:{WSLENV_FORWARD}")
+            }
+            _ => WSLENV_FORWARD.to_string(),
+        };
+        cmd.env("WSLENV", wslenv);
         // An explicit --cd wins over the inherited directory when both exist.
         if let Some(dir) = cwd.filter(|c| !c.trim().is_empty()) {
             cmd.arg("--cd");
@@ -588,27 +654,40 @@ mod windows {
         let bytes = s.as_bytes();
         if bytes.len() >= 2 && bytes[1] == b':' {
             let drive = bytes[0].to_ascii_lowercase() as char;
-            format!("/mnt/{drive}/{}", s[3..].replace('\\', "/"))
+            // A bare "X:" drive path has no subpath after the separator.
+            let rest = s.get(3..).unwrap_or_default().replace('\\', "/");
+            format!("/mnt/{drive}/{rest}")
         } else {
             s.replace('\\', "/")
         }
     }
 
+    /// Outcome of one WSL enumeration attempt. `NotInstalled` and `Ready`
+    /// are stable answers and cached for the process lifetime; `Failed`
+    /// (spawn error or timeout, e.g. a wedged WSL service) is retried after
+    /// `WSL_RETRY_TTL` in the caller's cache.
+    enum WslQuery {
+        NotInstalled,
+        Ready(Vec<String>),
+        Failed,
+    }
+
     /// `wsl.exe -l -q` prints UTF-16LE with a BOM (older builds) or UTF-8;
-    /// decode either, one distro per line.
-    fn list_wsl_distros() -> Vec<String> {
+    /// decode either, one distro per line. Runs synchronously, so the child
+    /// is killed after a short timeout: a wedged WSL service would otherwise
+    /// hang the caller for good.
+    fn query_wsl_distros() -> WslQuery {
         let Some(exe) = wsl_exe_path() else {
-            return Vec::new();
+            return WslQuery::NotInstalled;
         };
-        let output = match std::process::Command::new(&exe).args(["-l", "-q"]).output() {
-            Ok(o) => o,
-            Err(_) => return Vec::new(),
+        let Some(output) = run_with_timeout(&exe, WSL_LIST_TIMEOUT) else {
+            return WslQuery::Failed;
         };
-        if !output.status.success() {
-            return Vec::new();
-        }
+        // A non-zero exit (wsl installed but no distro, service error that
+        // failed fast) is a real answer from the binary, not a hang.
         let text = decode_wsl_output(&output.stdout);
-        text.lines()
+        let distros = text
+            .lines()
             .map(|line| {
                 line.trim()
                     .trim_matches('\u{feff}')
@@ -616,7 +695,108 @@ mod windows {
                     .to_string()
             })
             .filter(|line| !line.is_empty())
-            .collect()
+            .collect();
+        WslQuery::Ready(distros)
+    }
+
+    /// Cached wrapper around `query_wsl_distros`. Ready results live forever;
+    /// a failed attempt answers empty and is retried after `WSL_RETRY_TTL`.
+    fn list_wsl_distros() -> (Vec<String>, bool) {
+        {
+            let guard = WSL_DISTRO_CACHE
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(hit) = wsl_cache_hit(guard.as_ref()) {
+                return hit;
+            }
+        }
+        let mut guard = WSL_DISTRO_CACHE
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(hit) = wsl_cache_hit(guard.as_ref()) {
+            return hit;
+        }
+        let entry = match query_wsl_distros() {
+            WslQuery::NotInstalled => WslCache {
+                at: std::time::Instant::now(),
+                ready: true,
+                distros: Vec::new(),
+            },
+            WslQuery::Ready(distros) => WslCache {
+                at: std::time::Instant::now(),
+                ready: true,
+                distros,
+            },
+            WslQuery::Failed => WslCache {
+                at: std::time::Instant::now(),
+                ready: false,
+                distros: Vec::new(),
+            },
+        };
+        let hit = (entry.distros.clone(), entry.ready);
+        *guard = Some(entry);
+        hit
+    }
+
+    struct WslCache {
+        at: std::time::Instant,
+        ready: bool,
+        distros: Vec<String>,
+    }
+
+    static WSL_DISTRO_CACHE: std::sync::RwLock<Option<WslCache>> =
+        std::sync::RwLock::new(None);
+
+    const WSL_RETRY_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
+    fn wsl_cache_hit(cache: Option<&WslCache>) -> Option<(Vec<String>, bool)> {
+        let cache = cache?;
+        if cache.ready || cache.at.elapsed() < WSL_RETRY_TTL {
+            return Some((cache.distros.clone(), cache.ready));
+        }
+        None
+    }
+
+    const WSL_LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+    fn run_with_timeout(
+        exe: &Path,
+        timeout: std::time::Duration,
+    ) -> Option<std::process::Output> {
+        use std::io::Read;
+        use std::process::Stdio;
+        let mut child = std::process::Command::new(exe)
+            .arg("-l")
+            .arg("-q")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .stdin(Stdio::null())
+            .spawn()
+            .ok()?;
+        let deadline = std::time::Instant::now() + timeout;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) if std::time::Instant::now() >= deadline => break None,
+                Ok(None) => std::thread::sleep(std::time::Duration::from_millis(10)),
+                Err(_) => break None,
+            }
+        };
+        let Some(status) = status else {
+            let _ = child.kill();
+            let _ = child.wait();
+            log::warn!("wsl.exe -l -q timed out after {timeout:?}");
+            return None;
+        };
+        let mut stdout = Vec::new();
+        if let Some(mut pipe) = child.stdout.take() {
+            let _ = pipe.read_to_end(&mut stdout);
+        }
+        Some(std::process::Output {
+            status,
+            stdout,
+            stderr: Vec::new(),
+        })
     }
 
     fn decode_wsl_output(bytes: &[u8]) -> String {
@@ -645,7 +825,7 @@ mod windows {
         let dir = integration_root()?.join("powershell");
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
         let file = dir.join("profile.ps1");
-        write_if_changed(&file, PROFILE_PS1)?;
+        super::write_if_changed(&file, PROFILE_PS1)?;
         Ok(file)
     }
 
@@ -653,11 +833,14 @@ mod windows {
         let dir = integration_root()?.join("bash");
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
         let rc = dir.join("bashrc");
-        write_if_changed(&rc, &normalize_script(super::bashrc_script()))?;
+        super::write_if_changed(&rc, &normalize_script(super::bashrc_script()))?;
         Ok(rc)
     }
 
-    pub fn list_shells() -> Vec<super::ShellInfo> {
+    /// Returns the shell list plus whether the WSL part is a settled answer
+    /// (installed or confirmed absent). A timed-out WSL probe marks the list
+    /// incomplete so the caller's cache retries after `WSL_RETRY_TTL`.
+    pub fn list_shells() -> (Vec<super::ShellInfo>, bool) {
         fn add(out: &mut Vec<super::ShellInfo>, name: &str, path: PathBuf, integrated: bool) {
             if path.is_file() {
                 out.push(super::ShellInfo {
@@ -696,14 +879,15 @@ mod windows {
         if let Some(p) = git_bash_path() {
             add(&mut out, "Git Bash", p, true);
         }
-        for distro in list_wsl_distros() {
+        let (distros, wsl_ready) = list_wsl_distros();
+        for distro in distros {
             out.push(super::ShellInfo {
                 name: format!("{distro} (WSL)"),
                 path: format!("wsl:{distro}"),
                 integrated: true,
             });
         }
-        out
+        (out, wsl_ready)
     }
 
 
@@ -727,21 +911,6 @@ mod windows {
         None
     }
 
-    fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
-        if let Ok(existing) = fs::read_to_string(path) {
-            if existing == content {
-                return Ok(());
-            }
-        }
-        let mut tmp: OsString = path.as_os_str().to_owned();
-        tmp.push(".__kite_tmp__");
-        let tmp = PathBuf::from(tmp);
-        fs::write(&tmp, content).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-        fs::rename(&tmp, path).map_err(|e| {
-            let _ = fs::remove_file(&tmp);
-            format!("rename {} -> {}: {e}", tmp.display(), path.display())
-        })
-    }
     #[cfg(test)]
     mod tests {
         use super::*;

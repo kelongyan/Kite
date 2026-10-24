@@ -312,10 +312,17 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         const sib = siblingLeafOf(tab.paneTree, leafId);
         newActive = sib && remaining.includes(sib) ? sib : remaining[0];
       }
+      const cwd = findLeafCwd(newTree, newActive);
       didRemove = true;
       return curr.map((x) =>
         x.id === tab.id
-          ? { ...x, paneTree: newTree, activeLeafId: newActive }
+          ? {
+              ...x,
+              paneTree: newTree,
+              activeLeafId: newActive,
+              ...(cwd !== undefined && { cwd }),
+              ...(x.zoomedLeafId === leafId && { zoomedLeafId: undefined }),
+            }
           : x,
       );
     });
@@ -342,10 +349,17 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       const remaining = leafIds(newTree);
       const sib = siblingLeafOf(t.paneTree, target);
       const newActive = sib && remaining.includes(sib) ? sib : remaining[0];
+      const cwd = findLeafCwd(newTree, newActive);
       removedLeaf = target;
       return curr.map((x) =>
         x.id === tabId
-          ? { ...x, paneTree: newTree, activeLeafId: newActive }
+          ? {
+              ...x,
+              paneTree: newTree,
+              activeLeafId: newActive,
+              ...(cwd !== undefined && { cwd }),
+              ...(x.zoomedLeafId === target && { zoomedLeafId: undefined }),
+            }
           : x,
       );
     });

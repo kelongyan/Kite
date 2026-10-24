@@ -142,9 +142,7 @@ export function Header({
         <div data-tauri-drag-region className="h-full min-w-2 flex-1" />
       </div>
 
-      {IS_MAC && settingsButton}
-
-      {!IS_MAC && settingsButton}
+      {settingsButton}
 
       {USE_CUSTOM_WINDOW_CONTROLS && (
         <>

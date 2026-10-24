@@ -41,15 +41,6 @@ export function findLeafCwd(n: PaneNode, id: PaneId): string | undefined {
   return undefined;
 }
 
-export function findLeafShell(n: PaneNode, id: PaneId): string | undefined {
-  if (isLeaf(n)) return n.id === id ? n.shell : undefined;
-  for (const c of n.children) {
-    const found = findLeafShell(c, id);
-    if (found !== undefined) return found;
-  }
-  return undefined;
-}
-
 export function setLeafCwd(
   n: PaneNode,
   id: PaneId,

@@ -53,10 +53,12 @@ if [ -z "$__KITE_HOOKS_LOADED" ]; then
 
   # Pre-exec marker via PS0 (bash 4.4+). PS0 is expanded just before a command
   # runs — cleaner than a DEBUG trap, which would clobber user traps and fire
-  # on every command including inside PROMPT_COMMAND.
+  # on every command including inside PROMPT_COMMAND. No \[ \]: those expand
+  # to readline's literal width markers (0x01/0x02), which PS0 prints raw
+  # because it never passes through readline.
   if [ "${BASH_VERSINFO[0]:-0}" -gt 4 ] \
      || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -ge 4 ]; }; then
-    PS0='\[\e]133;C\e\\\]'"${PS0:-}"
+    PS0='\e]133;C\e\\'"${PS0:-}"
   fi
 
   _kite_precmd

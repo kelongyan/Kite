@@ -201,7 +201,15 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
-// Preferences schema changes (field rename, type change, etc.).
+// Preferences schema changes (field rename, type change, etc.). Entries 3-8
+// were removed: their work (key deletion, retired shortcuts) is done
+// unconditionally on every load below, so migrating those versions is a
+// no-op beyond bumping KEY_VERSION. Theme id migrations stay: they rewrite
+// the stored schema, not just its interpretation. Former entry 11 (rewriting
+// stored "JetBrains Mono"/"Noto Sans SC" to the bundled family names) is
+// gone on purpose: a store holding those strings is indistinguishable from
+// a user who deliberately picked them, and the resolver's fallback chain
+// already renders an uninstalled upstream family through the bundled face.
 const SETTINGS_VERSION = 11;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
@@ -211,27 +219,11 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
         map.set(KEY_THEME_ID, normalizeThemeId(themeId));
       }
     },
-    3: (map) => {
-      for (const key of REMOVED_BACKGROUND_KEYS) map.delete(key);
-    },
-    4: (map) => {
-      for (const key of REMOVED_EXPLORER_KEYS) map.delete(key);
-    },
-    5: (map) => {
-      removeRetiredShortcuts(map);
-    },
     6: (map) => {
       const themeId = map.get(KEY_THEME_ID);
       if (typeof themeId === "string") {
         map.set(KEY_THEME_ID, normalizeThemeId(themeId));
       }
-    },
-    7: (map) => {
-      for (const key of REMOVED_EDITOR_KEYS) map.delete(key);
-      removeRetiredShortcuts(map);
-    },
-    8: (map) => {
-      removeRetiredShortcuts(map);
     },
     9: (map) => {
       if (map.has(KEY_TERMINAL_CJK_FONT_FAMILY)) return;
@@ -248,21 +240,6 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
       // keep forever, so they must be filled in explicitly.
       const cjk = map.get(KEY_TERMINAL_CJK_FONT_FAMILY);
       if (cjk === undefined || (typeof cjk === "string" && cjk.trim() === "")) {
-        map.set(KEY_TERMINAL_CJK_FONT_FAMILY, DEFAULT_CJK_FONT_FAMILY);
-      }
-    },
-    11: (map) => {
-      // Bundled faces moved to private family names so they stop shadowing a
-      // system install of the upstream family. Only stores still holding the
-      // old default value are rewritten: that is "user never touched fonts",
-      // so pointing them at the bundled face preserves their render. A store
-      // with any other value is a deliberate choice and stays untouched.
-      const code = map.get(KEY_TERMINAL_FONT_FAMILY);
-      if (code === "JetBrains Mono") {
-        map.set(KEY_TERMINAL_FONT_FAMILY, DEFAULT_MONO_FONT_FAMILY);
-      }
-      const cjk = map.get(KEY_TERMINAL_CJK_FONT_FAMILY);
-      if (cjk === "Noto Sans SC") {
         map.set(KEY_TERMINAL_CJK_FONT_FAMILY, DEFAULT_CJK_FONT_FAMILY);
       }
     },
@@ -292,8 +269,16 @@ function removeRetiredShortcuts(map: Map<string, unknown>): boolean {
 const PREFS_CHANGED_EVENT = "kite://prefs-changed";
 
 async function writePref<T>(key: string, value: T): Promise<void> {
-  await store.set(key, value);
-  await store.save();
+  try {
+    await store.set(key, value);
+    await store.save();
+  } catch (error) {
+    // Setters are called with `void`, so a swallowed persistence failure
+    // reads as "the setting reverted by itself" in the settings window.
+    // Log loudly instead; the emit is skipped because nothing was written.
+    console.error(`writePref ${key} failed:`, error);
+    return;
+  }
   await emit(PREFS_CHANGED_EVENT, { key, value });
 }
 
@@ -404,17 +389,21 @@ export async function loadPreferences(): Promise<Preferences> {
     ),
     terminalShell:
       get<string>(KEY_TERMINAL_SHELL) ?? DEFAULT_PREFERENCES.terminalShell,
-    terminalLetterSpacing:
+    terminalLetterSpacing: clampLetterSpacing(
       get<number>(KEY_TERMINAL_LETTER_SPACING) ??
-      DEFAULT_PREFERENCES.terminalLetterSpacing,
-    terminalFontSize:
+        DEFAULT_PREFERENCES.terminalLetterSpacing,
+    ),
+    terminalFontSize: clampTerminalFontSize(
       get<number>(KEY_TERMINAL_FONT_SIZE) ??
-      DEFAULT_PREFERENCES.terminalFontSize,
+        DEFAULT_PREFERENCES.terminalFontSize,
+    ),
     terminalScrollback: clampScrollback(
       get<number>(KEY_TERMINAL_SCROLLBACK) ??
         DEFAULT_PREFERENCES.terminalScrollback,
     ),
-    zoomLevel: get<number>(KEY_ZOOM_LEVEL) ?? DEFAULT_PREFERENCES.zoomLevel,
+    zoomLevel: clampZoomLevel(
+      get<number>(KEY_ZOOM_LEVEL) ?? DEFAULT_PREFERENCES.zoomLevel,
+    ),
     sessionRestore:
       get<boolean>(KEY_SESSION_RESTORE) ??
       DEFAULT_PREFERENCES.sessionRestore,
@@ -517,20 +506,26 @@ export async function setTerminalShell(value: string): Promise<void> {
 }
 
 export async function setTerminalLetterSpacing(value: number): Promise<void> {
-  const clamped = Number.isFinite(value)
+  await writePref(KEY_TERMINAL_LETTER_SPACING, clampLetterSpacing(value));
+}
+
+function clampLetterSpacing(value: number): number {
+  return Number.isFinite(value)
     ? Math.max(-10, Math.min(10, Math.round(value)))
     : 0;
-  await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
 }
 
 export async function setTerminalFontSize(value: number): Promise<void> {
-  const clamped = Number.isFinite(value)
+  await writePref(KEY_TERMINAL_FONT_SIZE, clampTerminalFontSize(value));
+}
+
+function clampTerminalFontSize(value: number): number {
+  return Number.isFinite(value)
     ? Math.min(
         TERMINAL_FONT_SIZE_MAX,
         Math.max(TERMINAL_FONT_SIZE_MIN, Math.round(value)),
       )
     : TERMINAL_FONT_SIZE_DEFAULT;
-  await writePref(KEY_TERMINAL_FONT_SIZE, clamped);
 }
 
 function clampScrollback(value: number): number {
@@ -545,8 +540,16 @@ export async function setTerminalScrollback(value: number): Promise<void> {
   await writePref(KEY_TERMINAL_SCROLLBACK, clampScrollback(value));
 }
 
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2;
+
+function clampZoomLevel(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_PREFERENCES.zoomLevel;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(value * 100) / 100));
+}
+
 export async function setZoomLevel(value: number): Promise<void> {
-  await writePref(KEY_ZOOM_LEVEL, value);
+  await writePref(KEY_ZOOM_LEVEL, clampZoomLevel(value));
 }
 
 export async function setRestoreWindowState(value: boolean): Promise<void> {

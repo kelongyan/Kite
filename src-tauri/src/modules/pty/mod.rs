@@ -5,7 +5,6 @@ mod session;
 pub(crate) mod shell_init;
 
 use std::collections::HashMap;
-use std::io::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -56,10 +55,7 @@ pub async fn pty_open(
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let owner_label = window.label().to_string();
     let session = tauri::async_runtime::spawn_blocking(move || {
-        session::spawn(
-            id, app, cols, rows, cwd, shell, theme_mode, on_data, on_exit, owner_label,
-        )
-        .map(|(s, _)| s)
+        session::spawn(id, app, cols, rows, cwd, shell, theme_mode, on_data, on_exit, owner_label)
     })
     .await
     .map_err(|e| {
@@ -94,7 +90,9 @@ pub async fn pty_open(
 }
 
 // Input is the latency-critical path: raw body + id header skips JSON
-// serialization of every keystroke on both sides of the IPC boundary.
+// serialization of every keystroke on both sides of the IPC boundary. The
+// write itself happens on the session's writer thread; `send` never blocks,
+// so a shell that stopped reading stdin cannot freeze IPC.
 #[tauri::command]
 pub fn pty_write(
     state: tauri::State<PtyState>,
@@ -119,19 +117,12 @@ pub fn pty_write(
             log::warn!("pty_write: unknown id={id}");
             "no session".to_string()
         })?;
-    // Bind to a local so the MutexGuard temporary drops before `session` —
-    // see rustc note on tail-expression temporary drop order.
-    let result = session
-        .writer
-        .lock()
-        .unwrap()
-        .write_all(bytes)
-        .map_err(|e| {
-            // EPIPE is expected if the child already exited.
-            log::debug!("pty_write id={id} failed: {e}");
-            e.to_string()
-        });
-    result
+    session.writer.send(bytes.to_vec()).map_err(|_| {
+        // Writer thread exited: the child is dead and the session is on its
+        // way out; the frontend will see the exit event.
+        log::debug!("pty_write id={id}: writer channel closed");
+        "writer closed".to_string()
+    })
 }
 
 #[tauri::command]
@@ -211,15 +202,8 @@ pub fn pty_has_foreground_process(state: tauri::State<PtyState>, id: u32) -> Res
     // The Job Object knows the whole tree: cmd -> node -> npm shows up here,
     // where a direct-children scan misses it.
     #[cfg(windows)]
-    if let Some(job) = session.job.as_ref() {
-        return match job.process_count() {
-            Ok(count) => Ok(count > 1),
-            Err(e) => {
-                log::debug!("job process_count failed id={id}: {e}");
-                Ok(shell_has_children(shell_pid))
-            }
-        };
-    }
+    return Ok(windows_job_or_children(session));
+    #[cfg(unix)]
     Ok(shell_has_children(shell_pid))
 }
 
@@ -243,18 +227,25 @@ pub fn pty_has_foreground_job(state: tauri::State<PtyState>, id: u32) -> Result<
         Ok(matches!(leader, Some(pid) if pid > 0 && pid as u32 != shell_pid))
     }
     #[cfg(windows)]
-    {
-        if let Some(job) = session.job.as_ref() {
-            return match job.process_count() {
-                Ok(count) => Ok(count > 1),
-                Err(e) => {
-                    log::debug!("job process_count failed id={id}: {e}");
-                    Ok(shell_has_children(shell_pid))
-                }
-            };
-        }
-        Ok(shell_has_children(shell_pid))
+    Ok(windows_job_or_children(session))
+}
+
+// On Windows both foreground checks degrade to "does anything besides the
+// shell still run in the job": the Job Object count when available, falling
+// back to a direct-children scan. There is no tcgetpgrp equivalent.
+#[cfg(windows)]
+fn windows_job_or_children(session: &Session) -> bool {
+    let shell_pid = session.shell_pid;
+    if let Some(job) = session.job.as_ref() {
+        return match job.process_count() {
+            Ok(count) => count > 1,
+            Err(e) => {
+                log::debug!("job process_count failed pid={shell_pid}: {e}");
+                shell_has_children(shell_pid)
+            }
+        };
     }
+    shell_has_children(shell_pid)
 }
 
 // pgrep -P exits 0 when shell_pid has at least one child, 1 when none.
@@ -349,7 +340,11 @@ pub fn pty_close_all(state: tauri::State<PtyState>) -> Result<usize, String> {
     Ok(count)
 }
 
+// Async so a first, uncached enumeration (which may wait on a slow or
+// wedged wsl.exe) occupies a blocking worker instead of the UI/IPC thread.
 #[tauri::command]
-pub fn pty_list_shells() -> Vec<shell_init::ShellInfo> {
-    shell_init::list_shells()
+pub async fn pty_list_shells() -> Vec<shell_init::ShellInfo> {
+    tauri::async_runtime::spawn_blocking(shell_init::list_shells)
+        .await
+        .unwrap_or_default()
 }

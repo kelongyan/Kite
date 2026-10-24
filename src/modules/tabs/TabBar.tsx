@@ -79,16 +79,21 @@ export function TabBar({
 }: Props) {
   const messages = useMessages().mainShell.tabs;
   const activityTabIds = useTabActivityStore((s) => s.activeTabs);
-  const [shells, setShells] = useState<ShellChoice[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    void listTerminalShells().then((list) => {
-      if (!cancelled) setShells(list);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Shells are fetched when the dropdown first opens, not on mount: the
+  // enumeration runs wsl.exe, which can hang for seconds on machines with a
+  // wedged WSL service and must never sit on the boot path.
+  const [shellsState, setShellsState] = useState<{
+    requested: boolean;
+    loaded: boolean;
+    list: ShellChoice[];
+  }>({ requested: false, loaded: false, list: [] });
+  const loadShells = useCallback(() => {
+    if (shellsState.requested) return;
+    setShellsState({ requested: true, loaded: false, list: [] });
+    void listTerminalShells().then((list) =>
+      setShellsState({ requested: true, loaded: true, list }),
+    );
+  }, [shellsState.requested]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -616,7 +621,11 @@ export function TabBar({
             <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={2} />
           </Button>
           {onNewWithShell && (
-            <DropdownMenu>
+            <DropdownMenu
+              onOpenChange={(open) => {
+                if (open) loadShells();
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -635,22 +644,33 @@ export function TabBar({
                 >
                   <span className="flex-1">{messages.defaultShell}</span>
                 </DropdownMenuItem>
-                {shells.length > 0 && <DropdownMenuSeparator />}
-                {shells.map((shell) => (
+                {shellsState.loaded && shellsState.list.length > 0 && (
+                  <DropdownMenuSeparator />
+                )}
+                {!shellsState.loaded && shellsState.requested ? (
                   <DropdownMenuItem
-                    key={shell.path}
-                    className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]"
-                    onSelect={() => onNewWithShell?.(shell)}
+                    disabled
+                    className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px] text-muted-foreground"
                   >
-                    <HugeiconsIcon
-                      icon={ComputerTerminal02Icon}
-                      size={13}
-                      strokeWidth={1.75}
-                      className="text-muted-foreground"
-                    />
-                    <span className="flex-1 truncate">{shell.name}</span>
+                    <span className="flex-1">{messages.loadingShells}</span>
                   </DropdownMenuItem>
-                ))}
+                ) : (
+                  shellsState.list.map((shell) => (
+                    <DropdownMenuItem
+                      key={shell.path}
+                      className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]"
+                      onSelect={() => onNewWithShell?.(shell)}
+                    >
+                      <HugeiconsIcon
+                        icon={ComputerTerminal02Icon}
+                        size={13}
+                        strokeWidth={1.75}
+                        className="text-muted-foreground"
+                      />
+                      <span className="flex-1 truncate">{shell.name}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

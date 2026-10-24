@@ -540,7 +540,6 @@ export default function App() {
               <WorkspaceSurface
                 tabs={tabs}
                 activeId={activeId}
-                activeTab={activeTab}
                 registerTerminalHandle={registerTerminalHandle}
                 onCwd={handleTerminalCwd}
                 onExit={handleLeafExit}

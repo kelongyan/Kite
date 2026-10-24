@@ -18,6 +18,7 @@ export const zhCN = {
       newTab: "新建标签",
       newTabWithShell: "选择 Shell 新建标签",
       defaultShell: "默认 Shell",
+      loadingShells: "正在加载 Shell…",
     },
     terminalMenu: {
       copy: "复制",
@@ -126,8 +127,6 @@ export const zhCN = {
       status: {
         noThemes: "没有主题",
         noShells: "没有可用的 Shell",
-        typeAtLeast2Characters: "至少输入 2 个字符",
-        noMatches: "没有匹配项",
         noCommandsFound: "没有找到命令。输入关键词继续筛选。",
       },
       back: "返回",

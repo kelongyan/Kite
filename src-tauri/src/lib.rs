@@ -204,16 +204,17 @@ static SECONDARY_WINDOW_SEQ: AtomicU32 = AtomicU32::new(2);
 
 #[tauri::command]
 async fn open_new_window(app: tauri::AppHandle, cwd: Option<String>) -> Result<String, String> {
-    // Skip labels still alive so a closed window's label can be reused safely.
-    let mut n = SECONDARY_WINDOW_SEQ.load(Ordering::Relaxed);
+    // Claim a label atomically: fetch_add makes concurrent callers take
+    // distinct numbers even if the liveness scan below runs in parallel.
+    // Labels may skip numbers, which is harmless.
+    let mut n = SECONDARY_WINDOW_SEQ.fetch_add(1, Ordering::Relaxed);
     let label = loop {
         let candidate = format!("main-{n}");
         if app.get_webview_window(&candidate).is_none() {
             break candidate;
         }
-        n += 1;
+        n = SECONDARY_WINDOW_SEQ.fetch_add(1, Ordering::Relaxed);
     };
-    SECONDARY_WINDOW_SEQ.store(n + 1, Ordering::Relaxed);
 
     let url_path = match cwd.as_deref().filter(|c| !c.trim().is_empty()) {
         Some(dir) => format!("index.html?cwd={}", urlencoding_lite(dir)),

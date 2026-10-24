@@ -29,6 +29,9 @@ export async function applyQuakePreference(enable: boolean): Promise<void> {
     if (enable) {
       if (registered || (await isRegistered(HOTKEY))) {
         registered = true;
+        // The OS registration survives a webview reload, but the focus hook
+        // does not: re-arm it so blur still retracts the window.
+        hookBlurOnce();
         return;
       }
       await register(HOTKEY, toggleQuakeWindow);

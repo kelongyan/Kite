@@ -216,10 +216,13 @@ describe("loadPreferences", () => {
 
     const prefs = await loadPreferences();
 
-    // v11 rewrites the old shipped default; migration 9 already split the
-    // stack, and the resulting "JetBrains Mono" equals the old default, so
-    // it lands on the bundled family name.
-    expect(prefs.terminalFontFamily).toBe("Kite Mono");
+    // Migration 9 splits the stack; the former default "JetBrains Mono" stays
+    // as the user's stored choice. Migration 11 (which rewrote it to the
+    // bundled family name) was removed: the resolver's fallback chain renders
+    // an uninstalled upstream family through the bundled face anyway, and
+    // rewriting the sentinel also clobbered a deliberate pick of the same
+    // name.
+    expect(prefs.terminalFontFamily).toBe("JetBrains Mono");
     expect(prefs.terminalCjkFontFamily).toBe("Microsoft YaHei");
     expect(storeMock.set).toHaveBeenCalledWith(
       "terminalCjkFontFamily",
@@ -247,9 +250,10 @@ describe("loadPreferences", () => {
     expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
-  it("keeps a Monaco family stored by a post-migration commit", async () => {
-    // A v10 store holds whatever the user committed; loading must not treat
-    // it as the retired sentinel (that was the pre-fix bug).
+  it("keeps a stored value that matches the former CJK default untouched", async () => {
+    // "Noto Sans SC" may be the user's deliberate pick, indistinguishable
+    // from the old shipped default. Former migration 11 rewrote it; that
+    // clobbered deliberate picks, so the value now loads as stored.
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 10],
       ["terminalFontFamily", "Monaco"],
@@ -259,12 +263,7 @@ describe("loadPreferences", () => {
     const prefs = await loadPreferences();
 
     expect(prefs.terminalFontFamily).toBe("Monaco");
-    // v11 rewrites the old shipped CJK default but not a user commit that
-    // happens to still hold it (indistinguishable either way).
-    expect(storeMock.set).toHaveBeenCalledWith(
-      "terminalCjkFontFamily",
-      "Kite Sans SC",
-    );
+    expect(prefs.terminalCjkFontFamily).toBe("Noto Sans SC");
     expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 

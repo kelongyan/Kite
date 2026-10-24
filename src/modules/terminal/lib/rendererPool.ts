@@ -287,6 +287,9 @@ function copySlotSelection(slot: Slot, options?: { silent?: boolean }): boolean 
   return true;
 }
 
+const COPY_ON_SELECT_DEBOUNCE_MS = 150;
+let copyOnSelectTimer: number | null = null;
+
 export function leafHasSelection(leafId: number): boolean {
   const slot = slots.find((s) => s.currentLeafId === leafId);
   return !!slot?.term.hasSelection();
@@ -706,11 +709,17 @@ function createSlot(): Slot {
   );
 
   // Copy-on-select mirrors the selection into the clipboard without the
-  // copied bubble: the user never issued an explicit copy command.
+  // copied bubble: the user never issued an explicit copy command. Trailing
+  // debounce because onSelectionChange fires on every drag frame, and a
+  // single drag would otherwise flood the system clipboard history.
   slot.inputDisposers.push(
     term.onSelectionChange(() => {
       if (!usePreferencesStore.getState().terminalCopyOnSelect) return;
-      copySlotSelection(slot, { silent: true });
+      if (copyOnSelectTimer !== null) clearTimeout(copyOnSelectTimer);
+      copyOnSelectTimer = window.setTimeout(() => {
+        copyOnSelectTimer = null;
+        copySlotSelection(slot, { silent: true });
+      }, COPY_ON_SELECT_DEBOUNCE_MS);
     }).dispose,
     searchAddon.onDidChangeResults((event) => {
       const leafId = slot.currentLeafId;
@@ -723,6 +732,12 @@ function createSlot(): Slot {
       if (leafId !== null) emitTerminalActivity({ leafId, kind: "bell" });
     }).dispose,
     () => host.removeEventListener("pointerdown", onPointerDown, true),
+    () => {
+      if (copyOnSelectTimer !== null) {
+        clearTimeout(copyOnSelectTimer);
+        copyOnSelectTimer = null;
+      }
+    },
   );
 
   bindSlotImeAnchorSync(slot);
@@ -1781,6 +1796,9 @@ function detachSlotFromLeaf(slot: Slot, retain: boolean): void {
 function parkSlotHost(slot: Slot): void {
   if (slot.parked) return;
   slot.parked = true;
+  // A bind that parked on the same tick may still have unhide frames queued;
+  // letting them run would attach WebGL to a display:none host.
+  cancelPendingUnhide(slot);
   applyCursorRenderingOnSlot(slot, false);
   hideSlotCursorOverlay(slot);
   slot.host.style.display = "none";
@@ -1892,7 +1910,7 @@ const SLOT_REAP_GRACE_MS = 45_000;
 const IDLE_SLOTS_KEEP_WARM = 1;
 
 function attachWebgl(slot: Slot): void {
-  if (slot.webglAddon || !slot.term.element) return;
+  if (slot.webglAddon || slot.parked || !slot.term.element) return;
   if (!usePreferencesStore.getState().terminalWebglEnabled) return;
   const elem = slot.term.element;
   const before = new Set<HTMLCanvasElement>(

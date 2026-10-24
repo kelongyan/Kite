@@ -13,9 +13,7 @@ export type PaletteItem = {
   group: string;
   keywords?: string[];
   icon?: PaletteIcon;
-  iconUrl?: string;
   shortcutId?: ShortcutId;
-  trailing?: string;
   disabledReason?: string;
   run: () => void;
 };

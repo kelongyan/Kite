@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   findLeafCwd,
-  findLeafShell,
   hasLeaf,
   leafIds,
   nextLeafId,
@@ -144,12 +143,6 @@ describe("shell helpers", () => {
       undefined,
       "wsl:Ubuntu",
     );
-    expect(findLeafShell(tree, 81)).toBe("wsl:Ubuntu");
-    expect(findLeafShell(tree, 1)).toBeUndefined();
-  });
-
-  it("splitLeaf without a shell leaves the field unset", () => {
-    const tree = splitLeaf({ kind: "leaf", id: 1 }, 1, 80, 81, "row");
-    expect(findLeafShell(tree, 81)).toBeUndefined();
+    expect(hasLeaf(tree, 81)).toBe(true);
   });
 });

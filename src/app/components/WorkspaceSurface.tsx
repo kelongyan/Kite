@@ -7,7 +7,6 @@ type TerminalStackProps = ComponentProps<typeof TerminalStack>;
 type Props = {
   tabs: Tab[];
   activeId: number;
-  activeTab: Tab | undefined;
   registerTerminalHandle: TerminalStackProps["registerHandle"];
   onCwd: TerminalStackProps["onCwd"];
   onExit: TerminalStackProps["onExit"];

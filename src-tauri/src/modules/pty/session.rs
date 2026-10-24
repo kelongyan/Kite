@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -35,7 +36,10 @@ pub struct Session {
     //      the Tauri worker thread that triggered the close.
     //   2. `killer` — best-effort kill (redundant on Windows once Job
     //      closed, but harmless and required on Unix where there is no Job).
-    //   3. `writer` — closes the input side of the master pipe.
+    //   3. `writer` — drops the input sender; the writer thread exits once
+    //      the channel closes and releases the master write handle. Bytes
+    //      still queued may race the pseudoconsole close and fail with EPIPE;
+    //      that is logged and harmless.
     //   4. `master` — last; ClosePseudoConsole on Windows. By now the child
     //      is dead and conhost has nothing left to drain.
     #[cfg(windows)]
@@ -43,7 +47,9 @@ pub struct Session {
     /// PID of the shell process. 0 means unknown; callers must skip checks when 0.
     pub shell_pid: u32,
     pub killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
-    pub writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    /// Input side of the per-session writer thread. `send` never blocks, so
+    /// pty_write cannot freeze IPC even when the ConPTY input buffer is full.
+    pub writer: mpsc::Sender<Vec<u8>>,
     pub master: Mutex<Box<dyn MasterPty + Send>>,
     // Set by the waiter once the child exits, so pty_open can reap a shell
     // that died before it was registered.
@@ -66,12 +72,21 @@ impl Drop for Session {
 }
 // Serializes ConPTY create and close: overlapping pseudoconsole lifecycle
 // calls corrupt the new console so its shell never pumps output (issue #356).
+// The lock guards an external protocol, not invariants, so a poisoned lock is
+// recovered from rather than cascading panics into every later spawn/close.
 #[cfg(windows)]
 static CONPTY_LIFECYCLE_LOCK: Mutex<()> = Mutex::new(());
 
+#[cfg(windows)]
+fn conpty_lock() -> std::sync::MutexGuard<'static, ()> {
+    CONPTY_LIFECYCLE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 pub(super) fn drop_session(session: Arc<Session>) {
     #[cfg(windows)]
-    let _guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+    let _guard = conpty_lock();
     drop(session);
 }
 
@@ -109,9 +124,9 @@ pub fn spawn(
     on_data: Channel<Response>,
     on_exit: Channel<i32>,
     owner_label: String,
-) -> Result<(Arc<Session>, PtySize), String> {
+) -> Result<Arc<Session>, String> {
     #[cfg(windows)]
-    let _spawn_guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+    let _spawn_guard = conpty_lock();
 
     let pty_system = native_pty_system();
     let size = PtySize {
@@ -126,15 +141,15 @@ pub fn spawn(
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
-    // Kill the child if any of the pipe setup below fails so the spawned shell
-    // can't outlive an aborted pty_open.
+    // Kill the child if any of the pipe/thread setup below fails so the
+    // spawned shell can't outlive an aborted pty_open. The guard stays armed
+    // until every thread has spawned successfully.
     let mut guard = ChildKillGuard::new(child.clone_killer());
     let killer = child.clone_killer();
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer: Arc<Mutex<Box<dyn Write + Send>>> = Arc::new(Mutex::new(
-        pair.master.take_writer().map_err(|e| e.to_string())?,
-    ));
-    guard.disarm();
+    let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    let (writer_tx, writer_rx) = mpsc::channel::<Vec<u8>>();
 
     let shell_pid = child.process_id().unwrap_or(0);
 
@@ -157,7 +172,7 @@ pub fn spawn(
         job,
         shell_pid,
         killer: Mutex::new(killer),
-        writer: writer.clone(),
+        writer: writer_tx.clone(),
         master: Mutex::new(pair.master),
         exited: exited.clone(),
         owner_label,
@@ -170,11 +185,26 @@ pub fn spawn(
     let done = Arc::new(AtomicBool::new(false));
     let spawn_at = Instant::now();
 
-    let first_byte = Arc::new(AtomicBool::new(false));
+    // Dedicated input thread. pty_write only queues bytes, so a shell that
+    // stops reading stdin (a build, a TUI prompt) stalls this thread instead
+    // of the IPC thread every keystroke arrives on.
+    let writer_tx_da = writer_tx.clone();
+    thread::Builder::new()
+        .name("kite-pty-writer".into())
+        .spawn(move || {
+            for chunk in writer_rx {
+                if let Err(e) = writer.write_all(&chunk) {
+                    // EPIPE etc. means the child is gone; stop draining so
+                    // queued input is dropped, not piled onto a dead pipe.
+                    log::debug!("pty writer id={id} exiting: {e}");
+                    break;
+                }
+            }
+        })
+        .map_err(|e| format!("spawn pty writer thread: {e}"))?;
 
+    let mut first_byte = false;
     let pending_r = pending.clone();
-    let writer_for_da = writer.clone();
-    let first_byte_r = first_byte;
     let reader_thread = thread::Builder::new()
         .name("kite-pty-reader".into())
         .spawn(move || {
@@ -186,15 +216,13 @@ pub fn spawn(
                 match reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {
-                        if !first_byte_r.load(Ordering::Relaxed) {
-                            first_byte_r.store(true, Ordering::Release);
+                        if !first_byte {
+                            first_byte = true;
                             log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
                         }
                         filtered.clear();
                         da_filter.process(&buf[..n], &mut filtered, |reply| {
-                            if let Ok(mut w) = writer_for_da.lock() {
-                                let _ = w.write_all(reply);
-                            }
+                            let _ = writer_tx_da.send(reply.to_vec());
                         });
                         if filtered.is_empty() {
                             continue;
@@ -220,7 +248,7 @@ pub fn spawn(
                 log::warn!("pty backpressure: dropped {dropped_bytes} bytes (cap {MAX_PENDING})");
             }
         })
-        .expect("spawn pty reader thread");
+        .map_err(|e| format!("spawn pty reader thread: {e}"))?;
 
     let on_data_flush = on_data.clone();
     let pending_f = pending.clone();
@@ -252,7 +280,7 @@ pub fn spawn(
                 }
             }
         })
-        .expect("spawn pty flusher thread");
+        .map_err(|e| format!("spawn pty flusher thread: {e}"))?;
 
     let on_data_exit = on_data;
     let pending_e = pending;
@@ -272,9 +300,11 @@ pub fn spawn(
             exited_w.store(true, Ordering::Release);
             // Wait for the reader to hit EOF before taking a final snapshot of
             // `pending`, so the last line of output never races the Exit event.
+            // The deadline only guards a stuck conhost: EOF normally lands
+            // within milliseconds of the child exiting.
             #[cfg(windows)]
             {
-                let deadline = Instant::now() + Duration::from_millis(50);
+                let deadline = Instant::now() + Duration::from_millis(300);
                 while Instant::now() < deadline && !reader_thread.is_finished() {
                     thread::sleep(Duration::from_millis(5));
                 }
@@ -301,9 +331,10 @@ pub fn spawn(
                 }
             }
         })
-        .expect("spawn pty waiter thread");
+        .map_err(|e| format!("spawn pty waiter thread: {e}"))?;
 
-    Ok((session, size))
+    guard.disarm();
+    Ok(session)
 }
 
 #[cfg(all(test, unix))]
@@ -329,13 +360,10 @@ mod tests {
         drop(pair.slave);
 
         let killer = child.clone_killer();
-        let writer: Arc<Mutex<Box<dyn Write + Send>>> =
-            Arc::new(Mutex::new(pair.master.take_writer().expect("writer")));
-
         let session = Arc::new(Session {
             shell_pid: child.process_id().unwrap_or(0),
             killer: Mutex::new(killer),
-            writer,
+            writer: mpsc::channel().0,
             master: Mutex::new(pair.master),
             exited: Arc::new(AtomicBool::new(false)),
             owner_label: "main".to_string(),
@@ -379,13 +407,10 @@ mod tests {
         let _ = child.wait();
 
         let killer = child.clone_killer();
-        let writer: Arc<Mutex<Box<dyn Write + Send>>> =
-            Arc::new(Mutex::new(pair.master.take_writer().expect("writer")));
-
         let session = Arc::new(Session {
             shell_pid: 0,
             killer: Mutex::new(killer),
-            writer,
+            writer: mpsc::channel().0,
             master: Mutex::new(pair.master),
             exited: Arc::new(AtomicBool::new(false)),
             owner_label: "main".to_string(),

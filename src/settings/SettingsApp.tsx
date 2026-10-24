@@ -104,7 +104,17 @@ export function SettingsApp() {
   }, [indicator, indicatorReady]);
 
   useEffect(() => {
-    void init();
+    // A failed hydration leaves the store on defaults, so every picker would
+    // silently read the shipped value no matter what the user saved. Surface
+    // the failure and retry once: the store IPC can transiently lose the
+    // race while the main window is still booting.
+    const attempt = (n: number): void => {
+      init().catch((error) => {
+        console.error("settings preferences hydration failed:", error);
+        if (n === 0) window.setTimeout(() => attempt(1), 400);
+      });
+    };
+    attempt(0);
   }, [init]);
 
   useEffect(() => {

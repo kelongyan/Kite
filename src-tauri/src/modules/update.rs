@@ -52,8 +52,12 @@ fn is_newer_version(remote: &str, local: &str) -> bool {
 #[tauri::command]
 pub async fn check_for_update() -> Result<UpdateCheck, String> {
     tauri::async_runtime::spawn_blocking(|| {
+        // Honor HTTP(S)_PROXY/ALL_PROXY when set: ureq ignores proxy env
+        // vars unless told explicitly, and direct github.com access is
+        // blocked on some networks.
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .timeout_global(Some(std::time::Duration::from_secs(TIMEOUT_SECS)))
+            .proxy(ureq::Proxy::try_from_env())
             .build()
             .into();
         let mut response = agent
@@ -76,9 +80,16 @@ pub async fn check_for_update() -> Result<UpdateCheck, String> {
             .read_to_string()
             .map_err(|e| format!("read error: {e}"))?;
         let tag = serde_json::from_str::<serde_json::Value>(&body)
-            .ok()
-            .and_then(|v| v.get("tag_name").and_then(|t| t.as_str()).map(String::from))
-            .ok_or_else(|| "unexpected GitHub API response".to_string())?;
+            .map_err(|e| format!("unexpected GitHub API response: {e}"))
+            .and_then(|v| {
+                v.get("tag_name")
+                    .and_then(|t| t.as_str())
+                    .map(String::from)
+                    .ok_or_else(|| {
+                        let snippet: String = body.chars().take(120).collect();
+                        format!("GitHub API response without tag_name: {snippet}")
+                    })
+            })?;
         let local = env!("CARGO_PKG_VERSION");
         Ok(UpdateCheck {
             latest: if is_newer_version(&tag, local) {

@@ -197,10 +197,6 @@ export function splitLegacyFontFamily(value: string | undefined): {
   };
 }
 
-export function detectMonoFontFamily(): string {
-  return resolveFontFamily(DEFAULT_MONO_FONT_FAMILY);
-}
-
 // Mixed latin + CJK so a font missing only one script still probes as present
 // for the script it does cover.
 const FONT_PROBE_TEXT = "mmmmmmmmmmlli\u6c49\u5b57\u4e2d\u6587WW";
@@ -256,79 +252,4 @@ export function isFontAvailable(family: string): boolean {
  */
 export function findUnavailableFonts(value: string): string[] {
   return parseFontFamilies(value).filter((family) => !isFontAvailable(family));
-}
-
-// ── CJK cell-width alignment ───────────────────────────────────────────────
-//
-// xterm lays the grid on one latin cell width and renders every glyph through
-// the same CSS stack. A CJK family whose ideograph advance is wider than two
-// latin cells (or a code font with a non-standard ratio) leaves gaps or
-// overlap in the two-column CJK cells. kitty solves this by rescaling every
-// fallback glyph to the cell; the DOM/WebGL renderers cannot, so Kite's
-// equivalent is measuring the pair and telling the user, with a suggested
-// fix, instead of silently misrendering.
-
-export type CjkAlignment = {
-  ok: boolean;
-  codeAdvance: number;
-  cjkAdvance: number;
-  cell: number;
-};
-
-const ALIGN_PROBE_CJK = "\u6f22";
-
-function measureAdvance(
-  ctx: CanvasRenderingContext2D,
-  familyStack: string,
-  text: string,
-): number {
-  ctx.font = `16px ${familyStack}`;
-  return ctx.measureText(text).width;
-}
-
-/**
- * Measure whether the resolved code/CJK stack keeps ideographs at two latin
- * cells. Returns null when measurement is impossible (no 2D context, e.g.
- * jsdom) so callers can skip the hint rather than report a false problem.
- */
-export function measureCjkAlignment(
-  codeFontFamily: string,
-  cjkFontFamily: string,
-): CjkAlignment | null {
-  if (typeof document === "undefined") return null;
-  const ctx = document.createElement("canvas").getContext("2d");
-  if (!ctx) return null;
-  const resolved = resolveFontFamily(codeFontFamily, cjkFontFamily);
-  const codeStack = `${resolved}, monospace`;
-  // "0" advance approximates the terminal's cell width for the code face;
-  // measure against the same stack so the CJK family sits at its real spot.
-  const cell = measureAdvance(ctx, codeStack, "0");
-  if (cell <= 0) return null;
-  const codeAdvance = cell;
-  const cjkAdvance = measureAdvance(ctx, codeStack, ALIGN_PROBE_CJK);
-  return {
-    ok: Math.abs(cjkAdvance - 2 * cell) <= 0.06 * cell,
-    codeAdvance,
-    cjkAdvance,
-    cell,
-  };
-}
-
-/**
- * First installed family from the known 2:1-friendly list (Sarasa-derived
- * fonts are built at exactly two latin cells per ideograph). Returns null
- * when none of them is installed.
- */
-export function suggestAlignedCjkFont(): string | null {
-  const candidates = [
-    "Sarasa Mono SC",
-    "Sarasa Term SC",
-    "Maple Mono NF CN",
-    "LXGW WenKai Mono",
-    "LXGW WenKai",
-  ];
-  for (const family of candidates) {
-    if (isFontAvailable(family)) return family;
-  }
-  return null;
 }

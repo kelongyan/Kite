@@ -53,6 +53,12 @@ export function TerminalSearchBar({ leafId }: { leafId: number }) {
     [leafId, setResults],
   );
 
+  // The query persists across pane switches, match counts do not: a freshly
+  // focused pane starts clean until its own search runs.
+  useEffect(() => {
+    setResults(0, 0);
+  }, [setResults]);
+
   const runSearch = useCallback(
     (direction: 1 | -1, incremental: boolean) => {
       if (!query) {
@@ -78,13 +84,19 @@ export function TerminalSearchBar({ leafId }: { leafId: number }) {
   // Debounced incremental search so typing extends the active match instead
   // of jumping between matches on every keystroke. runSearch changes identity
   // only when the searched inputs change, so result updates never re-arm it.
+  // An emptied query drops the pane's highlights immediately instead of
+  // leaving stale decorations on the buffer.
   useEffect(() => {
-    if (!query) return;
+    if (!query) {
+      clearLeafSearch(leafId);
+      setResults(0, 0);
+      return;
+    }
     const timer = window.setTimeout(() => {
       runSearch(1, true);
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [query, runSearch]);
+  }, [query, runSearch, leafId, setResults]);
 
   // Leaving the pane (or closing the bar) drops this pane's highlights.
   useEffect(() => {

@@ -1,12 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  detectMonoFontFamily,
   findUnavailableFonts,
   isFontAvailable,
-  measureCjkAlignment,
   resolveFontFamily,
   splitLegacyFontFamily,
-  suggestAlignedCjkFont,
 } from "./fonts";
 
 const FALLBACK =
@@ -57,10 +54,6 @@ describe("resolveFontFamily", () => {
   it("uses the default stack for empty code input", () => {
     expect(resolveFontFamily("", "")).toBe(DEFAULT_STACK);
     expect(resolveFontFamily("   ", "   ")).toBe(DEFAULT_STACK);
-  });
-
-  it("returns the default stack from detectMonoFontFamily", () => {
-    expect(detectMonoFontFamily()).toBe(DEFAULT_STACK);
   });
 });
 
@@ -215,48 +208,6 @@ describe("findUnavailableFonts", () => {
   });
 });
 
-describe("measureCjkAlignment", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  function stubCanvas(widths: Record<string, number>) {
-    const ctx = {
-      font: "",
-      measureText: (text: string) => ({ width: widths[text] ?? 0 }),
-    };
-    vi.stubGlobal("document", {
-      createElement: () => ({ getContext: () => ctx }),
-    });
-  }
-
-  it("reports aligned when the CJK advance is exactly two cells", () => {
-    stubCanvas({ "0": 9.6, "\u6f22": 19.2 });
-    const r = measureCjkAlignment("JetBrains Mono", "Noto Sans SC");
-    expect(r?.ok).toBe(true);
-    expect(r?.cell).toBe(9.6);
-  });
-
-  it("reports misaligned when the CJK advance is wider than two cells", () => {
-    stubCanvas({ "0": 9.6, "\u6f22": 16 });
-    const r = measureCjkAlignment("JetBrains Mono", "Noto Sans SC");
-    expect(r?.ok).toBe(false);
-  });
-
-  it("tolerates subpixel rounding inside 6% of a cell", () => {
-    stubCanvas({ "0": 9.6, "\u6f22": 19.7 });
-    const r = measureCjkAlignment("JetBrains Mono", "Noto Sans SC");
-    expect(r?.ok).toBe(true);
-  });
-
-  it("returns null without a 2D context", () => {
-    vi.stubGlobal("document", {
-      createElement: () => ({ getContext: () => null }),
-    });
-    expect(measureCjkAlignment("JetBrains Mono", "")).toBeNull();
-  });
-});
-
 describe("ensureMonoFontsLoaded weight handling", () => {
   afterEach(() => {
     vi.resetModules();
@@ -293,37 +244,5 @@ describe("ensureMonoFontsLoaded weight handling", () => {
     expect(loaded).not.toContain('bold 14px "Kite Mono"');
     await ensureMonoFontsLoaded("normal");
     expect(loaded).toContain('400 14px "Kite Mono"');
-  });
-});
-
-describe("suggestAlignedCjkFont", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("returns the first candidate the probe sees installed", () => {
-    // The availability probe compares the candidate against the generic
-    // baselines: only Sarasa measures differently, so it is the suggestion.
-    const ctx = {
-      font: "",
-      measureText: (_text: string) => ({
-        width: ctx.font.includes("Sarasa Mono SC") ? 110 : 100,
-      }),
-    };
-    vi.stubGlobal("document", {
-      fonts: [],
-      createElement: () => ({ getContext: () => ctx }),
-    });
-    expect(suggestAlignedCjkFont()).toBe("Sarasa Mono SC");
-  });
-
-  it("returns null when no candidate is installed", () => {
-    vi.stubGlobal("document", {
-      fonts: [],
-      createElement: () => ({
-        getContext: () => ({ measureText: () => ({ width: 100 }), font: "" }),
-      }),
-    });
-    expect(suggestAlignedCjkFont()).toBeNull();
   });
 });

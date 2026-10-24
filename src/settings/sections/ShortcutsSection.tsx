@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useMessages, type Messages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { setShortcuts } from "@/modules/settings/store";
+import { resetShortcuts, setShortcuts } from "@/modules/settings/store";
 import {
   bindingsEqual,
   getBindingTokens,
@@ -87,7 +87,7 @@ export function ShortcutsSection() {
   };
 
   const onResetAll = () => {
-    void setShortcuts({});
+    void resetShortcuts();
     setResetDialogOpen(false);
   };
 

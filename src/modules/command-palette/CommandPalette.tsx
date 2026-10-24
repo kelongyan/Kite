@@ -371,7 +371,7 @@ function ActionItem({
   shortcutLabel: string | null;
   onRun: () => void;
 }) {
-  const rightLabel = item.disabledReason ?? item.trailing ?? shortcutLabel;
+  const rightLabel = item.disabledReason ?? shortcutLabel;
   return (
     <CommandItem
       value={`cmd:${item.id}`}
