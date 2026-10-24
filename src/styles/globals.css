@@ -337,7 +337,10 @@ html *::-webkit-scrollbar {
   display: none;
 }
 
-/* Motion tokens. Four durations, two curves. Reduced motion zeroes them. */
+/* Motion tokens. Four durations, three curves. Reduced motion zeroes them.
+ * Enters decelerate (--ease-premium), state changes run symmetric
+ * (--ease-soft), and exits accelerate (--ease-exit) so leaving never lingers
+ * on the slow opening half of a symmetric curve. */
 :root {
   --dur-instant: 80ms;
   --dur-fast: 160ms;
@@ -345,6 +348,7 @@ html *::-webkit-scrollbar {
   --dur-slow: 320ms;
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --motion-distance-micro: 2px;
   --motion-distance-popover: 6px;
   --motion-distance-surface: 10px;
@@ -463,7 +467,7 @@ html[data-theme-swapping] *::after {
   }
 }
 .kite-copied-bubble {
-  animation: kite-copied-bubble 1.2s var(--ease-soft) both;
+  animation: kite-copied-bubble 1.2s var(--ease-premium) both;
 }
 
 @keyframes kite-settings-section-in {
@@ -552,7 +556,7 @@ html[data-theme-swapping] *::after {
 }
 
 .kite-overlay-motion[data-state="closed"] {
-  animation: kite-overlay-out var(--dur-fast) var(--ease-soft) both;
+  animation: kite-overlay-out var(--dur-fast) var(--ease-exit) both;
 }
 
 @keyframes kite-dialog-in {
@@ -584,7 +588,7 @@ html[data-theme-swapping] *::after {
 }
 
 .kite-dialog-motion[data-state="closed"] {
-  animation: kite-dialog-out var(--dur-fast) var(--ease-soft) both;
+  animation: kite-dialog-out var(--dur-fast) var(--ease-exit) both;
 }
 
 .kite-dialog-motion-alert {
@@ -594,11 +598,11 @@ html[data-theme-swapping] *::after {
 @keyframes kite-command-in {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-6px) scale(0.99);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -634,7 +638,7 @@ html[data-theme-swapping] *::after {
 }
 
 .kite-command-motion[data-state="closed"] {
-  animation: kite-command-out var(--dur-fast) var(--ease-soft) both;
+  animation: kite-command-out var(--dur-fast) var(--ease-exit) both;
 }
 
 @keyframes kite-popover-in {
@@ -689,7 +693,7 @@ html[data-theme-swapping] *::after {
 }
 
 .kite-popover-motion[data-state="closed"] {
-  animation: kite-popover-out var(--dur-instant) var(--ease-soft) both;
+  animation: kite-popover-out var(--dur-instant) var(--ease-exit) both;
 }
 
 .kite-popover-motion[data-side="top"] {

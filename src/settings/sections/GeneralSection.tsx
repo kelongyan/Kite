@@ -116,7 +116,7 @@ export function GeneralSection() {
               aria-pressed={mode === o.id}
               onClick={() => setMode(o.id)}
               className={cn(
-                "group flex h-16 flex-col items-center justify-center gap-1 rounded-lg border bg-card transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)]",
+                "group flex h-16 flex-col items-center justify-center gap-1 rounded-lg border bg-card transition-[border-color,box-shadow,background-color,transform] duration-[var(--dur-fast)] ease-[var(--ease-soft)] active:scale-[var(--motion-scale-press)]",
                 mode === o.id
                   ? "border-foreground/60 ring-1 ring-foreground/20"
                   : "border-border/60 hover:border-border",
