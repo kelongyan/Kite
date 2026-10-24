@@ -2,6 +2,7 @@ pub mod modules;
 
 use modules::{launch, pty};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use tauri::WindowEvent;
@@ -198,6 +199,82 @@ fn center_over_main(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
+/// Sequential labels for secondary main windows: main-2, main-3, ...
+static SECONDARY_WINDOW_SEQ: AtomicU32 = AtomicU32::new(2);
+
+#[tauri::command]
+async fn open_new_window(app: tauri::AppHandle, cwd: Option<String>) -> Result<String, String> {
+    // Skip labels still alive so a closed window's label can be reused safely.
+    let mut n = SECONDARY_WINDOW_SEQ.load(Ordering::Relaxed);
+    let label = loop {
+        let candidate = format!("main-{n}");
+        if app.get_webview_window(&candidate).is_none() {
+            break candidate;
+        }
+        n += 1;
+    };
+    SECONDARY_WINDOW_SEQ.store(n + 1, Ordering::Relaxed);
+
+    let url_path = match cwd.as_deref().filter(|c| !c.trim().is_empty()) {
+        Some(dir) => format!("index.html?cwd={}", urlencoding_lite(dir)),
+        None => "index.html".to_string(),
+    };
+
+    let (width, height) = app
+        .get_webview_window("main")
+        .and_then(|main| {
+            let scale = main.scale_factor().ok()?;
+            let size = main.inner_size().ok()?.to_logical::<f64>(scale);
+            Some((size.width, size.height))
+        })
+        .unwrap_or((1100.0, 700.0));
+
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url_path.into()))
+        .title("Kite")
+        .inner_size(width, height)
+        .min_inner_size(420.0, 280.0)
+        .visible(false);
+    // Match the main window's chrome (custom titlebar on Windows/Linux).
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        builder = builder.decorations(false).transparent(true);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true);
+    }
+    // Cascade below-right of the calling window for a visible offset.
+    if let Some(main) = app.get_webview_window("main") {
+        if let Ok(pos) = main.outer_position() {
+            builder = builder.position(pos.x as f64 + 32.0, pos.y as f64 + 32.0);
+        }
+    }
+    let window = builder.build().map_err(|e| e.to_string())?;
+    let _ = window.set_focus();
+    log::info!("opened secondary window label={label}");
+    Ok(label)
+}
+
+/// Minimal percent-encoding for a query parameter value (paths only need a
+/// handful of escapes; `query_urlencode` crates are overkill here).
+fn urlencoding_lite(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/'
+            | b':' | b'\\' => {
+                out.push(byte as char);
+            }
+            _ => {
+                out.push_str(&format!("%{byte:02X}"));
+            }
+        }
+    }
+    out
+}
+
 #[tauri::command]
 async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
     let url_path = match tab.as_deref() {
@@ -324,12 +401,29 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            // A destroyed secondary window takes its PTYs with it; the JS that
+            // would close them is gone with the page.
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                let label = window.label().to_string();
+                if label == "main" || label == "settings" {
+                    return;
+                }
+                let app = window.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app.state::<pty::PtyState>();
+                    let _ = pty::pty_reap_for_label(state, label);
+                });
+            }
+        })
         .setup(|_app| {
             log_launch_context(_app.handle());
             // macOS skips parent() for the settings window, so tie its lifecycle
@@ -362,7 +456,10 @@ pub fn run() {
             pty::pty_has_foreground_job,
             pty::pty_list_shells,
             modules::fonts::list_fonts,
+            modules::update::check_for_update,
+            pty::pty_reap_for_label,
             get_launch_dir,
+            open_new_window,
             open_settings_window,
         ])
         .run(tauri::generate_context!())

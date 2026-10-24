@@ -8,11 +8,13 @@ import {
   createShellIntegrationState,
   registerCwdHandler,
   registerOsc52ClipboardHandler,
+  registerOscNotificationHandler,
   registerPromptTracker,
   registerThemeQueryHandler,
 } from "./osc-handlers";
 import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
 import { PendingPtyInput, type PtyInput } from "./ptyInput";
+import { emitTerminalActivity } from "./terminalActivity";
 import {
   acquireSlot,
   applyCursorPreferences,
@@ -50,6 +52,8 @@ type Session = {
   pty: PtySession | null;
   ptyOpening: boolean;
   initialCwd: string | undefined;
+  /** Per-leaf shell choice (an enumerated shell id, e.g. "wsl:Ubuntu"). */
+  shell: string | undefined;
   lastCwd: string | null;
   pendingExit: number | null;
   shellExited: boolean;
@@ -157,6 +161,7 @@ function onLeafCommandState(leafId: number, running: boolean): void {
   if (!s || s.commandRunning === running) return;
   s.commandRunning = running;
   if (!running) {
+    emitTerminalActivity({ leafId, kind: "commandFinished" });
     scheduleHiddenRelease(leafId, s);
     return;
   }
@@ -238,6 +243,7 @@ function ensureSession(
   leafId: number,
   initialCwd?: string,
   themeMode: TerminalThemeMode = "dark",
+  shell?: string,
 ): Session {
   const existing = sessions.get(leafId);
   if (existing) return existing;
@@ -246,6 +252,7 @@ function ensureSession(
     pty: null,
     ptyOpening: false,
     initialCwd,
+    shell,
     lastCwd: null,
     pendingExit: null,
     shellExited: false,
@@ -285,6 +292,7 @@ function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
     s.started = true;
     s.callbacks.onFirstData?.();
   }
+  emitTerminalActivity({ leafId, kind: "output" });
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
@@ -352,7 +360,7 @@ async function openPtyForSession(
       },
     },
     cwd,
-    usePreferencesStore.getState().terminalShell || undefined,
+    s.shell ?? (usePreferencesStore.getState().terminalShell || undefined),
     s.themeMode,
   );
   // Only resize if the bound dims changed during the spawn: a same-size
@@ -414,7 +422,10 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         shellState,
       );
       const osc52 = registerOsc52ClipboardHandler(term);
-      return [prompt.dispose, cwd, osc52, theme];
+      const notify = registerOscNotificationHandler(term, (message) => {
+        emitTerminalActivity({ leafId, kind: "bell", message });
+      });
+      return [prompt.dispose, cwd, osc52, theme, notify];
     },
   });
   s.snapshot = null;
@@ -564,6 +575,8 @@ type Options = {
   visible: boolean;
   focused?: boolean;
   initialCwd?: string;
+  /** Enumerated shell id for this leaf; undefined = global preference. */
+  shell?: string;
   themeMode: TerminalThemeMode;
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
@@ -575,6 +588,7 @@ export function useTerminalSession({
   visible,
   focused = true,
   initialCwd,
+  shell,
   themeMode,
   onExit,
   onCwd,
@@ -584,9 +598,11 @@ export function useTerminalSession({
 
   // initialCwd seeds the first PTY spawn only. It must NOT be an effect dep:
   // OSC 7 updates the leaf cwd on every `cd`, and re-running the bind effect
-  // would detach/rebind the renderer slot on each cd.
+  // would detach/rebind the renderer slot on each cd. Same for the shell.
   const initialCwdRef = useRef(initialCwd);
   initialCwdRef.current = initialCwd;
+  const initialShellRef = useRef(shell);
+  initialShellRef.current = shell;
   const themeModeRef = useRef(themeMode);
   themeModeRef.current = themeMode;
   const [started, setStarted] = useState(
@@ -599,6 +615,7 @@ export function useTerminalSession({
       leafId,
       initialCwdRef.current,
       themeModeRef.current,
+      initialShellRef.current,
     );
     s.ready.then(() => {
       if (cancelled || s.disposed) return;

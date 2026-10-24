@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findLeafCwd,
+  findLeafShell,
   hasLeaf,
   leafIds,
   nextLeafId,
@@ -129,5 +130,26 @@ describe("cwd helpers", () => {
     const once = setLeafCwd(nested, 3, "x");
     expect(setLeafCwd(once, 3, "x")).toBe(once);
     expect(setLeafCwd(nested, 404, "x")).toBe(nested);
+  });
+});
+
+describe("shell helpers", () => {
+  it("splitLeaf carries the tab shell onto the new leaf", () => {
+    const tree = splitLeaf(
+      { kind: "leaf", id: 1 },
+      1,
+      80,
+      81,
+      "row",
+      undefined,
+      "wsl:Ubuntu",
+    );
+    expect(findLeafShell(tree, 81)).toBe("wsl:Ubuntu");
+    expect(findLeafShell(tree, 1)).toBeUndefined();
+  });
+
+  it("splitLeaf without a shell leaves the field unset", () => {
+    const tree = splitLeaf({ kind: "leaf", id: 1 }, 1, 80, 81, "row");
+    expect(findLeafShell(tree, 81)).toBeUndefined();
   });
 });

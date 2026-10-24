@@ -2,7 +2,7 @@ import type { Tab } from "@/modules/tabs";
 import { useEffect, useMemo, useRef } from "react";
 import { selectLiveTerminals } from "./lib/liveTerminals";
 import { leafIds } from "./lib/panes";
-import { PaneTreeView } from "./PaneTreeView";
+import { PaneTreeView, type PaneCommand } from "./PaneTreeView";
 import type { TerminalPaneHandle } from "./TerminalPane";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
   onCwd: (leafId: number, cwd: string) => void;
   onExit: (leafId: number, code: number) => void;
   onFocusLeaf: (tabId: number, leafId: number) => void;
+  onPaneCommand: (leafId: number, command: PaneCommand) => void;
 };
 
 type Bundle = {
@@ -28,6 +29,7 @@ export function TerminalStack({
   onCwd,
   onExit,
   onFocusLeaf,
+  onPaneCommand,
 }: Props) {
   const terminals = useMemo(() => selectLiveTerminals(tabs), [tabs]);
 
@@ -71,6 +73,7 @@ export function TerminalStack({
     <div className="relative h-full w-full">
       {terminals.map((t) => {
         const tabVisible = t.id === activeId;
+        const paneIds = leafIds(t.paneTree);
         return (
           <div
             key={t.id}
@@ -85,8 +88,13 @@ export function TerminalStack({
               node={t.paneTree}
               tabVisible={tabVisible}
               activeLeafId={t.activeLeafId}
+              zoomedLeafId={t.zoomedLeafId}
               onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
               getBundle={getBundle}
+              paneCount={paneIds.length}
+              // The last pane of the last tab cannot close (closing would quit).
+              canClosePane={tabs.length > 1 || paneIds.length > 1}
+              onPaneCommand={onPaneCommand}
             />
           </div>
         );

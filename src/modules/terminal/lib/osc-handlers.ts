@@ -130,6 +130,57 @@ export function registerOsc52ClipboardHandler(
   return () => d.dispose();
 }
 
+/**
+ * OSC 9 (iTerm2 growl-style: `ESC ] 9 ; text BEL`) and OSC 777
+ * (`ESC ] 777 ; notify ; Title ; Body BEL`, rxvt-unicode convention).
+ * Both raise a bell-grade notification with optional text.
+ */
+export function registerOscNotificationHandler(
+  term: Terminal,
+  onNotify: (message: string) => void,
+): () => void {
+  const osc9 = term.parser.registerOscHandler(9, (data) => {
+    // OSC 9;5 is Windows Terminal's progress sequence, not a notification.
+    if (data.startsWith("5;")) return false;
+    const message = parseOscNotificationText(data);
+    if (message === null) return false;
+    onNotify(message);
+    return true;
+  });
+  const osc777 = term.parser.registerOscHandler(777, (data) => {
+    if (!data.startsWith("notify;") && data.split(";")[0]?.trim() !== "notify") {
+      // OSC 777 has other consumers (progress, …); only notify is ours.
+      return false;
+    }
+    const message = parseOscNotificationText(data);
+    if (message === null) return false;
+    onNotify(message);
+    return true;
+  });
+  return () => {
+    osc9.dispose();
+    osc777.dispose();
+  };
+}
+
+function parseOscNotificationText(data: string): string | null {
+  const parts = data.split(";");
+  if (parts[0]?.trim() === "notify") {
+    // OSC 777 notify;Title;Body — prefer Body, fall back to Title.
+    const body = parts.slice(2).join(";");
+    const title = parts[1] ?? "";
+    const text = (body.trim() || title.trim()).slice(0, 200);
+    return text.length > 0 ? text : null;
+  }
+  // Plain text (OSC 9 form). Command output is untrusted: strip control
+  // characters so a bell can never smuggle escape sequences elsewhere.
+  const text = data
+    .replace(/[\x00-\x1f\x7f]/g, " ")
+    .trim()
+    .slice(0, 200);
+  return text.length > 0 ? text : null;
+}
+
 function parseOsc7(data: string): string | null {
   const m = data.match(/^file:\/\/[^/]*(\/.*)$/);
   if (!m) return null;

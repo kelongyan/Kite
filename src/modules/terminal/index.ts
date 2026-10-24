@@ -1,5 +1,6 @@
 export type { TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";
+export type { PaneCommand } from "./PaneTreeView";
 export {
   clearFocusedTerminal,
   disposeSession,

@@ -38,7 +38,7 @@ cargo clippy --all-targets --locked -- -D warnings
 - **The renderer pool is 5 slots, shared across all tabs**, while a tab allows 4 panes. Cross-tab eviction is normal and handled.
 - **Path separators**: frontend uses forward slashes; `homeDir()` on Windows returns backslashes — normalize at the frontend boundary.
 - **Tauri commands are `snake_case`** (`pty_open`, `get_launch_dir`, `open_settings_window`, etc.).
-- **Tabs stay mounted when hidden** — PTYs keep state. Do not assume unmount-on-switch. Tabs are not persisted across launches.
+- **Tabs stay mounted when hidden** — PTYs keep state. Do not assume unmount-on-switch. Tabs are not persisted across launches by default; optional session restore (off by default) reopens structure/cwd/shell only, never buffer contents.
 - **Enforced boundary** is CSP + capabilities + `sanitize_shell_override` (a shell override must match an enumerated shell).
 - **No file explorer, sidebar, or statusbar** — the window is the header plus the terminal surface.
 - **`src-tauri/tests/`** call the command functions directly as plain Rust; no Tauri runtime needed.

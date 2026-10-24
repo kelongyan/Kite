@@ -98,8 +98,9 @@ resize handles aligned.
 Tabs are **cold by default** — shells only spawn on first activation, gated by a
 `booted` flag so no shell starts before the launch cwd resolves. Hidden tabs stay
 mounted and alive (PTYs keep state) — do not assume unmount-on-switch. Tabs are
-**not** persisted across launches; each start opens one tab, and new tabs open at
-home rather than inheriting the active tab's cwd.
+**not** persisted across launches by default (optional session restore, off by
+default, reopens structure/cwd/shell only); each start opens one tab, and new
+tabs open at home rather than inheriting the active tab's cwd.
 
 ## Critical gotchas
 

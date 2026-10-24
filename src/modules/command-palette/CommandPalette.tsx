@@ -16,11 +16,13 @@ import {
   type KeyBinding,
   type ShortcutId,
 } from "@/modules/shortcuts";
+import type { ShellChoice } from "@/modules/terminal/lib/shells";
 import { listBuiltinThemes, useTheme } from "@/modules/theme";
 import {
   AlertCircleIcon,
   ArrowTurnBackwardIcon,
   CommandIcon,
+  ComputerTerminal02Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,6 +36,9 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   commandItems: PaletteItem[];
+  /** Enumerated shells for the "new terminal" sub-page. */
+  shellChoices: ShellChoice[];
+  onNewTerminalWithShell: (shell: ShellChoice) => void;
 };
 
 const SHORTCUTS_BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
@@ -43,23 +48,27 @@ export function CommandPalette({
   open,
   onOpenChange,
   commandItems,
+  shellChoices,
+  onNewTerminalWithShell,
 }: Props) {
   const messages = useMessages().mainShell.commandPalette;
   const [query, setQuery] = useState("");
   const [value, setValue] = useState("");
-  const [page, setPage] = useState<"root" | "themes">("root");
+  const [page, setPage] = useState<"root" | "themes" | "shells">("root");
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
   const { themeId, customThemes, setThemeId, previewThemeId } = useTheme();
 
   const inThemes = page === "themes";
+  const inShells = page === "shells";
   const themeFilter = inThemes ? query.trim() : "";
+  const shellFilter = inShells ? query.trim() : "";
 
   const mru = useMemo(() => (open ? mruSnapshot() : {}), [open]);
 
   const rankedCommands = useMemo(() => {
-    if (inThemes) return [];
+    if (inThemes || inShells) return [];
     return rankCommands(commandItems, query.trim(), mru);
-  }, [commandItems, query, inThemes, mru]);
+  }, [commandItems, query, inThemes, inShells, mru]);
 
   const themes = useMemo(() => {
     if (!inThemes) return [];
@@ -72,6 +81,17 @@ export function CommandPalette({
       .sort((a, b) => (b.s ?? 0) - (a.s ?? 0))
       .map((x) => x.t);
   }, [inThemes, themeFilter, customThemes]);
+
+  const shells = useMemo(() => {
+    if (!inShells) return [];
+    const q = shellFilter.toLowerCase();
+    if (!q) return shellChoices;
+    return shellChoices
+      .map((t) => ({ t, s: fuzzyBest(q, [t.name, t.path]) }))
+      .filter((x) => x.s !== null)
+      .sort((a, b) => (b.s ?? 0) - (a.s ?? 0))
+      .map((x) => x.t);
+  }, [inShells, shellFilter, shellChoices]);
 
   const resetPalette = useCallback(() => {
     setQuery("");
@@ -128,7 +148,14 @@ export function CommandPalette({
     focusInput();
   }, [focusInput]);
 
-  const exitThemes = useCallback(() => {
+  const enterShells = useCallback(() => {
+    setPage("shells");
+    setQuery("");
+    setValue("");
+    focusInput();
+  }, [focusInput]);
+
+  const exitSubPage = useCallback(() => {
     previewThemeId(null);
     setPage("root");
     setQuery("");
@@ -140,10 +167,11 @@ export function CommandPalette({
     (item: PaletteItem) => {
       if (item.disabledReason) return;
       if (item.id === "theme.pick") return enterThemes();
+      if (item.id === "tab.newWithShell") return enterShells();
       recordUse(item.id);
       runAfterClose(item.run);
     },
-    [enterThemes, runAfterClose],
+    [enterThemes, enterShells, runAfterClose],
   );
 
   const commitTheme = useCallback(
@@ -156,28 +184,30 @@ export function CommandPalette({
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (!inThemes) return;
+      if (!inThemes && !inShells) return;
       if (e.key === "Backspace" && query.length === 0) {
         e.preventDefault();
         e.stopPropagation();
-        exitThemes();
+        exitSubPage();
       }
     },
-    [inThemes, query, exitThemes],
+    [inThemes, inShells, query, exitSubPage],
   );
 
   const onEscapeKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!inThemes) return;
+      if (!inThemes && !inShells) return;
       event.preventDefault();
-      exitThemes();
+      exitSubPage();
     },
-    [inThemes, exitThemes],
+    [inThemes, inShells, exitSubPage],
   );
 
   const placeholder = inThemes
     ? messages.placeholders.themes
-    : messages.placeholders.commands;
+    : inShells
+      ? messages.placeholders.shells
+      : messages.placeholders.commands;
 
   return (
     <CommandDialog
@@ -207,11 +237,47 @@ export function CommandPalette({
             key={page}
             className="kite-command-page-in max-h-none overflow-visible pr-3"
           >
-            {inThemes ? (
+            {inShells ? (
+              <CommandGroup heading={messages.headings.shells}>
+                <CommandItem
+                  value="shell:back"
+                  onSelect={exitSubPage}
+                  className="text-[12.5px]"
+                >
+                  <HugeiconsIcon
+                    icon={ArrowTurnBackwardIcon}
+                    size={14}
+                    strokeWidth={1.75}
+                  />
+                  <span>{messages.back}</span>
+                </CommandItem>
+                {shells.map((shell) => (
+                  <CommandItem
+                    key={shell.path}
+                    value={`shell:${shell.path}`}
+                    onSelect={() =>
+                      runAfterClose(() => onNewTerminalWithShell(shell))
+                    }
+                    className="text-[12.5px]"
+                  >
+                    <HugeiconsIcon
+                      icon={ComputerTerminal02Icon}
+                      size={14}
+                      strokeWidth={1.75}
+                      className="text-muted-foreground"
+                    />
+                    <span className="truncate">{shell.name}</span>
+                  </CommandItem>
+                ))}
+                {shells.length === 0 ? (
+                  <StatusItem label={messages.status.noShells} />
+                ) : null}
+              </CommandGroup>
+            ) : inThemes ? (
               <CommandGroup heading={messages.headings.themes}>
                 <CommandItem
                   value="theme:back"
-                  onSelect={exitThemes}
+                  onSelect={exitSubPage}
                   className="text-[12.5px]"
                 >
                   <HugeiconsIcon

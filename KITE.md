@@ -117,8 +117,12 @@ public surface.
 
 The only tab kind is `terminal`.
 
-Tabs are not persisted across launches; every start opens one tab at the launch
-directory. New tabs open at home rather than inheriting the active tab's cwd.
+Tabs are not persisted across launches by default; every start opens one tab at
+the launch directory. New tabs open at home rather than inheriting the active
+tab's cwd. Optional session restore (settings, off by default) reopens the last
+saved layout — tab/pane structure, cwd and shell per leaf, custom titles — as
+fresh PTYs; buffer contents are never replayed. An explicit launch directory
+skips the restore.
 
 Mounted tabs remain alive while inactive so PTYs keep their state. Terminal tabs
 contain a pane tree, at most four panes per tab. `PaneNode` splits hold an

@@ -28,7 +28,7 @@ const OVERFLOW_NOTICE: &[u8] =
 
 pub struct Session {
     // Field drop order is intentional. Rust drops fields top-to-bottom:
-    //   1. `_job` — on Windows, closing the Job HANDLE fires
+    //   1. `job` — on Windows, closing the Job HANDLE fires
     //      KILL_ON_JOB_CLOSE, terminating the pwsh tree before the master
     //      pipe drops. Without this, ClosePseudoConsole in `master`'s Drop
     //      can block waiting for conhost to drain pending output, freezing
@@ -39,7 +39,7 @@ pub struct Session {
     //   4. `master` — last; ClosePseudoConsole on Windows. By now the child
     //      is dead and conhost has nothing left to drain.
     #[cfg(windows)]
-    _job: Option<super::job::PtyJob>,
+    pub job: Option<super::job::PtyJob>,
     /// PID of the shell process. 0 means unknown; callers must skip checks when 0.
     pub shell_pid: u32,
     pub killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
@@ -48,6 +48,9 @@ pub struct Session {
     // Set by the waiter once the child exits, so pty_open can reap a shell
     // that died before it was registered.
     pub(super) exited: Arc<AtomicBool>,
+    /// Webview label that opened this session; used to reap PTYs when a
+    /// secondary window is destroyed while the app keeps running.
+    pub owner_label: String,
 }
 
 impl Drop for Session {
@@ -105,6 +108,7 @@ pub fn spawn(
     theme_mode: Option<String>,
     on_data: Channel<Response>,
     on_exit: Channel<i32>,
+    owner_label: String,
 ) -> Result<(Arc<Session>, PtySize), String> {
     #[cfg(windows)]
     let _spawn_guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
@@ -150,12 +154,13 @@ pub fn spawn(
 
     let session = Arc::new(Session {
         #[cfg(windows)]
-        _job: job,
+        job,
         shell_pid,
         killer: Mutex::new(killer),
         writer: writer.clone(),
         master: Mutex::new(pair.master),
         exited: exited.clone(),
+        owner_label,
     });
 
     let pending: Arc<(Mutex<Vec<u8>>, Condvar)> = Arc::new((
@@ -177,7 +182,6 @@ pub fn spawn(
             let mut filtered: Vec<u8> = Vec::with_capacity(READ_BUF);
             let mut da_filter = DaFilter::new();
             let mut dropped_bytes: u64 = 0;
-            let mut logged_mouse = false;
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => break,
@@ -185,23 +189,6 @@ pub fn spawn(
                         if !first_byte_r.load(Ordering::Relaxed) {
                             first_byte_r.store(true, Ordering::Release);
                             log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
-                        }
-                        // TEMP wheel debug: confirm the app toggles mouse/alt
-                        // tracking and that the sequences reach Kite intact.
-                        if !logged_mouse {
-                            let chunk = &buf[..n];
-                            let has = |needle: &[u8]| {
-                                chunk.windows(needle.len()).any(|w| w == needle)
-                            };
-                            if has(b"[?1000h")
-                                || has(b"[?1002h")
-                                || has(b"[?1003h")
-                                || has(b"[?1006h")
-                                || has(b"[?1049h")
-                            {
-                                log::info!("[wheeldbg] app enabled mouse/alt tracking");
-                                logged_mouse = true;
-                            }
                         }
                         filtered.clear();
                         da_filter.process(&buf[..n], &mut filtered, |reply| {
@@ -351,6 +338,7 @@ mod tests {
             writer,
             master: Mutex::new(pair.master),
             exited: Arc::new(AtomicBool::new(false)),
+            owner_label: "main".to_string(),
         });
 
         assert!(
@@ -400,6 +388,7 @@ mod tests {
             writer,
             master: Mutex::new(pair.master),
             exited: Arc::new(AtomicBool::new(false)),
+            owner_label: "main".to_string(),
         });
 
         drop_session(session);

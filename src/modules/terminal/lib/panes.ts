@@ -2,8 +2,18 @@ export type PaneId = number;
 
 export type SplitDir = "row" | "col";
 
+// Capped below the global renderer pool (5 slots) so a single tab cannot claim
+// every slot. Panes across tabs still compete, and eviction handles that.
+export const MAX_PANES_PER_TAB = 4;
+
 export type PaneNode =
-  | { kind: "leaf"; id: PaneId; cwd?: string }
+  | {
+      kind: "leaf";
+      id: PaneId;
+      cwd?: string;
+      /** Enumerated shell id for this leaf; undefined = global preference. */
+      shell?: string;
+    }
   | {
       kind: "split";
       id: PaneId;
@@ -26,6 +36,15 @@ export function findLeafCwd(n: PaneNode, id: PaneId): string | undefined {
   if (isLeaf(n)) return n.id === id ? n.cwd : undefined;
   for (const c of n.children) {
     const found = findLeafCwd(c, id);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+export function findLeafShell(n: PaneNode, id: PaneId): string | undefined {
+  if (isLeaf(n)) return n.id === id ? n.shell : undefined;
+  for (const c of n.children) {
+    const found = findLeafShell(c, id);
     if (found !== undefined) return found;
   }
   return undefined;
@@ -63,18 +82,24 @@ export function splitLeaf(
   newLeafId: PaneId,
   dir: SplitDir,
   newCwd?: string,
+  newShell?: string,
 ): PaneNode {
+  const makeLeaf = (): PaneNode => ({
+    kind: "leaf",
+    id: newLeafId,
+    cwd: newCwd,
+    ...(newShell !== undefined && { shell: newShell }),
+  });
   if (tree.kind === "split" && tree.dir === dir) {
     const idx = tree.children.findIndex(
       (c) => c.kind === "leaf" && c.id === targetId,
     );
     if (idx >= 0) {
-      const newLeaf: PaneNode = { kind: "leaf", id: newLeafId, cwd: newCwd };
       return {
         ...tree,
         children: [
           ...tree.children.slice(0, idx + 1),
-          newLeaf,
+          makeLeaf(),
           ...tree.children.slice(idx + 1),
         ],
       };
@@ -82,12 +107,11 @@ export function splitLeaf(
   }
   if (isLeaf(tree)) {
     if (tree.id !== targetId) return tree;
-    const newLeaf: PaneNode = { kind: "leaf", id: newLeafId, cwd: newCwd };
     return {
       kind: "split",
       id: newSplitId,
       dir,
-      children: [tree, newLeaf],
+      children: [tree, makeLeaf()],
     };
   }
   // Preserve the original reference when the target lives elsewhere: the
@@ -95,7 +119,15 @@ export function splitLeaf(
   // with no changed child means the split missed entirely.
   let changed = false;
   const children = tree.children.map((c) => {
-    const u = splitLeaf(c, targetId, newSplitId, newLeafId, dir, newCwd);
+    const u = splitLeaf(
+      c,
+      targetId,
+      newSplitId,
+      newLeafId,
+      dir,
+      newCwd,
+      newShell,
+    );
     if (u !== c) changed = true;
     return u;
   });

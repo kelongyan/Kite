@@ -6,6 +6,7 @@ import { IS_MAC, MOD_PROP } from "@/lib/platform";
 
 export type ShortcutId =
   | "commandPalette.open"
+  | "window.new"
   | "tab.new"
   | "tab.close"
   | "tab.next"
@@ -15,7 +16,9 @@ export type ShortcutId =
   | "pane.splitDown"
   | "pane.focusNext"
   | "pane.focusPrev"
+  | "pane.toggleZoom"
   | "terminal.clear"
+  | "terminal.find"
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
@@ -59,6 +62,12 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "," }],
   },
   {
+    id: "window.new",
+    label: "New window",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "n" }],
+  },
+  {
     id: "tab.new",
     label: "New tab",
     group: "Tabs",
@@ -95,6 +104,12 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "[" }],
   },
   {
+    id: "pane.toggleZoom",
+    label: "Toggle pane zoom",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "Enter" }],
+  },
+  {
     id: "terminal.clear",
     label: "Clear terminal",
     group: "Terminal",
@@ -102,6 +117,12 @@ export const SHORTCUTS: Shortcut[] = [
     // macOS — on other platforms Ctrl+K is readline's kill-line, so we leave it
     // unbound and let users assign their own in settings.
     defaultBindings: IS_MAC ? [{ meta: true, key: "k" }] : [],
+  },
+  {
+    id: "terminal.find",
+    label: "Find in terminal",
+    group: "Terminal",
+    defaultBindings: [{ [MOD_PROP]: true, key: "f" }],
   },
   {
     id: "tab.next",

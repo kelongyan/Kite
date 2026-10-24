@@ -9,9 +9,10 @@ use std::mem::{size_of, zeroed};
 
 use windows_sys::Win32::Foundation::{CloseHandle, FALSE, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-    SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicProcessIdList,
+    JobObjectExtendedLimitInformation, QueryInformationJobObject,
+    SetInformationJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE};
 
@@ -62,6 +63,34 @@ impl PtyJob {
             Ok(Self { handle: job })
         }
     }
+
+    /// Processes still assigned to the job — the whole spawned tree, not just
+    /// direct children. The shell itself counts, so an idle shell reports 1
+    /// and 0 once the tree is gone.
+    pub fn process_count(&self) -> io::Result<usize> {
+        // A modest fixed buffer: even when the pid list does not fit
+        // (ERROR_MORE_DATA), the counts at the head of the struct are valid.
+        let mut buf = [0u8; 4096];
+        let ok = unsafe {
+            QueryInformationJobObject(
+                self.handle,
+                JobObjectBasicProcessIdList,
+                buf.as_mut_ptr().cast(),
+                buf.len() as u32,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            let e = io::Error::last_os_error();
+            if e.raw_os_error()
+                != Some(windows_sys::Win32::Foundation::ERROR_MORE_DATA as i32)
+            {
+                return Err(e);
+            }
+        }
+        let list = unsafe { &*buf.as_ptr().cast::<JOBOBJECT_BASIC_PROCESS_ID_LIST>() };
+        Ok(list.NumberOfAssignedProcesses as usize)
+    }
 }
 
 impl Drop for PtyJob {
@@ -106,6 +135,36 @@ mod tests {
                 }
                 None => std::thread::sleep(Duration::from_millis(50)),
             }
+        }
+    }
+
+    #[test]
+    fn process_count_tracks_the_assigned_tree() {
+        // cmd spawns ping as a grandchild-level process in the job.
+        let mut child = Command::new("cmd.exe")
+            .args(["/C", "ping -n 30 127.0.0.1 > nul"])
+            .spawn()
+            .expect("spawn cmd.exe");
+
+        let job = PtyJob::create_for(child.id()).expect("create job");
+        let count = job.process_count().expect("process_count");
+        assert!(count >= 1, "shell itself must be counted, got {count}");
+
+        let _ = child.kill();
+        let _ = child.wait();
+        drop(job);
+
+        // Once the tree exits, the job reports zero assigned processes (the
+        // handle stays queryable until closed).
+        let mut short = Command::new("cmd.exe")
+            .args(["/C", "exit 0"])
+            .spawn()
+            .expect("spawn short cmd");
+        let job2 = PtyJob::create_for(short.id()).expect("create job");
+        let _ = short.wait();
+        std::thread::sleep(Duration::from_millis(200));
+        if let Ok(n) = job2.process_count() {
+            assert_eq!(n, 0);
         }
     }
 }

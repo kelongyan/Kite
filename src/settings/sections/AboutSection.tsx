@@ -5,10 +5,18 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { getName, getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { arch, platform } from "@tauri-apps/plugin-os";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
 const REPO_URL = "https://github.com/kelongyan/Kite";
+
+type UpdateState =
+  | { phase: "idle" }
+  | { phase: "checking" }
+  | { phase: "upToDate" }
+  | { phase: "available"; latest: string; releasesPage: string }
+  | { phase: "failed" };
 
 const PLATFORM_LABEL: Record<string, string> = {
   macos: "macOS",
@@ -25,6 +33,7 @@ export function AboutSection() {
   const [version, setVersion] = useState("");
   const [name, setName] = useState("Kite");
   const [build, setBuild] = useState("");
+  const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
 
   useEffect(() => {
     void getVersion().then(setVersion);
@@ -38,6 +47,27 @@ export function AboutSection() {
       setBuild("");
     }
   }, []);
+
+  const checkForUpdate = async () => {
+    setUpdate({ phase: "checking" });
+    try {
+      const result = await invoke<{
+        latest: string | null;
+        releases_page: string;
+      }>("check_for_update");
+      setUpdate(
+        result.latest
+          ? {
+              phase: "available",
+              latest: result.latest,
+              releasesPage: result.releases_page,
+            }
+          : { phase: "upToDate" },
+      );
+    } catch {
+      setUpdate({ phase: "failed" });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -97,6 +127,51 @@ export function AboutSection() {
         >
           {aboutMessages.actions.reportIssue}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={update.phase === "checking"}
+          onClick={() => void checkForUpdate()}
+        >
+          {update.phase === "checking"
+            ? aboutMessages.update.checking
+            : aboutMessages.update.check}
+        </Button>
+        <div
+          className="kite-reveal flex items-center gap-2"
+          data-state={
+            update.phase === "upToDate" ||
+            update.phase === "available" ||
+            update.phase === "failed"
+              ? "open"
+              : "closed"
+          }
+        >
+          <div>
+            {update.phase === "upToDate" ? (
+              <span className="text-[12px] text-muted-foreground">
+                {aboutMessages.update.upToDate}
+              </span>
+            ) : update.phase === "available" ? (
+              <span className="flex items-center gap-2 text-[12px]">
+                <span className="text-foreground">
+                  {aboutMessages.update.available(update.latest)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void openUrl(update.releasesPage)}
+                >
+                  {aboutMessages.update.goToDownload}
+                </Button>
+              </span>
+            ) : update.phase === "failed" ? (
+              <span className="text-[12px] text-destructive">
+                {aboutMessages.update.failed}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );

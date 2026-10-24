@@ -457,12 +457,18 @@ mod windows {
     use portable_pty::CommandBuilder;
 
     const PROFILE_PS1: &str = include_str!("scripts/profile.ps1");
+    // wsl.exe forwards only WSLENV-listed variables into the distro; /u means
+    // Windows → WSL only.
+    const WSLENV_FORWARD: &str = "TERM/u:COLORTERM/u:COLORFGBG/u:TERM_PROGRAM/u:TERM_PROGRAM_VERSION/u:KITE_TERMINAL/u:CLAUDE_CODE_NATIVE_CURSOR/u";
 
     pub fn build(
         cwd: Option<String>,
         shell: Option<String>,
         theme_mode: super::TerminalThemeMode,
     ) -> Result<CommandBuilder, String> {
+        if let Some(distro) = shell.as_deref().and_then(parse_wsl_override) {
+            return build_wsl(cwd, distro, theme_mode);
+        }
         let shell_path = shell
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
@@ -516,6 +522,112 @@ mod windows {
 
         log::info!("spawning Windows shell: {}", shell_path.display());
         Ok(cmd)
+    }
+
+    /// WSL shells travel as the id `wsl:<distro>` so the frontend can pass the
+    /// choice straight back through `pty_open`'s shell argument.
+    fn parse_wsl_override(shell: &str) -> Option<&str> {
+        let distro = shell.strip_prefix("wsl:")?.trim();
+        if distro.is_empty() {
+            None
+        } else {
+            Some(distro)
+        }
+    }
+
+    fn build_wsl(
+        cwd: Option<String>,
+        distro: &str,
+        theme_mode: super::TerminalThemeMode,
+    ) -> Result<CommandBuilder, String> {
+        let exe = wsl_exe_path().ok_or_else(|| "wsl.exe not found".to_string())?;
+        let mut cmd = CommandBuilder::new(&exe);
+        // apply_common sets TERM etc. and resolves the Windows cwd; wsl.exe
+        // then maps its own working directory into the distro.
+        super::apply_common(&mut cmd, cwd.clone(), theme_mode);
+        cmd.env("WSLENV", WSLENV_FORWARD);
+        // An explicit --cd wins over the inherited directory when both exist.
+        if let Some(dir) = cwd.filter(|c| !c.trim().is_empty()) {
+            cmd.arg("--cd");
+            cmd.arg(dir);
+        }
+        cmd.arg("-d");
+        cmd.arg(distro);
+        cmd.arg("--");
+        cmd.arg("bash");
+        // Same OSC 7/133 rcfile as native git-bash, reached from the distro
+        // through the /mnt mount of the Windows filesystem.
+        match prepare_bash_rcfile() {
+            Ok(rc) => {
+                cmd.arg("--rcfile");
+                cmd.arg(win_to_wsl_path(&rc));
+                cmd.arg("-i");
+            }
+            Err(e) => {
+                log::warn!("wsl bash integration disabled: {e}");
+            }
+        }
+        log::info!("spawning WSL distro: {distro}");
+        Ok(cmd)
+    }
+
+    fn wsl_exe_path() -> Option<PathBuf> {
+        if let Some(p) = super::which_in_path("wsl.exe") {
+            return Some(p);
+        }
+        std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .map(|root| root.join("System32").join("wsl.exe"))
+            .filter(|p| p.is_file())
+    }
+
+    /// `C:\Users\a b` → `/mnt/c/Users/a b` — enough path mapping for the
+    /// rcfile location; exotic roots (UNC) are not WSL-launch directories.
+    fn win_to_wsl_path(path: &Path) -> String {
+        let s = path.to_string_lossy();
+        let bytes = s.as_bytes();
+        if bytes.len() >= 2 && bytes[1] == b':' {
+            let drive = bytes[0].to_ascii_lowercase() as char;
+            format!("/mnt/{drive}/{}", s[3..].replace('\\', "/"))
+        } else {
+            s.replace('\\', "/")
+        }
+    }
+
+    /// `wsl.exe -l -q` prints UTF-16LE with a BOM (older builds) or UTF-8;
+    /// decode either, one distro per line.
+    fn list_wsl_distros() -> Vec<String> {
+        let Some(exe) = wsl_exe_path() else {
+            return Vec::new();
+        };
+        let output = match std::process::Command::new(&exe).args(["-l", "-q"]).output() {
+            Ok(o) => o,
+            Err(_) => return Vec::new(),
+        };
+        if !output.status.success() {
+            return Vec::new();
+        }
+        let text = decode_wsl_output(&output.stdout);
+        text.lines()
+            .map(|line| {
+                line.trim()
+                    .trim_matches('\u{feff}')
+                    .trim_matches('\0')
+                    .to_string()
+            })
+            .filter(|line| !line.is_empty())
+            .collect()
+    }
+
+    fn decode_wsl_output(bytes: &[u8]) -> String {
+        if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
+            let units: Vec<u16> = bytes[2..]
+                .chunks_exact(2)
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .collect();
+            return String::from_utf16(&units).unwrap_or_default();
+        }
+        String::from_utf8_lossy(bytes).into_owned()
     }
 
     fn normalize_script(content: &str) -> String {
@@ -584,8 +696,16 @@ mod windows {
         if let Some(p) = git_bash_path() {
             add(&mut out, "Git Bash", p, true);
         }
+        for distro in list_wsl_distros() {
+            out.push(super::ShellInfo {
+                name: format!("{distro} (WSL)"),
+                path: format!("wsl:{distro}"),
+                integrated: true,
+            });
+        }
         out
     }
+
 
     fn git_bash_path() -> Option<PathBuf> {
         // Git for Windows install locations only. A bash.exe on PATH may come
@@ -621,6 +741,41 @@ mod windows {
             let _ = fs::remove_file(&tmp);
             format!("rename {} -> {}: {e}", tmp.display(), path.display())
         })
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn parse_wsl_override_requires_distro() {
+            assert_eq!(parse_wsl_override("wsl:Ubuntu"), Some("Ubuntu"));
+            assert_eq!(parse_wsl_override("wsl:Ubuntu-22.04"), Some("Ubuntu-22.04"));
+            assert_eq!(parse_wsl_override("wsl:"), None);
+            assert_eq!(parse_wsl_override("wsl:   "), None);
+            assert_eq!(parse_wsl_override("C:/pwsh.exe"), None);
+        }
+
+        #[test]
+        fn win_paths_map_to_wsl_mounts() {
+            assert_eq!(
+                win_to_wsl_path(Path::new(r"C:\Users\Admin\.cache\kite\rc")),
+                "/mnt/c/Users/Admin/.cache/kite/rc"
+            );
+            // UNC and relative paths degrade to a forward-slash pass-through.
+            assert_eq!(win_to_wsl_path(Path::new(r"\\server\share")), "//server/share");
+        }
+
+        #[test]
+        fn wsl_output_decodes_utf16_and_utf8() {
+            let utf16: Vec<u8> = [0xFF, 0xFE]
+                .into_iter()
+                .chain("Ubuntu\r\nDebian\r\n".encode_utf16().flat_map(|u| {
+                    u.to_le_bytes().into_iter()
+                }))
+                .collect();
+            assert_eq!(decode_wsl_output(&utf16), "Ubuntu\r\nDebian\r\n");
+            assert_eq!(decode_wsl_output(b"Ubuntu\n"), "Ubuntu\n");
+        }
     }
 }
 

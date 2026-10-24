@@ -222,6 +222,17 @@ html[data-chrome="borderless"] #settings-root {
 .xterm.focus {
   outline: none !important;
 }
+
+/*
+ * Link hover affordance. The bundled web-links pairing with xterm 6 loses the
+ * core hover cursor, so the addon's hover/leave callbacks toggle this class on
+ * the slot host instead.
+ */
+[data-kite-slot].kite-link-hover,
+[data-kite-slot].kite-link-hover .xterm-viewport,
+[data-kite-slot].kite-link-hover .xterm-screen {
+  cursor: pointer !important;
+}
 .xterm .composition-view {
   background: var(--terminal-background) !important;
   color: var(--terminal-foreground) !important;

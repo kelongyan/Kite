@@ -15,20 +15,32 @@ import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
+  setQuakeEnabled,
   setRestoreWindowState,
+  setSessionRestore,
+  setTerminalBellNotify,
   setTerminalCjkFontFamily,
+  setTerminalCommandNotify,
+  setTerminalCopyOnSelect,
+  setTerminalCursorAnimation,
   setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalFontWeight,
   setTerminalLetterSpacing,
+  setTerminalLinkActivation,
+  setTerminalPasteGuard,
+  setTerminalRightClickPaste,
   setTerminalScrollback,
   setTerminalShell,
+  setTerminalTrimCopyWhitespace,
   setTerminalWebglEnabled,
   setZoomLevel,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
+import type { TerminalCursorAnimation } from "@/modules/terminal/lib/cursorStyle";
+import type { TerminalLinkActivation } from "@/modules/terminal/lib/linkPolicy";
 import {
   ComputerIcon,
   Moon02Icon,
@@ -65,6 +77,24 @@ const TERMINAL_FONT_WEIGHTS = [
   { value: "bold", labelKey: "bold" },
 ] as const;
 
+const TERMINAL_CURSOR_STYLES = [
+  { value: "steady", labelKey: "steady" },
+  { value: "blink", labelKey: "blink" },
+  { value: "smooth", labelKey: "smooth" },
+  { value: "expand", labelKey: "expand" },
+] as const satisfies ReadonlyArray<{
+  value: TerminalCursorAnimation;
+  labelKey: "steady" | "blink" | "smooth" | "expand";
+}>;
+
+const TERMINAL_LINK_ACTIVATIONS = [
+  { value: "ctrlClick", labelKey: "ctrlClick" },
+  { value: "direct", labelKey: "direct" },
+] as const satisfies ReadonlyArray<{
+  value: TerminalLinkActivation;
+  labelKey: "ctrlClick" | "direct";
+}>;
+
 const LETTER_SPACINGS = [-4, -3, -2, -1, 0, 1, 2, 3, 4] as const;
 
 type ShellInfo = { name: string; path: string };
@@ -87,6 +117,26 @@ export function GeneralSection() {
     (s) => s.terminalCjkFontFamily,
   );
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
+  const terminalCursorAnimation = usePreferencesStore(
+    (s) => s.terminalCursorAnimation,
+  );
+  const terminalLinkActivation = usePreferencesStore(
+    (s) => s.terminalLinkActivation,
+  );
+  const terminalCopyOnSelect = usePreferencesStore(
+    (s) => s.terminalCopyOnSelect,
+  );
+  const terminalRightClickPaste = usePreferencesStore(
+    (s) => s.terminalRightClickPaste,
+  );
+  const terminalTrimCopyWhitespace = usePreferencesStore(
+    (s) => s.terminalTrimCopyWhitespace,
+  );
+  const terminalPasteGuard = usePreferencesStore((s) => s.terminalPasteGuard);
+  const terminalBellNotify = usePreferencesStore((s) => s.terminalBellNotify);
+  const terminalCommandNotify = usePreferencesStore(
+    (s) => s.terminalCommandNotify,
+  );
   const terminalShell = usePreferencesStore((s) => s.terminalShell);
   const [shells, setShells] = useState<ShellInfo[]>([]);
   const terminalLetterSpacing = usePreferencesStore(
@@ -95,6 +145,8 @@ export function GeneralSection() {
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
+  const sessionRestore = usePreferencesStore((s) => s.sessionRestore);
+  const quakeEnabled = usePreferencesStore((s) => s.quakeEnabled);
 
   useEffect(() => {
     void invoke<ShellInfo[]>("pty_list_shells")
@@ -235,11 +287,97 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </SettingRow>
+        <SettingRow title={g.terminal.cursorStyle}>
+          <Select
+            value={terminalCursorAnimation}
+            onValueChange={(v) => void setTerminalCursorAnimation(v as TerminalCursorAnimation)}
+          >
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              {TERMINAL_CURSOR_STYLES.map((style) => (
+                <SelectItem
+                  key={style.value}
+                  value={style.value}
+                  className="text-[12px]"
+                >
+                  {g.terminal.cursorStyles[style.labelKey]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SettingRow title={g.terminal.linkActivation}>
+          <Select
+            value={terminalLinkActivation}
+            onValueChange={(v) =>
+              void setTerminalLinkActivation(v as TerminalLinkActivation)
+            }
+          >
+            <SelectTrigger size="sm" className="h-7 w-36 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              {TERMINAL_LINK_ACTIVATIONS.map((mode) => (
+                <SelectItem
+                  key={mode.value}
+                  value={mode.value}
+                  className="text-[12px]"
+                >
+                  {g.terminal.linkActivations[mode.labelKey]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
         <SettingRow title={g.terminal.useWebgl}>
           <Switch
             aria-label={g.terminal.useWebgl}
             checked={terminalWebglEnabled}
             onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.copyOnSelect}>
+          <Switch
+            aria-label={g.terminal.copyOnSelect}
+            checked={terminalCopyOnSelect}
+            onCheckedChange={(v) => void setTerminalCopyOnSelect(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.rightClickPaste}>
+          <Switch
+            aria-label={g.terminal.rightClickPaste}
+            checked={terminalRightClickPaste}
+            onCheckedChange={(v) => void setTerminalRightClickPaste(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.trimCopyWhitespace}>
+          <Switch
+            aria-label={g.terminal.trimCopyWhitespace}
+            checked={terminalTrimCopyWhitespace}
+            onCheckedChange={(v) => void setTerminalTrimCopyWhitespace(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.pasteGuard}>
+          <Switch
+            aria-label={g.terminal.pasteGuard}
+            checked={terminalPasteGuard}
+            onCheckedChange={(v) => void setTerminalPasteGuard(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.bellNotify}>
+          <Switch
+            aria-label={g.terminal.bellNotify}
+            checked={terminalBellNotify}
+            onCheckedChange={(v) => void setTerminalBellNotify(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.terminal.commandNotify}>
+          <Switch
+            aria-label={g.terminal.commandNotify}
+            checked={terminalCommandNotify}
+            onCheckedChange={(v) => void setTerminalCommandNotify(v)}
           />
         </SettingRow>
         <SettingRow title={g.terminal.scrollback}>
@@ -271,6 +409,20 @@ export function GeneralSection() {
             aria-label={g.startup.restoreWindow}
             checked={restoreWindowState}
             onCheckedChange={(v) => void setRestoreWindowState(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.startup.sessionRestore}>
+          <Switch
+            aria-label={g.startup.sessionRestore}
+            checked={sessionRestore}
+            onCheckedChange={(v) => void setSessionRestore(v)}
+          />
+        </SettingRow>
+        <SettingRow title={g.startup.quakeToggle}>
+          <Switch
+            aria-label={g.startup.quakeToggle}
+            checked={quakeEnabled}
+            onCheckedChange={(v) => void setQuakeEnabled(v)}
           />
         </SettingRow>
       </SettingGroup>

@@ -43,6 +43,7 @@ impl PtyState {
 pub async fn pty_open(
     app: tauri::AppHandle,
     state: tauri::State<'_, PtyState>,
+    window: tauri::WebviewWindow,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
@@ -53,9 +54,12 @@ pub async fn pty_open(
 ) -> Result<u32, String> {
     let cwd = spawn_cwd_or_home(cwd.as_deref());
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let owner_label = window.label().to_string();
     let session = tauri::async_runtime::spawn_blocking(move || {
-        session::spawn(id, app, cols, rows, cwd, shell, theme_mode, on_data, on_exit)
-            .map(|(s, _)| s)
+        session::spawn(
+            id, app, cols, rows, cwd, shell, theme_mode, on_data, on_exit, owner_label,
+        )
+        .map(|(s, _)| s)
     })
     .await
     .map_err(|e| {
@@ -204,6 +208,18 @@ pub fn pty_has_foreground_process(state: tauri::State<PtyState>, id: u32) -> Res
     if shell_pid == 0 {
         return Ok(false);
     }
+    // The Job Object knows the whole tree: cmd -> node -> npm shows up here,
+    // where a direct-children scan misses it.
+    #[cfg(windows)]
+    if let Some(job) = session.job.as_ref() {
+        return match job.process_count() {
+            Ok(count) => Ok(count > 1),
+            Err(e) => {
+                log::debug!("job process_count failed id={id}: {e}");
+                Ok(shell_has_children(shell_pid))
+            }
+        };
+    }
     Ok(shell_has_children(shell_pid))
 }
 
@@ -228,6 +244,15 @@ pub fn pty_has_foreground_job(state: tauri::State<PtyState>, id: u32) -> Result<
     }
     #[cfg(windows)]
     {
+        if let Some(job) = session.job.as_ref() {
+            return match job.process_count() {
+                Ok(count) => Ok(count > 1),
+                Err(e) => {
+                    log::debug!("job process_count failed id={id}: {e}");
+                    Ok(shell_has_children(shell_pid))
+                }
+            };
+        }
         Ok(shell_has_children(shell_pid))
     }
 }
@@ -276,6 +301,32 @@ fn shell_has_children(shell_pid: u32) -> bool {
 
 // A fresh webview load orphans the previous frontend's sessions in this still
 // running process; reap them on boot before any new tab spawns.
+/// Reap sessions owned by a destroyed webview (secondary windows): the JS
+/// that would call pty_close is gone with the page.
+#[tauri::command]
+pub fn pty_reap_for_label(state: tauri::State<PtyState>, label: String) -> Result<usize, String> {
+    let drained: Vec<(u32, Arc<Session>)> = state
+        .sessions
+        .write()
+        .unwrap()
+        .extract_if(|_, s| s.owner_label == label)
+        .collect();
+    let count = drained.len();
+    for (id, s) in drained {
+        if let Err(e) = s.killer.lock().unwrap().kill() {
+            log::debug!("pty_reap_for_label: kill id={id} returned {e}");
+        }
+        thread::Builder::new()
+            .name(format!("kite-pty-drop-{id}"))
+            .spawn(move || session::drop_session(s))
+            .expect("spawn pty drop thread");
+    }
+    if count > 0 {
+        log::info!("pty_reap_for_label({label}): reaped {count} session(s)");
+    }
+    Ok(count)
+}
+
 #[tauri::command]
 pub fn pty_close_all(state: tauri::State<PtyState>) -> Result<usize, String> {
     let drained: Vec<(u32, Arc<Session>)> = {

@@ -22,11 +22,17 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
+ureq = "3"
+# Pin the webview: a shared-dep resolution bump (ureq etc.) must not drag
+# the renderer to a version the app has never shipped with.
+wry = "=0.55.1"
 serde_json = "1"
 portable-pty = "0.9"
 dirs = "6"
 log = "0.4"
+tauri-plugin-global-shortcut = "=2.4.1"
 tauri-plugin-log = "2"
+tauri-plugin-notification = "=2.4.0"
 tauri-plugin-os = "2"
 tauri-plugin-store = "2"
 

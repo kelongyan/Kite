@@ -3,6 +3,7 @@ import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { useMessages } from "@/modules/i18n";
 import type { Tab } from "@/modules/tabs";
+import type { ShellChoice } from "@/modules/terminal/lib/shells";
 import { TabBar } from "@/modules/tabs";
 import { CommandIcon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -13,6 +14,7 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
+  onNewWithShell?: (shell: ShellChoice) => void;
   onClose: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
@@ -32,6 +34,7 @@ export function Header({
   activeId,
   onSelect,
   onNew,
+  onNewWithShell,
   onClose,
   onRename,
   onReorder,
@@ -128,6 +131,7 @@ export function Header({
           activeId={activeId}
           onSelect={onSelect}
           onNew={onNew}
+          onNewWithShell={onNewWithShell}
           onClose={onClose}
           onRename={onRename}
           onReorder={onReorder}

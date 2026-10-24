@@ -3,12 +3,15 @@ import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
 import {
   Cancel01Icon,
+  Maximize02Icon,
+  Grid2X2Icon,
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
   PaintBoardIcon,
   Settings01Icon,
   TerminalIcon,
+  WindowsNewIcon,
 } from "@hugeicons/core-free-icons";
 import type { PaletteItem } from "./types";
 
@@ -21,9 +24,12 @@ export type CommandPaletteActionContext = {
   tabs: Tab[];
   activeId: number;
   openNewTab: () => void;
+  openNewWindow: () => void;
   closeActiveTabOrPane: () => void;
   splitPaneRight: () => void;
   splitPaneDown: () => void;
+  toggleZoomPane: () => void;
+  equalizePanes: () => void;
   openSettings: () => void;
   openKeyboardShortcuts: () => void;
 };
@@ -51,6 +57,10 @@ export function createCommandItems(
       : undefined;
   const closeDisabled =
     onlyOneTab && activePaneCount < 2 ? messages.disabled.lastTab : undefined;
+  const singlePaneDisabled =
+    !activeTerminalTab || activePaneCount < 2
+      ? messages.disabled.singlePane
+      : undefined;
 
   const command = (key: CommandMessageKey) => {
     const localized = messages.commands[key];
@@ -91,6 +101,13 @@ export function createCommandItems(
     },
 
     {
+      id: "window.new",
+      ...item("newWindow", "General"),
+      icon: WindowsNewIcon,
+      shortcutId: "window.new",
+      run: ctx.openNewWindow,
+    },
+    {
       id: "tab.new",
       ...item("newTerminal", "Tabs"),
       icon: TerminalIcon,
@@ -120,6 +137,27 @@ export function createCommandItems(
       shortcutId: "pane.splitDown",
       disabledReason: splitDisabled,
       run: ctx.splitPaneDown,
+    },
+    {
+      id: "pane.zoom",
+      ...item("toggleZoomPane", "Panes"),
+      icon: Maximize02Icon,
+      shortcutId: "pane.toggleZoom",
+      disabledReason: singlePaneDisabled,
+      run: ctx.toggleZoomPane,
+    },
+    {
+      id: "pane.equalize",
+      ...item("equalizePanes", "Panes"),
+      icon: Grid2X2Icon,
+      disabledReason: singlePaneDisabled,
+      run: ctx.equalizePanes,
+    },
+    {
+      id: "tab.newWithShell",
+      ...item("newTerminalWithShell", "Tabs"),
+      icon: TerminalIcon,
+      run: () => {},
     },
   ];
 }

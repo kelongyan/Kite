@@ -2,6 +2,7 @@ import {
   findLeafCwd,
   hasLeaf,
   leafIds,
+  MAX_PANES_PER_TAB,
   nextLeafId,
   type PaneNode,
   removeLeaf,
@@ -14,9 +15,7 @@ import { disposeSession } from "@/modules/terminal/lib/useTerminalSession";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TERMINAL_DEFAULT_TITLE } from "./tabLabel";
 
-// Capped below the global renderer pool (5 slots) so a single tab cannot claim
-// every slot. Panes across tabs still compete, and eviction handles that.
-export const MAX_PANES_PER_TAB = 4;
+export { MAX_PANES_PER_TAB };
 
 export type TerminalTab = {
   /** Not yet activated: rendered as a placeholder, no PTY spawned. */
@@ -25,8 +24,12 @@ export type TerminalTab = {
   kind: "terminal";
   title: string;
   cwd?: string;
+  /** Enumerated shell id used by panes spawned into this tab. */
+  shell?: string;
   paneTree: PaneNode;
   activeLeafId: number;
+  /** Set while one pane is maximized: siblings stay alive but unmounted. */
+  zoomedLeafId?: number;
   /** User-set label that overrides the cwd-derived name. Survives cd. */
   customTitle?: string;
 };
@@ -74,7 +77,13 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         cold: true,
         title: initial?.title ?? TERMINAL_DEFAULT_TITLE,
         cwd: initial?.cwd,
-        paneTree: { kind: "leaf", id: leafId, cwd: initial?.cwd },
+        shell: initial?.shell,
+        paneTree: {
+          kind: "leaf",
+          id: leafId,
+          cwd: initial?.cwd,
+          ...(initial?.shell !== undefined && { shell: initial.shell }),
+        },
         activeLeafId: leafId,
       },
     ];
@@ -134,7 +143,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     [],
   );
 
-  const newTab = useCallback((cwd?: string) => {
+  const newTab = useCallback((cwd?: string, shell?: string) => {
     const tabId = nextIdRef.current++;
     const leafId = nextIdRef.current++;
     setTabs((t) => [
@@ -144,7 +153,13 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         kind: "terminal",
         title: TERMINAL_DEFAULT_TITLE,
         cwd,
-        paneTree: { kind: "leaf", id: leafId, cwd },
+        shell,
+        paneTree: {
+          kind: "leaf",
+          id: leafId,
+          cwd,
+          ...(shell !== undefined && { shell }),
+        },
         activeLeafId: leafId,
       },
     ]);
@@ -260,8 +275,14 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             leafId,
             dir,
             t.cwd,
+            t.shell,
           );
-          return { ...t, paneTree, activeLeafId: leafId };
+          return {
+            ...t,
+            paneTree,
+            activeLeafId: leafId,
+            zoomedLeafId: undefined,
+          };
         }),
       );
       return newLeafId;
@@ -357,10 +378,31 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setTabs((prev) => reorderTabsByGap(prev, fromId, toGapIndex));
   }, []);
 
+  /** Zoom one pane of a tab (tmux `z`): siblings unmount, PTYs stay alive. */
+  const toggleZoomPane = useCallback((tabId: number, leafId?: number) => {
+    setTabs((curr) =>
+      curr.map((t) => {
+        if (t.id !== tabId || t.kind !== "terminal") return t;
+        if (t.zoomedLeafId !== undefined) {
+          return { ...t, zoomedLeafId: undefined };
+        }
+        const target = leafId ?? t.activeLeafId;
+        if (!hasLeaf(t.paneTree, target)) return t;
+        return {
+          ...t,
+          activeLeafId: target,
+          zoomedLeafId: target,
+        };
+      }),
+    );
+  }, []);
+
   return {
     tabs,
     activeId,
     setActiveId,
+    /** False until the launch cwd resolved; gates session-layout persistence. */
+    booted,
     allocId,
     replaceTabs,
     reorderTab,
@@ -377,5 +419,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
+    toggleZoomPane,
   };
 }

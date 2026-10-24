@@ -11,6 +11,7 @@ import {
   type TerminalCursorSmoothCaretAnimation,
 } from "@/modules/terminal/lib/cursorMotion";
 import {
+  coerceTerminalCursorAnimation,
   DEFAULT_TERMINAL_CURSOR_ANIMATION,
   DEFAULT_TERMINAL_CURSOR_SHAPE,
   DEFAULT_TERMINAL_CURSOR_WIDTH,
@@ -18,6 +19,7 @@ import {
   type TerminalCursorShape,
   type TerminalCursorWidth,
 } from "@/modules/terminal/lib/cursorStyle";
+import type { TerminalLinkActivation } from "@/modules/terminal/lib/linkPolicy";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
@@ -28,6 +30,13 @@ export type Preferences = {
   themeId: string;
   restoreWindowState: boolean;
   terminalWebglEnabled: boolean;
+  terminalLinkActivation: TerminalLinkActivation;
+  terminalCopyOnSelect: boolean;
+  terminalRightClickPaste: boolean;
+  terminalTrimCopyWhitespace: boolean;
+  terminalPasteGuard: boolean;
+  terminalBellNotify: boolean;
+  terminalCommandNotify: boolean;
   terminalCursorShape: TerminalCursorShape;
   terminalCursorAnimation: TerminalCursorAnimation;
   terminalCursorWidth: TerminalCursorWidth;
@@ -40,6 +49,8 @@ export type Preferences = {
   terminalFontSize: number;
   terminalScrollback: number;
   zoomLevel: number;
+  sessionRestore: boolean;
+  quakeEnabled: boolean;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
 };
 
@@ -49,6 +60,14 @@ const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
+const KEY_TERMINAL_LINK_ACTIVATION = "terminalLinkActivation";
+const KEY_TERMINAL_COPY_ON_SELECT = "terminalCopyOnSelect";
+const KEY_TERMINAL_RIGHT_CLICK_PASTE = "terminalRightClickPaste";
+const KEY_TERMINAL_TRIM_COPY_WHITESPACE = "terminalTrimCopyWhitespace";
+const KEY_TERMINAL_PASTE_GUARD = "terminalPasteGuard";
+const KEY_TERMINAL_BELL_NOTIFY = "terminalBellNotify";
+const KEY_TERMINAL_COMMAND_NOTIFY = "terminalCommandNotify";
+const KEY_TERMINAL_CURSOR_ANIMATION = "terminalCursorAnimation";
 const KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION =
   "terminalCursorSmoothCaretAnimation";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
@@ -59,6 +78,10 @@ const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_ZOOM_LEVEL = "zoomLevel";
+const KEY_SESSION_RESTORE = "sessionRestore";
+const KEY_QUAKE_ENABLED = "quakeEnabled";
+/** Layout-only session snapshot; owned by the main window, never synced. */
+const KEY_SESSION_LAYOUT = "sessionLayout";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_VERSION = "_version";
 const REMOVED_BACKGROUND_KEYS = [
@@ -106,11 +129,32 @@ export const TERMINAL_SCROLLBACK_PRESETS = [
   500, 1000, 2000, 5000, 10_000, 25_000,
 ] as const;
 
+const LINK_ACTIVATION_VALUES: readonly TerminalLinkActivation[] = [
+  "ctrlClick",
+  "direct",
+];
+
+export function coerceTerminalLinkActivation(
+  value: unknown,
+): TerminalLinkActivation {
+  return typeof value === "string" &&
+    (LINK_ACTIVATION_VALUES as readonly string[]).includes(value)
+    ? (value as TerminalLinkActivation)
+    : "ctrlClick";
+}
+
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   themeId: DEFAULT_THEME_ID,
   restoreWindowState: true,
   terminalWebglEnabled: true,
+  terminalLinkActivation: "ctrlClick",
+  terminalCopyOnSelect: false,
+  terminalRightClickPaste: false,
+  terminalTrimCopyWhitespace: false,
+  terminalPasteGuard: true,
+  terminalBellNotify: false,
+  terminalCommandNotify: false,
   terminalCursorShape: DEFAULT_TERMINAL_CURSOR_SHAPE,
   terminalCursorAnimation: DEFAULT_TERMINAL_CURSOR_ANIMATION,
   terminalCursorWidth: DEFAULT_TERMINAL_CURSOR_WIDTH,
@@ -124,6 +168,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
   zoomLevel: 1.0,
+  sessionRestore: false,
+  quakeEnabled: false,
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
 };
 
@@ -316,8 +362,31 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalWebglEnabled:
       get<boolean>(KEY_TERMINAL_WEBGL_ENABLED) ??
       DEFAULT_PREFERENCES.terminalWebglEnabled,
+    terminalLinkActivation: coerceTerminalLinkActivation(
+      get<unknown>(KEY_TERMINAL_LINK_ACTIVATION),
+    ),
+    terminalCopyOnSelect:
+      get<boolean>(KEY_TERMINAL_COPY_ON_SELECT) ??
+      DEFAULT_PREFERENCES.terminalCopyOnSelect,
+    terminalRightClickPaste:
+      get<boolean>(KEY_TERMINAL_RIGHT_CLICK_PASTE) ??
+      DEFAULT_PREFERENCES.terminalRightClickPaste,
+    terminalTrimCopyWhitespace:
+      get<boolean>(KEY_TERMINAL_TRIM_COPY_WHITESPACE) ??
+      DEFAULT_PREFERENCES.terminalTrimCopyWhitespace,
+    terminalPasteGuard:
+      get<boolean>(KEY_TERMINAL_PASTE_GUARD) ??
+      DEFAULT_PREFERENCES.terminalPasteGuard,
+    terminalBellNotify:
+      get<boolean>(KEY_TERMINAL_BELL_NOTIFY) ??
+      DEFAULT_PREFERENCES.terminalBellNotify,
+    terminalCommandNotify:
+      get<boolean>(KEY_TERMINAL_COMMAND_NOTIFY) ??
+      DEFAULT_PREFERENCES.terminalCommandNotify,
     terminalCursorShape: DEFAULT_PREFERENCES.terminalCursorShape,
-    terminalCursorAnimation: DEFAULT_PREFERENCES.terminalCursorAnimation,
+    terminalCursorAnimation: coerceTerminalCursorAnimation(
+      get<unknown>(KEY_TERMINAL_CURSOR_ANIMATION),
+    ),
     terminalCursorWidth: DEFAULT_PREFERENCES.terminalCursorWidth,
     terminalCursorSmoothCaretAnimation:
       coerceTerminalCursorSmoothCaretAnimation(
@@ -346,6 +415,11 @@ export async function loadPreferences(): Promise<Preferences> {
         DEFAULT_PREFERENCES.terminalScrollback,
     ),
     zoomLevel: get<number>(KEY_ZOOM_LEVEL) ?? DEFAULT_PREFERENCES.zoomLevel,
+    sessionRestore:
+      get<boolean>(KEY_SESSION_RESTORE) ??
+      DEFAULT_PREFERENCES.sessionRestore,
+    quakeEnabled:
+      get<boolean>(KEY_QUAKE_ENABLED) ?? DEFAULT_PREFERENCES.quakeEnabled,
     shortcuts:
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
@@ -362,6 +436,49 @@ export async function setThemeId(value: string): Promise<void> {
 
 export async function setTerminalWebglEnabled(value: boolean): Promise<void> {
   await writePref(KEY_TERMINAL_WEBGL_ENABLED, value);
+}
+
+export async function setTerminalLinkActivation(
+  value: TerminalLinkActivation,
+): Promise<void> {
+  await writePref(KEY_TERMINAL_LINK_ACTIVATION, coerceTerminalLinkActivation(value));
+}
+
+export async function setTerminalCopyOnSelect(value: boolean): Promise<void> {
+  await writePref(KEY_TERMINAL_COPY_ON_SELECT, value);
+}
+
+export async function setTerminalRightClickPaste(
+  value: boolean,
+): Promise<void> {
+  await writePref(KEY_TERMINAL_RIGHT_CLICK_PASTE, value);
+}
+
+export async function setTerminalTrimCopyWhitespace(
+  value: boolean,
+): Promise<void> {
+  await writePref(KEY_TERMINAL_TRIM_COPY_WHITESPACE, value);
+}
+
+export async function setTerminalPasteGuard(value: boolean): Promise<void> {
+  await writePref(KEY_TERMINAL_PASTE_GUARD, value);
+}
+
+export async function setTerminalBellNotify(value: boolean): Promise<void> {
+  await writePref(KEY_TERMINAL_BELL_NOTIFY, value);
+}
+
+export async function setTerminalCommandNotify(value: boolean): Promise<void> {
+  await writePref(KEY_TERMINAL_COMMAND_NOTIFY, value);
+}
+
+export async function setTerminalCursorAnimation(
+  value: TerminalCursorAnimation,
+): Promise<void> {
+  await writePref(
+    KEY_TERMINAL_CURSOR_ANIMATION,
+    coerceTerminalCursorAnimation(value),
+  );
 }
 
 export async function setTerminalCursorSmoothCaretAnimation(
@@ -436,6 +553,24 @@ export async function setRestoreWindowState(value: boolean): Promise<void> {
   await writePref(KEY_RESTORE_WINDOW, value);
 }
 
+export async function setSessionRestore(value: boolean): Promise<void> {
+  await writePref(KEY_SESSION_RESTORE, value);
+}
+
+export async function setQuakeEnabled(value: boolean): Promise<void> {
+  await writePref(KEY_QUAKE_ENABLED, value);
+}
+
+/** Layout-only snapshot: stored directly, no cross-window change event. */
+export async function saveSessionLayout(layout: unknown): Promise<void> {
+  await store.set(KEY_SESSION_LAYOUT, layout);
+  await store.save();
+}
+
+export async function loadSessionLayout(): Promise<unknown> {
+  return (await store.get<unknown>(KEY_SESSION_LAYOUT)) ?? null;
+}
+
 export async function setShortcuts(
   value: Partial<Record<ShortcutId, KeyBinding[]>>,
 ): Promise<void> {
@@ -457,6 +592,14 @@ export async function onPreferencesChange(
     [KEY_THEME_ID]: "themeId",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
+    [KEY_TERMINAL_LINK_ACTIVATION]: "terminalLinkActivation",
+    [KEY_TERMINAL_COPY_ON_SELECT]: "terminalCopyOnSelect",
+    [KEY_TERMINAL_RIGHT_CLICK_PASTE]: "terminalRightClickPaste",
+    [KEY_TERMINAL_TRIM_COPY_WHITESPACE]: "terminalTrimCopyWhitespace",
+    [KEY_TERMINAL_PASTE_GUARD]: "terminalPasteGuard",
+    [KEY_TERMINAL_BELL_NOTIFY]: "terminalBellNotify",
+    [KEY_TERMINAL_COMMAND_NOTIFY]: "terminalCommandNotify",
+    [KEY_TERMINAL_CURSOR_ANIMATION]: "terminalCursorAnimation",
     [KEY_TERMINAL_CURSOR_SMOOTH_CARET_ANIMATION]:
       "terminalCursorSmoothCaretAnimation",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
@@ -467,6 +610,8 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
+    [KEY_SESSION_RESTORE]: "sessionRestore",
+    [KEY_QUAKE_ENABLED]: "quakeEnabled",
     [KEY_SHORTCUTS]: "shortcuts",
   };
   // Same-process writes still fire onChange immediately; cross-window writes

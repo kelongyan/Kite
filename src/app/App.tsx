@@ -25,9 +25,32 @@ import {
   disposeSession,
   hasLeaf,
   leafIds,
+  type PaneCommand,
   type TerminalPaneHandle,
   useTerminalFileDrop,
 } from "@/modules/terminal";
+import { equalizePaneTree } from "@/modules/terminal/PaneTreeView";
+import {
+  listTerminalShells,
+  type ShellChoice,
+} from "@/modules/terminal/lib/shells";
+import { onTerminalActivity } from "@/modules/terminal/lib/terminalActivity";
+import {
+  deliverTerminalNotification,
+  type TerminalNotificationTexts,
+} from "@/modules/terminal/lib/terminalNotifications";
+import { usePreferencesStore } from "@/modules/settings/preferences";
+import { useTabActivityStore } from "@/modules/tabs/lib/tabActivityStore";
+import {
+  buildTabsFromLayout,
+  parseSessionLayout,
+  serializeSessionLayout,
+} from "@/modules/tabs/lib/sessionLayout";
+import { saveSessionLayout, loadSessionLayout } from "@/modules/settings/store";
+import { applyQuakePreference } from "@/modules/quake/quake";
+import { invoke } from "@tauri-apps/api/core";
+import { useTerminalSearchStore } from "@/modules/terminal/lib/terminalSearchStore";
+import { PasteGuardDialog } from "@/modules/terminal/PasteGuardDialog";
 import { ThemeProvider } from "@/modules/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
@@ -55,12 +78,18 @@ export default function App() {
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
+    toggleZoomPane,
+    booted,
+    allocId,
+    replaceTabs,
   } = useTabs(initialLaunchDir ? { cwd: initialLaunchDir } : undefined);
 
   // Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
   // (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const { zoomIn, zoomOut, zoomReset } = useZoom();
@@ -107,6 +136,17 @@ export default function App() {
   }, [launchCwd, homeResolved, markBooted]);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shellChoices, setShellChoices] = useState<ShellChoice[]>([]);
+  useEffect(() => {
+    if (!commandPaletteOpen || shellChoices.length > 0) return;
+    let cancelled = false;
+    void listTerminalShells().then((list) => {
+      if (!cancelled) setShellChoices(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [commandPaletteOpen, shellChoices.length]);
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
@@ -173,6 +213,114 @@ export default function App() {
     newTab(inheritedCwdForNewTab());
   }, [newTab, inheritedCwdForNewTab]);
 
+  const openNewTabWithShell = useCallback(
+    (shell: ShellChoice) => {
+      newTab(inheritedCwdForNewTab(), shell.path);
+    },
+    [newTab, inheritedCwdForNewTab],
+  );
+
+  // Secondary windows spawn with the active tab's cwd in the URL query.
+  const openNewWindow = useCallback(() => {
+    const cwd = tabsRef.current.find((t) => t.id === activeIdRef.current)?.cwd;
+    void invoke("open_new_window", { cwd: cwd ?? null }).catch((e) =>
+      console.error("[kite] open_new_window failed:", e),
+    );
+  }, []);
+
+  // Notification wording is resolved through the i18n bundle once here so the
+  // non-React delivery path stays free of message lookups.
+  const notificationTexts = useMemo<TerminalNotificationTexts>(
+    () => ({
+      appTitle: "Kite",
+      bellFallback: messages.mainShell.notifications.bellFallback,
+      commandFinished: messages.mainShell.notifications.commandFinished,
+    }),
+    [messages],
+  );
+
+  const toggleZoomInActiveTab = useCallback(() => {
+    toggleZoomPane(activeId);
+  }, [activeId, toggleZoomPane]);
+
+  const equalizeActiveTabPanes = useCallback(() => {
+    const t = tabsRef.current.find((x) => x.id === activeId);
+    if (t?.kind === "terminal") equalizePaneTree(t.paneTree);
+  }, [activeId]);
+
+  // Terminal activity: badge background tabs with output, and deliver bell /
+  // command-finished notifications when the user is not watching the pane.
+  useEffect(() => {
+    const { markActive } = useTabActivityStore.getState();
+    return onTerminalActivity((activity) => {
+      const tab = tabsRef.current.find(
+        (t) =>
+          t.kind === "terminal" && hasLeaf(t.paneTree, activity.leafId),
+      );
+      if (!tab) return;
+      if (activity.kind === "output") {
+        if (tab.id !== activeIdRef.current) markActive(tab.id);
+        return;
+      }
+      deliverTerminalNotification(
+        activity.kind,
+        {
+          windowFocused: document.hasFocus(),
+          tabActive: tab.id === activeIdRef.current,
+        },
+        notificationTexts,
+        activity.message,
+      );
+    });
+  }, [notificationTexts]);
+
+  // Switching to a tab acknowledges its activity dot.
+  useEffect(() => {
+    useTabActivityStore.getState().clear(activeId);
+  }, [activeId]);
+
+  // Quake global hotkey follows the preference (register/unregister).
+  const quakeEnabled = usePreferencesStore((s) => s.quakeEnabled);
+  useEffect(() => {
+    void applyQuakePreference(quakeEnabled);
+  }, [quakeEnabled]);
+
+  // Session restore runs once, before the first tab warms: an explicit launch
+  // directory means the user asked to open a folder, so skip the layout.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    const prefs = usePreferencesStore.getState();
+    if (!prefs.hydrated) return;
+    restoredRef.current = true;
+    if (!prefs.sessionRestore || initialLaunchDir) return;
+    void loadSessionLayout()
+      .then((raw) => {
+        const layout = parseSessionLayout(raw);
+        if (!layout) return;
+        const built = buildTabsFromLayout(layout, allocId);
+        replaceTabs(built.tabs, built.activeId);
+      })
+      .catch((e) => console.warn("[kite] session restore failed:", e));
+  }, [allocId, replaceTabs, initialLaunchDir]);
+
+  // Persist the layout (structure, cwd, shell — not buffer contents) behind a
+  // short debounce; OSC 7 cwd updates already bail out of setTabs when idle.
+  // tabs/activeId are deliberate re-save signals; refs inside read the latest.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional re-save triggers
+  useEffect(() => {
+    if (!booted) return;
+    if (!usePreferencesStore.getState().sessionRestore) return;
+    const timer = setTimeout(() => {
+      const layout = serializeSessionLayout(
+        tabsRef.current,
+        activeIdRef.current,
+      );
+      if (layout) void saveSessionLayout(layout);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [tabs, activeId, booted]);
+
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
       const t = tabsRef.current.find((x) => x.id === activeId);
@@ -191,11 +339,42 @@ export default function App() {
     void handleClose(activeId);
   }, [activeId, closeActivePane, handleClose]);
 
+  // Pane context-menu commands. Reads the tab set from the ref so the menu can
+  // act on the pane it was opened on, even before its focus change settles.
+  const handlePaneCommand = useCallback(
+    (leafId: number, command: PaneCommand) => {
+      const tab = tabsRef.current.find(
+        (t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+      );
+      if (tab?.kind !== "terminal") return;
+      if (command === "close") {
+        if (leafIds(tab.paneTree).length > 1) {
+          closePaneByLeaf(leafId);
+          return;
+        }
+        void handleClose(tab.id);
+        return;
+      }
+      if (command === "zoom") {
+        toggleZoomPane(tab.id, leafId);
+        return;
+      }
+      if (command === "equalize") {
+        equalizePaneTree(tab.paneTree);
+        return;
+      }
+      focusPane(tab.id, leafId);
+      splitActivePane(tab.id, command === "splitRight" ? "row" : "col");
+    },
+    [closePaneByLeaf, handleClose, focusPane, splitActivePane, toggleZoomPane],
+  );
+
   const [zenMode, setZenMode] = useState(false);
 
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
       "commandPalette.open": openCommandPalette,
+      "window.new": openNewWindow,
       "tab.new": openNewTab,
       "tab.close": handleCloseTabOrPane,
       "tab.next": () => stepSwitcher(1),
@@ -205,8 +384,14 @@ export default function App() {
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
       "pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
+      "pane.toggleZoom": toggleZoomInActiveTab,
       "terminal.clear": () => {
         clearFocusedTerminal();
+      },
+      "terminal.find": () => {
+        const search = useTerminalSearchStore.getState();
+        if (search.open) search.closeSearch();
+        else search.openSearch();
       },
       "settings.open": () => void openSettingsWindow(),
       "view.zoomIn": zoomIn,
@@ -217,12 +402,14 @@ export default function App() {
     [
       activeId,
       openCommandPalette,
+      openNewWindow,
       stepSwitcher,
       handleCloseTabOrPane,
       openNewTab,
       selectByIndex,
       splitActivePaneInActiveTab,
       focusNextPaneInTab,
+      toggleZoomInActiveTab,
       zoomIn,
       zoomOut,
       zoomReset,
@@ -235,6 +422,16 @@ export default function App() {
       // fall through (we never preventDefault when disabled).
       const target = (e.target as HTMLElement | null) ?? document.activeElement;
       return !(target as HTMLElement | null)?.closest?.(".xterm");
+    }
+    if (id === "terminal.find") {
+      // Always findable from the terminal; in other editable surfaces (palette,
+      // rename) Ctrl+F keeps its native meaning instead of toggling the bar.
+      const target = (e.target as HTMLElement | null) ?? document.activeElement;
+      if (target?.closest?.(".xterm")) return false;
+      return (
+        !!target?.closest?.("input, textarea, [contenteditable]") &&
+        !target?.closest?.("[data-kite-terminal-search]")
+      );
     }
     return false;
   }, []);
@@ -291,9 +488,12 @@ export default function App() {
               tabs,
               activeId,
               openNewTab,
+              openNewWindow,
               closeActiveTabOrPane: handleCloseTabOrPane,
               splitPaneRight: () => splitActivePaneInActiveTab("row"),
               splitPaneDown: () => splitActivePaneInActiveTab("col"),
+              toggleZoomPane: toggleZoomInActiveTab,
+              equalizePanes: equalizeActiveTabPanes,
               openSettings: () => void openSettingsWindow(),
               openKeyboardShortcuts: () => void openSettingsWindow("shortcuts"),
             },
@@ -305,8 +505,11 @@ export default function App() {
       tabs,
       activeId,
       openNewTab,
+      openNewWindow,
       handleCloseTabOrPane,
       splitActivePaneInActiveTab,
+      toggleZoomInActiveTab,
+      equalizeActiveTabPanes,
       messages,
     ],
   );
@@ -321,6 +524,7 @@ export default function App() {
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
+              onNewWithShell={openNewTabWithShell}
               onClose={handleClose}
               onRename={handleRenameTab}
               onReorder={reorderTabByGap}
@@ -341,6 +545,7 @@ export default function App() {
                 onCwd={handleTerminalCwd}
                 onExit={handleLeafExit}
                 onFocusLeaf={handleFocusLeaf}
+                onPaneCommand={handlePaneCommand}
               />
             </div>
           </main>
@@ -360,6 +565,8 @@ export default function App() {
             open={commandPaletteOpen}
             onOpenChange={setCommandPaletteOpen}
             commandItems={commandPaletteItems}
+            shellChoices={shellChoices}
+            onNewTerminalWithShell={openNewTabWithShell}
           />
 
           <CloseDialogs
@@ -367,6 +574,8 @@ export default function App() {
             onCancelTerminalClose={cancelTerminalClose}
             onConfirmTerminalClose={confirmTerminalClose}
           />
+
+          <PasteGuardDialog />
         </div>
       </TooltipProvider>
     </ThemeProvider>

@@ -4,6 +4,8 @@ import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
 import { SerializeAddon } from "@xterm/addon-serialize";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { type FontWeight, type ITheme, Terminal } from "@xterm/xterm";
@@ -51,12 +53,21 @@ import {
   terminalLineNavigationSequence,
   terminalWordNavigationSequence,
 } from "./keymap";
+import { isSafeLinkUri, shouldActivateLink } from "./linkPolicy";
 import { formatOscColorReply } from "./osc-handlers";
 import type { PtyInput } from "./ptyInput";
+import { usePasteGuardStore } from "./pasteGuardStore";
+import {
+  countPasteLines,
+  pastePreview,
+  shouldConfirmPaste,
+  trimSelectionForCopy,
+} from "./clipboardPolicy";
 import {
   isNoopSynchronizedOutputFrame,
   shouldDropNoopSynchronizedOutput,
 } from "./synchronizedOutput";
+import { emitTerminalActivity } from "./terminalActivity";
 import {
   readTerminalClipboard,
   writeTerminalClipboard,
@@ -71,6 +82,7 @@ import {
   traceTerminalWheel,
   wheelDiagnosticsEnabled,
 } from "./wheelDiagnostics";
+import type { SearchDecorationColors } from "./searchColors";
 
 const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -101,6 +113,7 @@ export type Slot = {
   readonly term: Terminal;
   readonly fitAddon: FitAddon;
   readonly serializeAddon: SerializeAddon;
+  readonly searchAddon: SearchAddon;
   readonly host: HTMLDivElement;
   webglAddon: WebglAddon | null;
   webglCanvases: HTMLCanvasElement[];
@@ -257,6 +270,140 @@ export function pasteIntoLeaf(leafId: number, text: string): boolean {
   return true;
 }
 
+function copySlotSelection(slot: Slot, options?: { silent?: boolean }): boolean {
+  if (!slot.term.hasSelection()) return false;
+  const selection = slot.term.getSelection();
+  if (!selection) return false;
+  const text = trimSelectionForCopy(
+    selection,
+    usePreferencesStore.getState().terminalTrimCopyWhitespace,
+  );
+  void writeTerminalClipboard(text);
+  if (!options?.silent) {
+    slot.term.element?.dispatchEvent(
+      new CustomEvent("terminal:copied", { bubbles: true }),
+    );
+  }
+  return true;
+}
+
+export function leafHasSelection(leafId: number): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  return !!slot?.term.hasSelection();
+}
+
+export function copyLeafSelection(leafId: number): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  return slot ? copySlotSelection(slot) : false;
+}
+
+export function clearLeafTerminal(leafId: number): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return false;
+  slot.term.clear();
+  return true;
+}
+
+// Single-line pastes beyond this size stop at the confirmation dialog (any
+// multiline paste does regardless) when the paste guard preference is on.
+const PASTE_CONFIRM_MAX_CHARS = 2048;
+
+export function requestLeafPaste(leafId: number): void {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (slot) requestSlotPaste(slot);
+}
+
+function requestSlotPaste(slot: Slot): void {
+  const targetLeafId = slot.currentLeafId;
+  if (targetLeafId === null) return;
+  void readTerminalClipboard().then((text) => {
+    if (text && slot.currentLeafId === targetLeafId) {
+      deliverLeafPaste(targetLeafId, text);
+    }
+  });
+}
+
+/** Paste into a leaf, routing through the confirmation dialog when guarded. */
+function deliverLeafPaste(leafId: number, text: string): void {
+  const reason = usePreferencesStore.getState().terminalPasteGuard
+    ? shouldConfirmPaste(text, {
+        multiline: true,
+        maxChars: PASTE_CONFIRM_MAX_CHARS,
+      })
+    : null;
+  if (reason) {
+    usePasteGuardStore.getState().request({
+      leafId,
+      text,
+      reason,
+      lines: countPasteLines(text),
+      chars: text.length,
+      preview: pastePreview(text),
+    });
+    return;
+  }
+  pasteIntoLeaf(leafId, text);
+}
+
+export type LeafSearchOptions = {
+  direction: 1 | -1;
+  caseSensitive: boolean;
+  incremental?: boolean;
+  decorations?: SearchDecorationColors;
+};
+
+export function searchLeaf(
+  leafId: number,
+  query: string,
+  options: LeafSearchOptions,
+): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return false;
+  const searchOptions: ISearchOptions = {
+    caseSensitive: options.caseSensitive,
+    incremental: options.incremental,
+    ...(options.decorations && { decorations: options.decorations }),
+  };
+  try {
+    return options.direction === 1
+      ? slot.searchAddon.findNext(query, searchOptions)
+      : slot.searchAddon.findPrevious(query, searchOptions);
+  } catch (e) {
+    console.warn("[kite] terminal search failed:", e);
+    return false;
+  }
+}
+
+export function clearLeafSearch(leafId: number): void {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return;
+  try {
+    slot.searchAddon.clearActiveDecoration();
+    slot.searchAddon.clearDecorations();
+  } catch {}
+}
+
+type LeafSearchResultsListener = (
+  leafId: number,
+  event: { resultIndex: number; resultCount: number },
+) => void;
+const leafSearchResultsListeners = new Set<LeafSearchResultsListener>();
+
+/** Fires for the leaf that owns the slot whose search results changed. */
+export function onLeafSearchResults(
+  listener: LeafSearchResultsListener,
+): () => void {
+  leafSearchResultsListeners.add(listener);
+  return () => leafSearchResultsListeners.delete(listener);
+}
+
+function notifyLeafSearchResults(
+  leafId: number,
+  event: { resultIndex: number; resultCount: number },
+): void {
+  for (const listener of leafSearchResultsListeners) listener(leafId, event);
+}
+
 export function writeToSlot(slot: Slot, data: string | Uint8Array): void {
   const alternateScreen = isAltScreen(slot);
   const synchronizedOutputActive = slot.term.modes.synchronizedOutputMode;
@@ -358,16 +505,46 @@ function createSlot(): Slot {
   const term = new Terminal(termOptions());
   const fitAddon = new FitAddon();
   const serializeAddon = new SerializeAddon();
+  const searchAddon = new SearchAddon();
+  // Unicode 11 width tables: emoji and recent CJK additions measure correctly.
+  term.loadAddon(new Unicode11Addon());
+  term.unicode.activeVersion = "11";
   term.loadAddon(fitAddon);
   term.loadAddon(serializeAddon);
-  term.loadAddon(
-    new WebLinksAddon((_e, uri) => openUrl(uri).catch(console.error)),
-  );
+  term.loadAddon(searchAddon);
 
   const host = document.createElement("div");
   host.style.cssText = "position:relative;width:100%;height:100%;";
   host.setAttribute("data-kite-slot", String(slots.length));
   getRecycler().appendChild(host);
+
+  // xterm hands the link activate callback a stale event (the last mousemove),
+  // so modifier state is captured from a real pointerdown instead.
+  let linkModifierHeld = false;
+  const onPointerDown = (e: PointerEvent) => {
+    linkModifierHeld = e.ctrlKey || e.metaKey;
+  };
+  host.addEventListener("pointerdown", onPointerDown, true);
+  // The 0.12 addon pairing with xterm 6 loses the built-in hover affordance,
+  // so hover/leave drive our own pointer cursor on the host.
+  term.loadAddon(
+    new WebLinksAddon(
+      (_event, uri) => {
+        const prefs = usePreferencesStore.getState();
+        if (!shouldActivateLink(linkModifierHeld, prefs.terminalLinkActivation))
+          return;
+        // The handler runs on untrusted terminal output; only opener-safe
+        // schemes ever reach the OS.
+        if (!isSafeLinkUri(uri)) return;
+        openUrl(uri).catch(console.error);
+      },
+      {
+        hover: () => host.classList.add("kite-link-hover"),
+        leave: () => host.classList.remove("kite-link-hover"),
+      },
+    ),
+  );
+
   term.open(host);
 
   const slot: Slot = {
@@ -375,6 +552,7 @@ function createSlot(): Slot {
     term,
     fitAddon,
     serializeAddon,
+    searchAddon,
     host,
     webglAddon: null,
     webglCanvases: [],
@@ -469,41 +647,20 @@ function createSlot(): Slot {
       return false;
     }
     if (isTerminalCopy(event)) {
-      if (event.type === "keydown" && slot.term.hasSelection()) {
-        const sel = slot.term.getSelection();
-        if (sel) {
-          void writeTerminalClipboard(sel);
-          slot.term.element?.dispatchEvent(
-            new CustomEvent("terminal:copied", { bubbles: true }),
-          );
-        }
-      }
+      if (event.type === "keydown") copySlotSelection(slot);
       event.preventDefault();
       return false;
     }
     if (isTerminalSmartCopy(event)) {
       // Ctrl+C with a selection → copy; without a selection → SIGINT passes through.
-      if (event.type === "keydown" && slot.term.hasSelection()) {
-        const sel = slot.term.getSelection();
-        if (sel) {
-          void writeTerminalClipboard(sel);
-          slot.term.element?.dispatchEvent(
-            new CustomEvent("terminal:copied", { bubbles: true }),
-          );
-          event.preventDefault();
-          return false;
-        }
+      if (event.type === "keydown" && copySlotSelection(slot)) {
+        event.preventDefault();
+        return false;
       }
       return true;
     }
     if (isTerminalPaste(event)) {
-      if (event.type === "keydown") {
-        const targetLeafId = slot.currentLeafId;
-        void readTerminalClipboard().then((text) => {
-          if (text && slot.currentLeafId === targetLeafId)
-            slot.term.paste(text);
-        });
-      }
+      if (event.type === "keydown") requestSlotPaste(slot);
       event.preventDefault();
       return false;
     }
@@ -546,6 +703,26 @@ function createSlot(): Slot {
         });
       },
     ),
+  );
+
+  // Copy-on-select mirrors the selection into the clipboard without the
+  // copied bubble: the user never issued an explicit copy command.
+  slot.inputDisposers.push(
+    term.onSelectionChange(() => {
+      if (!usePreferencesStore.getState().terminalCopyOnSelect) return;
+      copySlotSelection(slot, { silent: true });
+    }).dispose,
+    searchAddon.onDidChangeResults((event) => {
+      const leafId = slot.currentLeafId;
+      if (leafId !== null) notifyLeafSearchResults(leafId, event);
+    }).dispose,
+    term.onBell(() => {
+      // Retained (hidden-released) slots keep parsing live output; their
+      // bells are exactly the ones worth surfacing.
+      const leafId = slot.currentLeafId ?? slot.retainedLeafId;
+      if (leafId !== null) emitTerminalActivity({ leafId, kind: "bell" });
+    }).dispose,
+    () => host.removeEventListener("pointerdown", onPointerDown, true),
   );
 
   bindSlotImeAnchorSync(slot);

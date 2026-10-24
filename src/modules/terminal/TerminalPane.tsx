@@ -1,4 +1,5 @@
 import { useMessages } from "@/modules/i18n";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 import { useTheme } from "@/modules/theme";
 import {
   forwardRef,
@@ -11,7 +12,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { CopiedBubble } from "./CopiedBubble";
+import { requestLeafPaste } from "./lib/rendererPool";
+import { useTerminalSearchStore } from "./lib/terminalSearchStore";
 import { useTerminalSession } from "./lib/useTerminalSession";
+import { TerminalSearchBar } from "./TerminalSearchBar";
 
 export type TerminalPaneHandle = {
   write: (data: string) => void;
@@ -28,6 +32,8 @@ type Props = {
   /** This leaf is the active pane within its tab — receives auto-focus. */
   focused?: boolean;
   initialCwd?: string;
+  /** Enumerated shell id for this leaf; undefined = global preference. */
+  shell?: string;
   onExit?: (leafId: number, code: number) => void;
   onCwd?: (leafId: number, cwd: string) => void;
 };
@@ -39,6 +45,7 @@ export const TerminalPane = memo(
       visible,
       focused = true,
       initialCwd,
+      shell,
       onExit,
       onCwd,
     },
@@ -57,6 +64,7 @@ export const TerminalPane = memo(
     const noticeTimerRef = useRef<number | null>(null);
     const clearCopied = useCallback(() => setCopied(null), []);
     const { resolvedMode, themeId, customThemes } = useTheme();
+    const searchOpen = useTerminalSearchStore((s) => s.open);
 
     const session = useTerminalSession({
       leafId,
@@ -64,6 +72,7 @@ export const TerminalPane = memo(
       visible,
       focused,
       initialCwd,
+      shell,
       themeMode: resolvedMode,
       onExit: (c) => onExit?.(leafId, c),
       onCwd: (c) => onCwd?.(leafId, c),
@@ -145,7 +154,19 @@ export const TerminalPane = memo(
             onMouseUp={(e) => {
               mousePosRef.current = { x: e.clientX, y: e.clientY };
             }}
+            onContextMenu={(e) => {
+              // Right-click paste intercepts before the pane context menu
+              // (one level up) can open; both are suppressed, native included.
+              if (!usePreferencesStore.getState().terminalRightClickPaste)
+                return;
+              e.preventDefault();
+              e.stopPropagation();
+              requestLeafPaste(leafId);
+            }}
           />
+          {visible && focused && searchOpen && (
+            <TerminalSearchBar leafId={leafId} />
+          )}
           {!session.started && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center bg-background/70 text-[11px] text-muted-foreground">
               {messages.common.startingShell}

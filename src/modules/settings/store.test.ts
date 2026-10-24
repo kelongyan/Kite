@@ -58,7 +58,7 @@ describe("loadPreferences", () => {
     legacyStoreMock.onChange.mockReset();
   });
 
-  it("uses the fixed terminal cursor defaults instead of legacy cursor preferences", async () => {
+  it("keeps shape and width fixed while honoring the cursor animation preference", async () => {
     const { DEFAULT_PREFERENCES, loadPreferences } = await loadStoreWithEntries(
       [
         ["terminalCursorShape", "block"],
@@ -72,9 +72,21 @@ describe("loadPreferences", () => {
     expect(prefs.terminalCursorShape).toBe(
       DEFAULT_PREFERENCES.terminalCursorShape,
     );
-    expect(prefs.terminalCursorAnimation).toBe("expand");
+    expect(prefs.terminalCursorAnimation).toBe("steady");
     expect(prefs.terminalCursorWidth).toBe(
       DEFAULT_PREFERENCES.terminalCursorWidth,
+    );
+  });
+
+  it("coerces invalid cursor animation preferences to the default", async () => {
+    const { DEFAULT_PREFERENCES, loadPreferences } = await loadStoreWithEntries(
+      [["terminalCursorAnimation", "spin"]],
+    );
+
+    const prefs = await loadPreferences();
+
+    expect(prefs.terminalCursorAnimation).toBe(
+      DEFAULT_PREFERENCES.terminalCursorAnimation,
     );
   });
 

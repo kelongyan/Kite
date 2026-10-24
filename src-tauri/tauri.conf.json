@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "Kite",
-        "width": 800,
-        "height": 600,
+        "width": 1100,
+        "height": 700,
         "minWidth": 420,
         "minHeight": 280,
         "titleBarStyle": "Overlay",
@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "resources": {
       "resources/WebView2Loader.dll": "./"
     },
@@ -69,7 +69,7 @@
     },
     "windows": {
       "webviewInstallMode": {
-        "type": "embedBootstrapper"
+        "type": "skip"
       },
       "nsis": {
         "installMode": "currentUser",
