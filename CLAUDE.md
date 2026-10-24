@@ -128,8 +128,6 @@ home rather than inheriting the active tab's cwd.
 
 Changes to these load-bearing paths **must add or extend a test** that locks the invariant: shell/terminal spawn, launch-directory resolution, the IPC command surface, and pure logic with wide reach (cwd inheritance, tab/split tree transforms, OSC/prompt parsing). UI rendering and themes do not need tests.
 
-Known gap: `src/modules/terminal/lib/panes.ts` has no tests despite being on that list.
-
 ## Code conventions
 
 - **Biome** for linting and formatting: 2-space indent, double quotes, trailing commas, 80-char line width.
