@@ -367,6 +367,7 @@ function FontFamilyField({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [panelRect, setPanelRect] = useState<{
     top: number;
     left: number;
@@ -398,8 +399,20 @@ function FontFamilyField({
     };
     measure();
     // Scrolling the settings surface would detach the panel from the input;
-    // closing keeps the interaction honest instead of letting it float.
-    const closeOnScroll = () => setOpen(false);
+    // closing keeps the interaction honest instead of letting it float. The
+    // panel's own list scroll must stay open: scroll events do not bubble, so
+    // the capture listener on window sees them too and has to filter them out.
+    const closeOnScroll = (e: Event) => {
+      const target = e.target;
+      if (
+        listRef.current &&
+        target instanceof Node &&
+        listRef.current.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
     window.addEventListener("scroll", closeOnScroll, true);
     window.addEventListener("resize", closeOnScroll);
     return () => {
@@ -407,6 +420,15 @@ function FontFamilyField({
       window.removeEventListener("resize", closeOnScroll);
     };
   }, [open]);
+
+  // Keep keyboard-driven highlights inside the panel viewport so arrow keys
+  // can walk past the visible rows.
+  useEffect(() => {
+    if (!open) return;
+    document
+      .getElementById(`${id}-opt-${highlight}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [highlight, open, id]);
 
   const pick = (family: string) => {
     setDraft(family);
@@ -509,10 +531,11 @@ function FontFamilyField({
         panelRect &&
         createPortal(
           <div
+            ref={listRef}
             id={`${id}-listbox`}
             role="listbox"
             aria-label={label}
-            className="kite-popover-motion fixed z-50 max-h-56 overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-lg"
+            className="kite-popover-motion fixed z-50 max-h-56 overscroll-contain overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-lg"
             data-state="open"
             data-side="bottom"
             style={{
