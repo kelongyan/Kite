@@ -19,45 +19,87 @@
     U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* JetBrains Mono — woff2 only (every target webview supports it). */
+/* Kite Mono (bundled JetBrains Mono) — woff2 only (every target webview
+   supports it). Every weight the preferences offer is declared so the WebGL
+   atlas always has a real bold/medium face instead of synthesizing one. The
+   private family name keeps the @font-face from shadowing a system install
+   of the upstream family. */
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: 'Kite Mono';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
   src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: 'Kite Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Mono';
   font-style: normal;
   font-display: swap;
   font-weight: 700;
   src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: 'Kite Mono';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
   src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-cyrillic-400-normal.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: 'Kite Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-cyrillic-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-cyrillic-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Mono';
   font-style: normal;
   font-display: swap;
   font-weight: 700;
   src: url('@fontsource/jetbrains-mono/files/jetbrains-mono-cyrillic-700-normal.woff2') format('woff2');
 }
 
-/* Noto Sans SC — the bundled CJK fallback. Only the "chinese-simplified"
-   subset is shipped: it covers the whole CJK block in one 1.1 MB file, while
-   the package's per-range slices total ~3.4 MB for the same coverage. Latin
-   needs no entry here because the code font always resolves those glyphs
-   first. woff2 only, matching the mono face above. */
+/* Kite Sans SC (bundled Noto Sans SC) — the shipped CJK fallback under a
+   private family name (no shadowing of a system install). Only the
+   "chinese-simplified" subset is shipped: it covers the whole CJK block in
+   one 1.1 MB file, while the package's per-range slices total ~3.4 MB for
+   the same coverage. Latin needs no entry here because the code font always
+   resolves those glyphs first. Bold CJK ships as its own face because the
+   WebGL atlas cannot synthesize a bold glyph for a face it never loaded.
+   woff2 only, matching the mono face above. */
 @font-face {
-  font-family: 'Noto Sans SC';
+  font-family: 'Kite Sans SC';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
   src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kite Sans SC';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-700-normal.woff2') format('woff2');
 }

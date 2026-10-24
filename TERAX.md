@@ -65,6 +65,8 @@ Backend command groups:
 
 - `pty::*`: open, write, resize, close, close-all, foreground-process and
   foreground-job checks, shell list.
+- `list_fonts`: enumerates installed font families with monospace / CJK
+  flags (GDI on Windows, CoreText on macOS, fc-list on Linux).
 - `get_launch_dir`: drains the CLI launch directory on first read.
 - `open_settings_window`: creates or focuses the separate settings webview.
 

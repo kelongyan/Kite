@@ -636,7 +636,9 @@ export function useTerminalSession({
 
   const fontWeight = usePreferencesStore((p) => p.terminalFontWeight);
   useEffect(() => {
-    applyFontWeight(fontWeight);
+    void ensureMonoFontsLoaded(fontWeight).then(() => {
+      applyFontWeight(fontWeight);
+    });
   }, [fontWeight]);
 
   const letterSpacing = usePreferencesStore((p) => p.terminalLetterSpacing);

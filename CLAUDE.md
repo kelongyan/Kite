@@ -83,7 +83,8 @@ the terminal surface.
 
 `pty` (PTY sessions via portable-pty), `launch` (launch directory and AppImage
 environment helpers), `fs` (canonical path helper), `proc` (parent-process
-lookup for launch logging).
+lookup for launch logging), `fonts` (system font enumeration: GDI on Windows,
+CoreText on macOS, fc-list on Linux).
 
 ### Tab system
 

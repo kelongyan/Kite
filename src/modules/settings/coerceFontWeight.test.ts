@@ -24,14 +24,14 @@ describe("coerceFontWeight", () => {
 });
 
 describe("default terminal font", () => {
-  it("uses JetBrains Mono as the visible default", () => {
-    expect(DEFAULT_PREFERENCES.terminalFontFamily).toBe("JetBrains Mono");
+  it("uses the bundled Kite Mono family as the visible default", () => {
+    expect(DEFAULT_PREFERENCES.terminalFontFamily).toBe("Kite Mono");
   });
 
   it("falls back to the bundled default only for a blank value", () => {
-    expect(normalizeTerminalFontFamily("")).toBe("JetBrains Mono");
-    expect(normalizeTerminalFontFamily("  ")).toBe("JetBrains Mono");
-    expect(normalizeTerminalFontFamily(undefined)).toBe("JetBrains Mono");
+    expect(normalizeTerminalFontFamily("")).toBe("Kite Mono");
+    expect(normalizeTerminalFontFamily("  ")).toBe("Kite Mono");
+    expect(normalizeTerminalFontFamily(undefined)).toBe("Kite Mono");
   });
 
   it("keeps a real installed family that shares a legacy default's name", () => {

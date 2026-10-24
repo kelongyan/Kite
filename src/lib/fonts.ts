@@ -1,7 +1,12 @@
-export const DEFAULT_MONO_FONT_FAMILY = "JetBrains Mono";
-export const DEFAULT_CJK_FONT_FAMILY = "Noto Sans SC";
+// Bundled faces ship under private family names ("Kite Mono", "Kite Sans
+// SC") so the @font-face declarations never shadow a system install of the
+// upstream families: a user who installed JetBrains Mono (possibly a Nerd
+// Font patch) gets their copy when they select it by name.
+export const DEFAULT_MONO_FONT_FAMILY = "Kite Mono";
+export const DEFAULT_CJK_FONT_FAMILY = "Kite Sans SC";
 
 const CJK_FONT_CANDIDATES = [
+  "Kite Sans SC",
   "Sarasa Mono SC",
   "Sarasa Term SC",
   "Source Han Mono SC",
@@ -73,22 +78,38 @@ function uniqueFontFamilies(families: string[]): string[] {
 }
 
 let monoReady: Promise<void> | null = null;
+let monoReadyWeight: string | null = null;
+
+function cssWeight(weight: string | undefined): string {
+  // xterm accepts "normal"/"bold" or numeric strings; map the two keywords to
+  // the numeric weights so the loader and the atlas agree on one face.
+  if (weight === "bold") return "700";
+  if (!weight || weight === "normal") return "400";
+  return weight;
+}
 
 // Both bundled faces must be loaded before the terminal measures its first
 // cell: an unloaded face falls back and the glyph grid is mismeasured until a
 // relayout. The CJK face is loaded at the size the terminal uses so woff2
-// decompression is not paid twice.
-export function ensureMonoFontsLoaded(): Promise<void> {
-  if (monoReady) return monoReady;
+// decompression is not paid twice. The preference weight is loaded alongside
+// the 400/700 pair because bold spans and the chosen weight can both be in
+// play; a repeated call with the same weight returns the cached promise.
+export function ensureMonoFontsLoaded(weight?: string): Promise<void> {
+  const w = cssWeight(weight);
+  if (monoReady && monoReadyWeight === w) return monoReady;
   if (typeof document === "undefined" || !document.fonts?.load) {
     monoReady = Promise.resolve();
+    monoReadyWeight = w;
     return monoReady;
   }
-  monoReady = Promise.allSettled([
-    document.fonts.load('400 14px "JetBrains Mono"'),
-    document.fonts.load('700 14px "JetBrains Mono"'),
-    document.fonts.load('400 14px "Noto Sans SC"'),
-  ]).then(() => undefined);
+  const weights = w === "400" || w === "700" ? ["400", "700"] : ["400", "700", w];
+  monoReady = Promise.allSettled(
+    weights.flatMap((x) => [
+      document.fonts.load(`${x} 14px "Kite Mono"`),
+      document.fonts.load(`${x} 14px "Kite Sans SC"`),
+    ]),
+  ).then(() => undefined);
+  monoReadyWeight = w;
   return monoReady;
 }
 
@@ -205,4 +226,79 @@ export function isFontAvailable(family: string): boolean {
  */
 export function findUnavailableFonts(value: string): string[] {
   return parseFontFamilies(value).filter((family) => !isFontAvailable(family));
+}
+
+// ── CJK cell-width alignment ───────────────────────────────────────────────
+//
+// xterm lays the grid on one latin cell width and renders every glyph through
+// the same CSS stack. A CJK family whose ideograph advance is wider than two
+// latin cells (or a code font with a non-standard ratio) leaves gaps or
+// overlap in the two-column CJK cells. kitty solves this by rescaling every
+// fallback glyph to the cell; the DOM/WebGL renderers cannot, so Kite's
+// equivalent is measuring the pair and telling the user, with a suggested
+// fix, instead of silently misrendering.
+
+export type CjkAlignment = {
+  ok: boolean;
+  codeAdvance: number;
+  cjkAdvance: number;
+  cell: number;
+};
+
+const ALIGN_PROBE_CJK = "\u6f22";
+
+function measureAdvance(
+  ctx: CanvasRenderingContext2D,
+  familyStack: string,
+  text: string,
+): number {
+  ctx.font = `16px ${familyStack}`;
+  return ctx.measureText(text).width;
+}
+
+/**
+ * Measure whether the resolved code/CJK stack keeps ideographs at two latin
+ * cells. Returns null when measurement is impossible (no 2D context, e.g.
+ * jsdom) so callers can skip the hint rather than report a false problem.
+ */
+export function measureCjkAlignment(
+  codeFontFamily: string,
+  cjkFontFamily: string,
+): CjkAlignment | null {
+  if (typeof document === "undefined") return null;
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return null;
+  const resolved = resolveFontFamily(codeFontFamily, cjkFontFamily);
+  const codeStack = `${resolved}, monospace`;
+  // "0" advance approximates the terminal's cell width for the code face;
+  // measure against the same stack so the CJK family sits at its real spot.
+  const cell = measureAdvance(ctx, codeStack, "0");
+  if (cell <= 0) return null;
+  const codeAdvance = cell;
+  const cjkAdvance = measureAdvance(ctx, codeStack, ALIGN_PROBE_CJK);
+  return {
+    ok: Math.abs(cjkAdvance - 2 * cell) <= 0.06 * cell,
+    codeAdvance,
+    cjkAdvance,
+    cell,
+  };
+}
+
+/**
+ * First installed family from the known 2:1-friendly list (Sarasa-derived
+ * fonts are built at exactly two latin cells per ideograph). Returns null
+ * when none of them is installed.
+ */
+export function suggestAlignedCjkFont(): string | null {
+  const candidates = [
+    "Sarasa Mono SC",
+    "Sarasa Term SC",
+    "Maple Mono NF CN",
+    "LXGW WenKai Mono",
+    "LXGW WenKai",
+  ];
+  for (const family of candidates) {
+    if (isFontAvailable(family)) return family;
+  }
+  return null;
 }

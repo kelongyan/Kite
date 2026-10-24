@@ -361,6 +361,7 @@ pub fn run() {
             pty::pty_has_foreground_process,
             pty::pty_has_foreground_job,
             pty::pty_list_shells,
+            modules::fonts::list_fonts,
             get_launch_dir,
             open_settings_window,
         ])

@@ -156,7 +156,7 @@ const legacyStore = new LazyStore(LEGACY_STORE_PATH, {
 // ── Plan B: schema versioning ─────────────────────────────────────────────
 // Bump SETTINGS_VERSION and add an entry to SETTINGS_MIGRATIONS when the
 // Preferences schema changes (field rename, type change, etc.).
-const SETTINGS_VERSION = 10;
+const SETTINGS_VERSION = 11;
 const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
   {
     2: (map) => {
@@ -202,6 +202,21 @@ const SETTINGS_MIGRATIONS: Record<number, (map: Map<string, unknown>) => void> =
       // keep forever, so they must be filled in explicitly.
       const cjk = map.get(KEY_TERMINAL_CJK_FONT_FAMILY);
       if (cjk === undefined || (typeof cjk === "string" && cjk.trim() === "")) {
+        map.set(KEY_TERMINAL_CJK_FONT_FAMILY, DEFAULT_CJK_FONT_FAMILY);
+      }
+    },
+    11: (map) => {
+      // Bundled faces moved to private family names so they stop shadowing a
+      // system install of the upstream family. Only stores still holding the
+      // old default value are rewritten: that is "user never touched fonts",
+      // so pointing them at the bundled face preserves their render. A store
+      // with any other value is a deliberate choice and stays untouched.
+      const code = map.get(KEY_TERMINAL_FONT_FAMILY);
+      if (code === "JetBrains Mono") {
+        map.set(KEY_TERMINAL_FONT_FAMILY, DEFAULT_MONO_FONT_FAMILY);
+      }
+      const cjk = map.get(KEY_TERMINAL_CJK_FONT_FAMILY);
+      if (cjk === "Noto Sans SC") {
         map.set(KEY_TERMINAL_CJK_FONT_FAMILY, DEFAULT_CJK_FONT_FAMILY);
       }
     },

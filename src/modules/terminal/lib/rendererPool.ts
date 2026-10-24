@@ -1878,8 +1878,12 @@ export function applyFontFamily(
 
 export function applyFontWeight(weight: string): void {
   for (const slot of slots) {
-    if (slot.term.options.fontWeight === weight) continue;
+    if (slot.term.options.fontWeight === (weight as FontWeight)) continue;
     slot.term.options.fontWeight = weight as FontWeight;
+    // A different weight is a different set of glyph advances: re-measure the
+    // grid and rebuild the WebGL atlas so it does not serve stale glyphs.
+    slot.webglAddon?.clearTextureAtlas();
+    refitSlot(slot);
     scheduleSlotImeAnchorSync(slot);
     scheduleSlotCursorOverlaySync(slot);
   }

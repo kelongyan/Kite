@@ -8,7 +8,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { findUnavailableFonts } from "@/lib/fonts";
+import { useFontCatalog, fontSuggestions } from "@/lib/fontCatalog";
+import {
+  ensureMonoFontsLoaded,
+  findUnavailableFonts,
+  measureCjkAlignment,
+  suggestAlignedCjkFont,
+} from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
 import { usePreferencesStore } from "@/modules/settings/preferences";
@@ -294,25 +300,69 @@ function FontFamilyInput({
   const messages = useMessages();
   const terminalMessages = messages.settings.general.terminal;
 
+  // Measure on the committed values (not drafts) so the hint describes the
+  // real render, matching the unmatched-fonts warning below. The probe needs
+  // the bundled faces loaded to measure what the terminal will actually use.
+  const [aligned, setAligned] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    void ensureMonoFontsLoaded().then(() => {
+      if (cancelled) return;
+      const result = measureCjkAlignment(codeValue, cjkValue);
+      setAligned(result?.ok ?? true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [codeValue, cjkValue]);
+
+  const cjkFix = aligned ? null : suggestAlignedCjkFont();
+  const catalog = useFontCatalog();
+
   return (
-    <SettingRow title={terminalMessages.fontFamily}>
-      <div className="grid w-75 grid-cols-2 gap-3">
-        <FontFamilyField
-          label={terminalMessages.codeFontFamily}
-          value={codeValue}
-          placeholder={terminalMessages.codeFontFamilyPlaceholder}
-          unmatchedHint={terminalMessages.fontFamilyUnmatched}
-          onCommit={onCodeCommit}
-        />
-        <FontFamilyField
-          label={terminalMessages.cjkFontFamily}
-          value={cjkValue}
-          placeholder={terminalMessages.cjkFontFamilyPlaceholder}
-          unmatchedHint={terminalMessages.fontFamilyUnmatched}
-          onCommit={onCjkCommit}
-        />
-      </div>
-    </SettingRow>
+    <>
+      <SettingRow title={terminalMessages.fontFamily}>
+        <div className="grid w-75 grid-cols-2 gap-3">
+          <FontFamilyField
+            label={terminalMessages.codeFontFamily}
+            value={codeValue}
+            placeholder={terminalMessages.codeFontFamilyPlaceholder}
+            unmatchedHint={terminalMessages.fontFamilyUnmatched}
+            suggestions={fontSuggestions(catalog, "code")}
+            onCommit={onCodeCommit}
+          />
+          <FontFamilyField
+            label={terminalMessages.cjkFontFamily}
+            value={cjkValue}
+            placeholder={terminalMessages.cjkFontFamilyPlaceholder}
+            unmatchedHint={terminalMessages.fontFamilyUnmatched}
+            suggestions={fontSuggestions(catalog, "cjk")}
+            onCommit={onCjkCommit}
+          />
+        </div>
+      </SettingRow>
+      {!aligned && (
+        <div
+          role="status"
+          className="flex items-center gap-2 bg-amber-500/5 px-4 py-2 text-[10.5px] leading-tight text-amber-500"
+        >
+          <p className="min-w-0 flex-1">{terminalMessages.fontCjkMisaligned}</p>
+          {cjkFix && (
+            <button
+              type="button"
+              className="shrink-0 rounded-md border border-amber-500/50 px-2 py-0.5 hover:bg-amber-500/10"
+              onClick={() => {
+                setAligned(true);
+                onCodeCommit(cjkFix);
+                onCjkCommit(cjkFix);
+              }}
+            >
+              {terminalMessages.fontCjkFix(cjkFix)}
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -323,15 +373,18 @@ function FontFamilyField({
   value,
   placeholder,
   unmatchedHint,
+  suggestions,
   onCommit,
 }: {
   label: string;
   value: string;
   placeholder: string;
   unmatchedHint: string;
+  suggestions: string[];
   onCommit: (value: string) => void;
 }) {
   const id = useId();
+  const listId = `${id}-fonts`;
   const [draft, setDraft] = useState(value);
 
   // Set by Escape so the blur it triggers reverts instead of committing. A ref
@@ -357,6 +410,7 @@ function FontFamilyField({
       </label>
       <Input
         id={id}
+        list={listId}
         value={draft}
         placeholder={placeholder}
         spellCheck={false}
@@ -402,6 +456,11 @@ function FontFamilyField({
           ) : null}
         </div>
       </div>
+      <datalist id={listId}>
+        {suggestions.map((family) => (
+          <option key={family} value={family} />
+        ))}
+      </datalist>
     </div>
   );
 }

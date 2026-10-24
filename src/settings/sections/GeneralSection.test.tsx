@@ -36,10 +36,12 @@ describe("GeneralSection", () => {
     // Free-form text fields, not pickers: one input per font family.
     expect(html.match(/data-slot="input"/g)).toHaveLength(2);
     expect(html).not.toContain('data-slot="combobox-trigger"');
-    expect(html).toContain('placeholder="JetBrains Mono"');
-    expect(html).toContain('placeholder="Noto Sans SC"');
+    expect(html).toContain('placeholder="Kite Mono"');
+    expect(html).toContain('placeholder="Kite Sans SC"');
     expect(html).not.toContain("Aa 中文 123");
-    expect(html).not.toContain("<datalist");
+    // The datalist is the suggestion source for the free-text field; with no
+    // catalog (SSR) it renders empty, keeping the input free-form.
+    expect(html.match(/<datalist/g)).toHaveLength(2);
     expect(html).not.toContain(">Cursor<");
     expect(html).not.toContain("Cursor preview");
     expect(html).not.toContain("Shape");
@@ -50,13 +52,13 @@ describe("GeneralSection", () => {
     // jsdom has no 2D canvas context, so the real probe reports every family
     // as available; mock the finder to exercise the warning surface.
     findUnavailableFonts.mockImplementation((value: string) =>
-      value === "JetBrains Mono" ? ["JetBrains Mono"] : [],
+      value === "Kite Mono" ? ["Kite Mono"] : [],
     );
 
     const html = renderToStaticMarkup(<GeneralSection />);
 
     expect(html).toContain("未匹配到字体名");
-    expect(html).toContain("JetBrains Mono: 未匹配到字体名");
+    expect(html).toContain("Kite Mono: 未匹配到字体名");
     expect(html.match(/role="status"/g)).toHaveLength(1);
     expect(html).toContain('data-state="open"');
   });

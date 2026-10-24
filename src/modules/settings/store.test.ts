@@ -110,7 +110,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("falls back to the legacy settings file only when the Kite store is empty", async () => {
@@ -143,7 +143,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundImageId");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundOpacity");
     expect(storeMock.delete).toHaveBeenCalledWith("backgroundBlur");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("removes retired explorer git decoration preference during migration", async () => {
@@ -156,7 +156,7 @@ describe("loadPreferences", () => {
 
     expect("explorerGitDecorations" in prefs).toBe(false);
     expect(storeMock.delete).toHaveBeenCalledWith("explorerGitDecorations");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("removes the retired header search shortcut during migration", async () => {
@@ -169,7 +169,7 @@ describe("loadPreferences", () => {
 
     expect("search.focus" in prefs.shortcuts).toBe(false);
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("normalizes retired builtin app themes during migration", async () => {
@@ -182,7 +182,7 @@ describe("loadPreferences", () => {
 
     expect(prefs.themeId).toBe("kite-default");
     expect(storeMock.set).toHaveBeenCalledWith("themeId", "kite-default");
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("keeps the id of a builtin theme that still ships", async () => {
@@ -204,13 +204,16 @@ describe("loadPreferences", () => {
 
     const prefs = await loadPreferences();
 
-    expect(prefs.terminalFontFamily).toBe("JetBrains Mono");
+    // v11 rewrites the old shipped default; migration 9 already split the
+    // stack, and the resulting "JetBrains Mono" equals the old default, so
+    // it lands on the bundled family name.
+    expect(prefs.terminalFontFamily).toBe("Kite Mono");
     expect(prefs.terminalCjkFontFamily).toBe("Microsoft YaHei");
     expect(storeMock.set).toHaveBeenCalledWith(
       "terminalCjkFontFamily",
       "Microsoft YaHei",
     );
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("migrates the retired Monaco default to the bundled mono font", async () => {
@@ -223,13 +226,13 @@ describe("loadPreferences", () => {
 
     const prefs = await loadPreferences();
 
-    expect(prefs.terminalFontFamily).toBe("JetBrains Mono");
-    expect(prefs.terminalCjkFontFamily).toBe("Noto Sans SC");
+    expect(prefs.terminalFontFamily).toBe("Kite Mono");
+    expect(prefs.terminalCjkFontFamily).toBe("Kite Sans SC");
     expect(storeMock.set).toHaveBeenCalledWith(
       "terminalFontFamily",
-      "JetBrains Mono",
+      "Kite Mono",
     );
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("keeps a Monaco family stored by a post-migration commit", async () => {
@@ -244,7 +247,13 @@ describe("loadPreferences", () => {
     const prefs = await loadPreferences();
 
     expect(prefs.terminalFontFamily).toBe("Monaco");
-    expect(storeMock.set).not.toHaveBeenCalled();
+    // v11 rewrites the old shipped CJK default but not a user commit that
+    // happens to still hold it (indistinguishable either way).
+    expect(storeMock.set).toHaveBeenCalledWith(
+      "terminalCjkFontFamily",
+      "Kite Sans SC",
+    );
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("preserves ambiguous legacy font stacks during migration", async () => {
@@ -256,10 +265,10 @@ describe("loadPreferences", () => {
     const prefs = await loadPreferences();
 
     expect(prefs.terminalFontFamily).toBe("Foo, Bar, monospace");
-    expect(prefs.terminalCjkFontFamily).toBe("Noto Sans SC");
+    expect(prefs.terminalCjkFontFamily).toBe("Kite Sans SC");
   });
 
-  it("fills the empty CJK sentinel with the Noto Sans SC default", async () => {
+  it("fills the empty CJK sentinel with the bundled CJK default", async () => {
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 9],
       ["terminalFontFamily", "JetBrains Mono"],
@@ -268,11 +277,12 @@ describe("loadPreferences", () => {
 
     const prefs = await loadPreferences();
 
-    expect(prefs.terminalCjkFontFamily).toBe("Noto Sans SC");
+    expect(prefs.terminalCjkFontFamily).toBe("Kite Sans SC");
     expect(storeMock.set).toHaveBeenCalledWith(
       "terminalCjkFontFamily",
-      "Noto Sans SC",
+      "Kite Sans SC",
     );
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("keeps an explicitly chosen CJK font untouched", async () => {
@@ -320,7 +330,7 @@ describe("loadPreferences", () => {
     expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSave");
     expect(storeMock.delete).toHaveBeenCalledWith("editorAutoSaveDelay");
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {});
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 
   it("removes retired sidebar and explorer shortcuts during migration", async () => {
@@ -342,6 +352,6 @@ describe("loadPreferences", () => {
     expect(storeMock.set).toHaveBeenCalledWith("shortcuts", {
       "tab.new": [{ ctrl: true, key: "t" }],
     });
-    expect(storeMock.set).toHaveBeenCalledWith("_version", 10);
+    expect(storeMock.set).toHaveBeenCalledWith("_version", 11);
   });
 });
