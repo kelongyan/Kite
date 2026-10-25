@@ -21,10 +21,9 @@ mod platform {
     use std::collections::BTreeSet;
     use windows_sys::Win32::Foundation::LPARAM;
     use windows_sys::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, DeleteDC, EnumFontFamiliesExW, FONTENUMPROCW, LOGFONTW,
-        TEXTMETRICW, TMPF_FIXED_PITCH,
+        CreateCompatibleDC, DeleteDC, EnumFontFamiliesExW, FONTENUMPROCW, LOGFONTW, TEXTMETRICW,
+        TMPF_FIXED_PITCH,
     };
-
 
     // GDI reports charset bits per face; the CJK set we care about.
     const GB2312_CHARSET: u8 = 134;
@@ -79,13 +78,7 @@ mod platform {
             let mut logfont: LOGFONTW = std::mem::zeroed();
             logfont.lfCharSet = DEFAULT_CHARSET;
             let proc: FONTENUMPROCW = Some(enum_proc);
-            EnumFontFamiliesExW(
-                hdc,
-                &logfont,
-                proc,
-                &mut set as *mut _ as isize,
-                0,
-            );
+            EnumFontFamiliesExW(hdc, &logfont, proc, &mut set as *mut _ as isize, 0);
             DeleteDC(hdc);
         }
         set.into_iter()
@@ -105,9 +98,7 @@ pub use platform::enumerate_families;
 mod platform {
     use super::FontFamilyInfo;
     use objc2_core_foundation::{CFArray, CFType};
-    use objc2_core_text::{
-        CTFont, CTFontCollection, CTFontDescriptor, CTFontSymbolicTraits,
-    };
+    use objc2_core_text::{CTFont, CTFontCollection, CTFontDescriptor, CTFontSymbolicTraits};
     use std::collections::BTreeSet;
 
     // A CJK ideograph every real CJK family covers; checked against the
@@ -216,10 +207,7 @@ mod platform {
                 .iter()
                 .map(|f| (f.family.as_str(), f.monospace))
                 .collect();
-            assert_eq!(
-                names,
-                vec![("Monospace", true), ("Sans", false)]
-            );
+            assert_eq!(names, vec![("Monospace", true), ("Sans", false)]);
         }
 
         #[test]

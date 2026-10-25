@@ -10,9 +10,9 @@ use std::mem::{size_of, zeroed};
 use windows_sys::Win32::Foundation::{CloseHandle, FALSE, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicProcessIdList,
-    JobObjectExtendedLimitInformation, QueryInformationJobObject,
-    SetInformationJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST,
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
+    JOBOBJECT_BASIC_PROCESS_ID_LIST, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE};
 
@@ -82,9 +82,7 @@ impl PtyJob {
         };
         if ok == 0 {
             let e = io::Error::last_os_error();
-            if e.raw_os_error()
-                != Some(windows_sys::Win32::Foundation::ERROR_MORE_DATA as i32)
-            {
+            if e.raw_os_error() != Some(windows_sys::Win32::Foundation::ERROR_MORE_DATA as i32) {
                 return Err(e);
             }
         }

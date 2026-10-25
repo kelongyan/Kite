@@ -24,8 +24,7 @@ const READ_BUF: usize = 16 * 1024;
 const MAX_PENDING: usize = 4 * 1024 * 1024;
 // Hard reset (ESC c) + dim notice. Written verbatim into the stream when
 // we're forced to discard backlog.
-const OVERFLOW_NOTICE: &[u8] =
-    b"\x1bc\x1b[2m[kite: dropped output due to backpressure]\x1b[0m\r\n";
+const OVERFLOW_NOTICE: &[u8] = b"\x1bc\x1b[2m[kite: dropped output due to backpressure]\x1b[0m\r\n";
 
 pub struct Session {
     // Field drop order is intentional. Rust drops fields top-to-bottom:
@@ -96,7 +95,9 @@ struct ChildKillGuard {
 
 impl ChildKillGuard {
     fn new(killer: Box<dyn ChildKiller + Send + Sync>) -> Self {
-        Self { killer: Some(killer) }
+        Self {
+            killer: Some(killer),
+        }
     }
 
     fn disarm(&mut self) {
@@ -178,10 +179,8 @@ pub fn spawn(
         owner_label,
     });
 
-    let pending: Arc<(Mutex<Vec<u8>>, Condvar)> = Arc::new((
-        Mutex::new(Vec::with_capacity(READ_BUF)),
-        Condvar::new(),
-    ));
+    let pending: Arc<(Mutex<Vec<u8>>, Condvar)> =
+        Arc::new((Mutex::new(Vec::with_capacity(READ_BUF)), Condvar::new()));
     let done = Arc::new(AtomicBool::new(false));
     let spawn_at = Instant::now();
 
@@ -218,7 +217,10 @@ pub fn spawn(
                     Ok(n) => {
                         if !first_byte {
                             first_byte = true;
-                            log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
+                            log::debug!(
+                                "pty first byte after {}ms",
+                                spawn_at.elapsed().as_millis()
+                            );
                         }
                         filtered.clear();
                         da_filter.process(&buf[..n], &mut filtered, |reply| {

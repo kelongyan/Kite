@@ -9,8 +9,7 @@ use crate::modules::launch;
 #[cfg(windows)]
 const BASHRC_SCRIPT: &str = include_str!("scripts/bashrc.bash");
 #[cfg(unix)]
-const FISH_REINSTALL_PROMPT: &str =
-    "functions -q __kite_install_prompt; and __kite_install_prompt";
+const FISH_REINSTALL_PROMPT: &str = "functions -q __kite_install_prompt; and __kite_install_prompt";
 const CLAUDE_NATIVE_CURSOR_ENV: &str = "CLAUDE_CODE_NATIVE_CURSOR";
 
 fn claude_native_cursor_value() -> OsString {
@@ -118,8 +117,7 @@ pub struct ShellInfo {
 // boot or per-spawn path. A result whose WSL part failed is retried after
 // WSL_RETRY_TTL; a complete one is final, so a newly installed shell or a
 // new WSL distro needs an app restart to appear.
-static SHELL_LIST_CACHE: std::sync::RwLock<Option<ShellListCache>> =
-    std::sync::RwLock::new(None);
+static SHELL_LIST_CACHE: std::sync::RwLock<Option<ShellListCache>> = std::sync::RwLock::new(None);
 
 struct ShellListCache {
     shells: Vec<ShellInfo>,
@@ -193,11 +191,7 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
     cmd.env("LANG", fallback);
 }
 
-fn apply_common(
-    cmd: &mut CommandBuilder,
-    cwd: Option<String>,
-    theme_mode: TerminalThemeMode,
-) {
+fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, theme_mode: TerminalThemeMode) {
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("COLORFGBG", theme_mode.colorfgbg());
@@ -444,7 +438,6 @@ mod unix {
             let _ = fs::remove_file(path);
         }
     }
-
 
     #[cfg(test)]
     mod tests {
@@ -744,8 +737,7 @@ mod windows {
         distros: Vec<String>,
     }
 
-    static WSL_DISTRO_CACHE: std::sync::RwLock<Option<WslCache>> =
-        std::sync::RwLock::new(None);
+    static WSL_DISTRO_CACHE: std::sync::RwLock<Option<WslCache>> = std::sync::RwLock::new(None);
 
     const WSL_RETRY_TTL: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -759,10 +751,7 @@ mod windows {
 
     const WSL_LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
-    fn run_with_timeout(
-        exe: &Path,
-        timeout: std::time::Duration,
-    ) -> Option<std::process::Output> {
+    fn run_with_timeout(exe: &Path, timeout: std::time::Duration) -> Option<std::process::Output> {
         use std::io::Read;
         use std::process::Stdio;
         let mut child = std::process::Command::new(exe)
@@ -890,7 +879,6 @@ mod windows {
         (out, wsl_ready)
     }
 
-
     fn git_bash_path() -> Option<PathBuf> {
         // Git for Windows install locations only. A bash.exe on PATH may come
         // from another install, so it is not treated as Git Bash.
@@ -931,16 +919,21 @@ mod windows {
                 "/mnt/c/Users/Admin/.cache/kite/rc"
             );
             // UNC and relative paths degrade to a forward-slash pass-through.
-            assert_eq!(win_to_wsl_path(Path::new(r"\\server\share")), "//server/share");
+            assert_eq!(
+                win_to_wsl_path(Path::new(r"\\server\share")),
+                "//server/share"
+            );
         }
 
         #[test]
         fn wsl_output_decodes_utf16_and_utf8() {
             let utf16: Vec<u8> = [0xFF, 0xFE]
                 .into_iter()
-                .chain("Ubuntu\r\nDebian\r\n".encode_utf16().flat_map(|u| {
-                    u.to_le_bytes().into_iter()
-                }))
+                .chain(
+                    "Ubuntu\r\nDebian\r\n"
+                        .encode_utf16()
+                        .flat_map(|u| u.to_le_bytes().into_iter()),
+                )
                 .collect();
             assert_eq!(decode_wsl_output(&utf16), "Ubuntu\r\nDebian\r\n");
             assert_eq!(decode_wsl_output(b"Ubuntu\n"), "Ubuntu\n");
