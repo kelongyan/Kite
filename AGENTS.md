@@ -4,7 +4,7 @@ Kite is a Tauri 2 desktop app: Rust backend (`src-tauri/`) + React 19 / TypeScri
 
 ## First reads
 
-- **`KITE.md`** — living architecture reference. Read before making changes.
+- **`docs/architecture.md`** — living architecture reference. Read before making changes.
 - **`CLAUDE.md`** — commands, architecture, conventions. Keep in sync.
 - **`src-tauri/src/lib.rs`** — all Tauri commands registered here.
 - **`src/app/App.tsx`** — frontend coordinator.
@@ -57,3 +57,11 @@ cargo clippy --all-targets --locked -- -D warnings
 | `src/components/ui/` | shadcn/ui components (linted, covered by dead-code scans) |
 | `scripts/eager-graph.mjs` | Eager import tracer for bundle analysis |
 | `src/app/eager-budget.test.ts` | Asserts the eager graph stays free of heavy stacks |
+
+## Documentation layout
+
+All project documentation lives under `docs/`. The only Markdown at the
+repository root is `README.md`, `AGENTS.md`, and `CLAUDE.md`, which stay there
+because tooling discovers them by name. Do not add root-level Markdown for
+anything else, and do not reintroduce a second architecture or roadmap file:
+extend `docs/architecture.md` instead.

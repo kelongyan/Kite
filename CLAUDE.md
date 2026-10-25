@@ -143,6 +143,5 @@ Changes to these load-bearing paths **must add or extend a test** that locks the
 
 ## Reference docs
 
-- `KITE.md` — living architecture reference; read before making changes and keep it aligned with structural changes.
-- `ROADMAP.md` — scope and direction; read before opening anything non-trivial.
-- `CONTRIBUTING.md` — solo-maintained project; alignment matters more than volume, keep PRs focused.
+- `docs/architecture.md` — living architecture reference; read before making changes and keep it aligned with structural changes.
+- All project documentation lives under `docs/`. `README.md`, `AGENTS.md`, and `CLAUDE.md` stay at the repository root because tooling discovers them there. Do not add root-level Markdown for anything else.

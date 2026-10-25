@@ -1,9 +1,12 @@
-# KITE.md
+# Architecture
 
-The living architecture reference. Read it before making changes and keep it
-aligned with structural changes. Coding assistants pick it up through
+The living architecture reference for Kite. Read it before making changes and
+keep it aligned with structural changes. Coding assistants pick it up through
 `.coderabbit.yaml`'s knowledge base and their own instruction-file discovery;
 no application code reads this file.
+
+All project documentation lives under `docs/`. `README.md`, `AGENTS.md`, and
+`CLAUDE.md` stay at the repository root because tooling looks for them there.
 
 ## Project
 

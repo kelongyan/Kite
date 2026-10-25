@@ -154,7 +154,7 @@ knowledge_base:
   code_guidelines:
     enabled: true
     filePatterns:
-      - "**/KITE.md"
+      - "docs/**/*.md"
       - "**/CLAUDE.md"
       - "**/AGENTS.md"
   learnings:
