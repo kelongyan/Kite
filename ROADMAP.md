@@ -26,15 +26,30 @@ release commitment.
 ### Terminal
 
 - [x] Multi-tab terminal with WebGL rendering
-- [x] Native PTY support for zsh, bash, fish, PowerShell, cmd, and Git Bash
-- [x] Split panes, up to four per tab
+- [x] Native PTY support for zsh, bash, fish, PowerShell, cmd, Git Bash, and WSL
+      distributions
+- [x] Split panes, up to four per tab, with per-pane zoom and equalize
+- [x] Per-tab shell selection
 - [x] OSC 7 cwd tracking and OSC 133 prompt boundaries
 - [x] Web links, true color, and configurable cursor rendering
 - [x] OSC 52 clipboard writes with a size cap
+- [x] In-terminal search
+- [x] Right-click context menu, copy-on-select, and multi-line paste guard
+- [x] Bell, OSC 9/777, and command-finished notifications
+- [x] Background-tab activity indicator
+- [x] Unicode 11 width tables
 
 ### Themes
 
 - [x] Application theme system with custom theme import
+- [x] Fifteen built-in themes with light/dark variants
+
+### Windows And Sessions
+
+- [x] Multiple main windows
+- [x] Optional session restore (layout only, off by default)
+- [x] Quake-style global hotkey
+- [x] Update check against GitHub Releases
 
 ### Platform
 
@@ -52,7 +67,6 @@ environment were removed for the same reason. They are not planned to return.
 
 ## Next Priorities
 
-- [ ] Restore in-terminal search
 - [ ] Expand PTY and shell-integration coverage across operating systems
 - [ ] Continue bundle and startup-memory profiling
 - [ ] Improve keyboard and screen-reader behavior in dense workspace controls

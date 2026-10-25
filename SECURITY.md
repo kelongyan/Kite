@@ -16,7 +16,7 @@ Please **don't** open a public GitHub issue for security reports.
 
 ## Supported versions
 
-Until `1.0.0`, only the latest minor gets security fixes.
+Only the latest release gets security fixes.
 
 ## What's in scope
 

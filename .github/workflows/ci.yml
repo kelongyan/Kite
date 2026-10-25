@@ -78,6 +78,10 @@ jobs:
         working-directory: src-tauri
         run: cargo check --all-targets --locked
 
+      - name: cargo fmt
+        working-directory: src-tauri
+        run: cargo fmt --all --check
+
       - name: cargo clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets --locked -- -D warnings

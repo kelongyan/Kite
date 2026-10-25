@@ -41,7 +41,8 @@ cargo clippy --all-targets --locked -- -D warnings
 - **Tabs stay mounted when hidden** — PTYs keep state. Do not assume unmount-on-switch. Tabs are not persisted across launches by default; optional session restore (off by default) reopens structure/cwd/shell only, never buffer contents.
 - **Enforced boundary** is CSP + capabilities + `sanitize_shell_override` (a shell override must match an enumerated shell).
 - **No file explorer, sidebar, or statusbar** — the window is the header plus the terminal surface.
-- **`src-tauri/tests/`** call the command functions directly as plain Rust; no Tauri runtime needed.
+- **Rust tests are inline** in `#[cfg(test)]` modules next to the code; there is no `src-tauri/tests/` directory. They call command functions directly as plain Rust and need no Tauri runtime.
+- **`PtyState` is app-wide**, shared by every window. Commands that reap sessions must scope to the calling window (`pty_reap_for_label` takes its label from the injected `WebviewWindow`); a caller-supplied label would let one webview kill another window's shells.
 - **`tsc --noEmit`** for type-checking (separate from Vite's bundler).
 - **`pnpm analyze:eager`** traces heavy dependencies in the eager graph — useful for bundle regression checks.
 - **Only one locale ships** (`src/modules/i18n/messages/zh-CN.ts`); `useMessages()` returns it unconditionally.

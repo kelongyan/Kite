@@ -30,6 +30,7 @@ pnpm test -- src/modules/terminal/lib/foo.test.ts  # single file
 # Rust tests + lint (run from src-tauri/)
 cargo nextest run --locked       # CI uses nextest, not cargo test
 cargo test --locked              # works too, if nextest is unavailable
+cargo fmt --all --check          # CI enforces this; run `cargo fmt` to fix
 cargo clippy --all-targets --locked -- -D warnings
 
 # Bundle analysis
@@ -111,9 +112,11 @@ tabs open at home rather than inheriting the active tab's cwd.
 - **OSC 7 is only honored between commands.** Command stdout is untrusted (remote SSH, `cat` of a hostile file), so the cwd handler returns early while `inCommand` is set.
 - **Path separators**: `tab.cwd` originates from OSC 7 and uses forward slashes; `homeDir()` on Windows returns backslashes. Normalize at the frontend boundary — Rust fs callers must accept both `/` and `\`.
 - **Shell bootstrap scripts** (`src-tauri/src/modules/pty/scripts/`) emit OSC 7 (cwd tracking) and OSC 133 A/B/C/D (prompt/command boundaries). Generated copies are written atomically under `~/.cache/kite/shell-integration/`.
-- **Rust tests** live in `#[cfg(test)]` modules next to the code; no Tauri runtime is needed.
+- **Rust tests** live in `#[cfg(test)]` modules next to the code; there is no `src-tauri/tests/` directory, and no Tauri runtime is needed.
+- **`PtyState` is app-wide, shared by every window.** Commands that reap sessions must be scoped to the calling window: `pty_reap_for_label` reads its label from the injected `tauri::WebviewWindow`, never from an argument, so one webview cannot kill another window's shells.
+- **`restoreWindowState` is read by the Rust backend off disk** (`kite-settings.json` in the app data dir) before the Tauri builder runs, because `tauri-plugin-window-state` restores geometry during window-ready, before `setup` could read the preference through IPC. Changing the store filename or its base directory silently breaks that gate.
 - **Tailwind v4 config lives in `src/styles/globals.css`** (CSS-based, not tailwind.config).
-- **Theme engine is custom**, not `next-themes`; six built-ins under `src/modules/theme/themes/`. Legacy `terax-*` store keys are read-only migration fallbacks; new state is written under `kite-*`.
+- **Theme engine is custom**, not `next-themes`; fifteen built-ins under `src/modules/theme/themes/`, some with only a light or only a dark variant. Retiring a built-in id requires adding it to `RETIRED_BUILTIN_THEME_IDS` in `types.ts` so stored selections fall back to the default. Legacy `terax-*` store keys are read-only migration fallbacks; new state is written under `kite-*`.
 
 - **Mouse encoding is part of the terminal snapshot.** SerializeAddon preserves
   tracking mode but omits SGR / SGR_PIXELS, so `terminalMouse.ts` appends the

@@ -32,42 +32,11 @@ Kite 是一个基于 Tauri 2、Rust、React 和 TypeScript 构建的开源桌面
 
 项目当前的定位是一个终端优先的高性能桌面终端模拟器。你可以继续使用熟悉的 shell 和本地工具，在统一轻量的工作环境中高效工作。
 
-## 界面预览
-
-> 以下截图摄于文件侧栏移除之前，主题配色仍然准确，但左侧目录树在当前版本已不存在。
-
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/workspace-default.png" alt="Kite 主界面默认主题" />
-      <br />
-      <sub>默认主题</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/workspace-blue.png" alt="Kite 主界面蓝色主题" />
-      <br />
-      <sub>蓝色主题：更冷静的深色工作台</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/workspace-slate.png" alt="Kite 主界面 Slate 主题" />
-      <br />
-      <sub>Slate 主题：低对比、长时间使用更舒服</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/workspace-midnight.png" alt="Kite 主界面 Midnight 主题" />
-      <br />
-      <sub>Midnight 主题：更深的背景，聚焦终端输入</sub>
-    </td>
-  </tr>
-</table>
-
 ## 核心能力
 
 - **原生终端体验**：基于 `portable-pty` 与 xterm.js，支持多标签、分屏（每标签最多 4 个）、WebGL 渲染、链接识别、真彩色和后台输出。
-- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd 与 Git Bash。
-- **主题与字体**：内置与自定义主题体系，可按偏好切换工作台视觉风格。
+- **Shell 集成**：OSC 7 目录跟踪与 OSC 133 提示符边界，支持 zsh、bash、fish、PowerShell、cmd、Git Bash 与 WSL 发行版。
+- **主题与字体**：15 套内置主题（深浅双变体）与自定义主题导入，可按偏好切换工作台视觉风格。
 
 界面语言目前仅提供简体中文。
 

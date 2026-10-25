@@ -28,6 +28,7 @@ pnpm size
 pnpm knip
 
 cd src-tauri
+cargo fmt --all --check
 cargo check --all-targets --locked
 cargo clippy --all-targets --locked -- -D warnings
 cargo nextest run --locked
@@ -63,12 +64,16 @@ channels and events.
 
 Backend command groups:
 
-- `pty::*`: open, write, resize, close, close-all, foreground-process and
-  foreground-job checks, shell list.
+- `pty::*`: open, write, resize, close, foreground-process and foreground-job
+  checks, shell list, and `pty_reap_for_label` (reaps the calling window's
+  sessions; the label comes from the injected window, never from an argument).
 - `list_fonts`: enumerates installed font families with monospace / CJK
   flags (GDI on Windows, CoreText on macOS, fc-list on Linux).
 - `get_launch_dir`: drains the CLI launch directory on first read.
+- `open_new_window`: opens a secondary `main-N` window at the active cwd.
 - `open_settings_window`: creates or focuses the separate settings webview.
+- `check_for_update`: queries the GitHub Releases API (the CSP blocks outbound
+  requests, so this cannot live in the webview).
 
 Do not add a command only to expose an internal helper.
 
@@ -205,11 +210,19 @@ Rules:
 ## Themes
 
 The app theme engine is custom, not `next-themes`. `ThemeProvider` and
-`applyTheme` write CSS variables. Six built-ins live under
+`applyTheme` write CSS variables. Fifteen built-ins live under
 `src/modules/theme/themes/` (`kite-default`, `claude`, `dracula`, `nord`,
-`catppuccin`, `tokyo-night`); `kite-default` has empty variants so it clears
-overrides back to the `globals.css` baseline. Custom themes are validated before
-use and imported through a plain HTML file input.
+`catppuccin`, `tokyo-night`, `one-dark`, `one-light`, `github`, `gruvbox`,
+`rose-pine`, `everforest`, `kanagawa`, `monokai`, `eva`); `kite-default` has
+empty variants so it clears overrides back to the `globals.css` baseline.
+Themes may ship a light variant, a dark variant, or both. Custom themes are
+validated before use and imported through a plain HTML file input.
+
+Removing a built-in id is a breaking change for a stored selection, so retired
+ids are listed in `RETIRED_BUILTIN_THEME_IDS` (`types.ts`) and
+`normalizeThemeId` maps them back to the default. Add an id there whenever a
+theme is dropped; never remove one that still ships, or it becomes
+unselectable.
 
 Legacy `terax-*` store keys and theme ids are read only as migration fallbacks.
 New state is written under `kite-*` names. `.terax-theme` remains a supported
@@ -228,7 +241,14 @@ legacy import extension.
 
 - macOS uses overlay title bars and native traffic lights.
 - Linux and Windows use transparent, undecorated windows plus React controls.
-- The NSIS installer is per-user and embeds the WebView2 bootstrapper.
+- The NSIS installer is per-user and uses `webviewInstallMode: skip`: the
+  WebView2 bootstrapper is not downloaded or embedded, because that fetch
+  targets a host the build network cannot reach. Windows 10 1803+ and Windows 11
+  ship WebView2, so the runtime is already present.
+- Window geometry is restored by `tauri-plugin-window-state`, gated on the
+  `restoreWindowState` preference. The backend reads that key straight off disk
+  before the builder runs, because the plugin restores during window-ready,
+  before `setup` could read it through IPC.
 - Update artifacts are disabled and releases are published manually.
 - The CSP allows Tauri IPC and local development connections. It does not
   allow arbitrary WebView network connections or frames.
@@ -243,5 +263,10 @@ legacy import extension.
   can disable WebGL or choose a monospaced CJK font.
 - OSC 7 is honored only between commands. Command stdout is untrusted, so a
   remote shell or `cat` of a hostile file cannot move the tracked cwd.
-- `src-tauri/tests/` call the command functions directly as plain Rust; they do
-  not need a Tauri runtime.
+- **`PtyState` is app-wide, not per window.** Secondary windows share one
+  session map, so any command that reaps sessions must be scoped to the calling
+  window. `pty_reap_for_label` takes its label from the injected
+  `tauri::WebviewWindow`, never from an argument: a caller-supplied label would
+  let one webview kill every terminal in the process.
+- Rust tests live in `#[cfg(test)]` modules next to the code; there is no
+  `src-tauri/tests/` directory, and no Tauri runtime is needed.

@@ -91,6 +91,6 @@
     },
     "category": "DeveloperTool",
     "shortDescription": "Lightweight cross-platform terminal emulator",
-    "longDescription": "Kite is an open-source terminal emulator with multi-tab terminals, split panes, and a file explorer."
+    "longDescription": "Kite is an open-source terminal emulator with multi-tab terminals and split panes."
   }
 }
