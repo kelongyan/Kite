@@ -121,10 +121,11 @@ fn log_launch_context(app: &tauri::AppHandle) {
 
 /// Initial inner size for the settings dialog, in logical pixels.
 ///
-/// Kite's default main window is 800x600, smaller than the 900x700 the settings
-/// UI is designed for. Without shrinking to fit, the dialog covers the window it
-/// belongs to (header controls included), so it reads as the main window rather
-/// than as a dialog on top of it.
+/// Kite's default main window is 1100x700, smaller than the 900x700 the settings
+/// UI is designed for once the window has been shrunk by the user. Without
+/// shrinking to fit, the dialog covers the window it belongs to (header controls
+/// included), so it reads as the main window rather than as a dialog on top of
+/// it.
 fn settings_inner_size(main_inner: Option<(u32, u32)>) -> (u32, u32) {
     const DESIGN: (u32, u32) = (900, 700);
     const FLOOR: (u32, u32) = (680, 520);
@@ -264,8 +265,16 @@ fn urlencoding_lite(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/'
-            | b':' | b'\\' => {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'/'
+            | b':'
+            | b'\\' => {
                 out.push(byte as char);
             }
             _ => {
@@ -355,10 +364,50 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
     Ok(())
 }
 
+/// Preference key shared with the frontend settings store.
+const KEY_RESTORE_WINDOW_STATE: &str = "restoreWindowState";
+const SETTINGS_STORE_FILE: &str = "kite-settings.json";
+
+/// Whether the saved main-window geometry should be honored on start.
+///
+/// Defaults to true so a missing store, a fresh install, or an unreadable file
+/// keeps the historical behavior. Only an explicit `false` opts out.
+fn restore_window_state_enabled(raw: Option<&str>) -> bool {
+    raw.and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+        .and_then(|value| {
+            value
+                .get(KEY_RESTORE_WINDOW_STATE)
+                .and_then(serde_json::Value::as_bool)
+        })
+        .unwrap_or(true)
+}
+
+/// Read the preference straight off disk, before any Tauri runtime exists.
+///
+/// The window-state plugin restores geometry in `on_window_ready`, which runs
+/// before `setup` and cannot be gated on a preference at that point. Deciding
+/// here instead means the restore never happens in the first place, so there is
+/// no correcting write and nothing for the user to see shift.
+///
+/// The directory must match what `tauri-plugin-store` resolves for
+/// `kite-settings.json` (its `BaseDirectory::AppData`), or this read silently
+/// sees nothing and the preference is ignored.
+fn read_restore_window_state(identifier: &str) -> bool {
+    let raw = dirs::data_dir()
+        .map(|dir| dir.join(identifier).join(SETTINGS_STORE_FILE))
+        .and_then(|path| std::fs::read_to_string(path).ok());
+    restore_window_state_enabled(raw.as_deref())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_dir = parse_launch_dir();
     launch::init_launch_cwd(cli_dir.as_deref());
+
+    // Built once: the identifier is needed before the builder is consumed, and
+    // `run` wants the same context back.
+    let context = tauri::generate_context!();
+    let restore_window_state = read_restore_window_state(&context.config().identifier);
 
     let builder = tauri::Builder::default();
     #[cfg(all(
@@ -385,6 +434,20 @@ pub fn run() {
     }));
     #[cfg(target_os = "linux")]
     let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
+    // Resolved before the builder is consumed: the plugin decides restore at
+    // window-ready time, which is too late to read a preference through IPC.
+    let window_state = tauri_plugin_window_state::Builder::new()
+        .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
+        // The settings window is centered on the main window every time it
+        // opens, so a persisted position would fight that placement.
+        .with_denylist(&["settings"]);
+    // `skip_initial_state` is the only way to keep the plugin from moving the
+    // window; a post-hoc correction would race the plugin's main-thread task.
+    let window_state = if restore_window_state {
+        window_state
+    } else {
+        window_state.skip_initial_state("main")
+    };
     builder
         // Skip restoring VISIBLE/MAXIMIZED/FULLSCREEN — frontend calls
         // window.show() after first paint so the user never sees a
@@ -392,14 +455,7 @@ pub fn run() {
         // FULLSCREEN are also excluded because set_maximized(true) maps to
         // ShowWindow(SW_MAXIMIZE) which forces the window visible even when
         // it was created hidden.
-        .plugin(
-            tauri_plugin_window_state::Builder::new()
-                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
-                // The settings window is centered on the main window every time it
-                // opens, so a persisted position would fight that placement.
-                .with_denylist(&["settings"])
-                .build(),
-        )
+        .plugin(window_state.build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -421,7 +477,7 @@ pub fn run() {
                 let app = window.app_handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<pty::PtyState>();
-                    let _ = pty::pty_reap_for_label(state, label);
+                    let _ = pty::reap_for_label(&state, &label);
                 });
             }
         })
@@ -452,7 +508,6 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_close,
-            pty::pty_close_all,
             pty::pty_has_foreground_process,
             pty::pty_has_foreground_job,
             pty::pty_list_shells,
@@ -463,7 +518,7 @@ pub fn run() {
             open_new_window,
             open_settings_window,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
 
@@ -471,7 +526,7 @@ pub fn run() {
 mod tests {
     use super::{
         centered_position, parse_launch_dir_from_paths, resolve_secondary_executable,
-        secondary_matches_current_executable, settings_inner_size,
+        restore_window_state_enabled, secondary_matches_current_executable, settings_inner_size,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -527,6 +582,40 @@ mod tests {
     fn settings_size_falls_back_to_the_design_size() {
         assert_eq!(settings_inner_size(None), (900, 700));
         assert_eq!(settings_inner_size(Some((1600, 1000))), (900, 700));
+    }
+
+    #[test]
+    fn restore_window_state_defaults_on_for_an_absent_store() {
+        // A fresh install, or a store the backend could not read, must keep
+        // restoring: only an explicit opt-out may change the behavior.
+        assert!(restore_window_state_enabled(None));
+        assert!(restore_window_state_enabled(Some("")));
+        assert!(restore_window_state_enabled(Some("not json")));
+        assert!(restore_window_state_enabled(Some("{}")));
+        assert!(restore_window_state_enabled(Some(
+            r#"{"restoreWindowState":true}"#
+        )));
+    }
+
+    #[test]
+    fn restore_window_state_honors_an_explicit_false() {
+        // The value is written by the frontend store, which also persists
+        // unrelated keys; those must not disturb the lookup.
+        assert!(!restore_window_state_enabled(Some(
+            r#"{"restoreWindowState":false,"theme":"dark","terminalFontSize":14}"#
+        )));
+    }
+
+    #[test]
+    fn restore_window_state_ignores_a_non_boolean_value() {
+        // A tampered or future-typed value falls back to the safe default
+        // rather than disabling restore for everything.
+        assert!(restore_window_state_enabled(Some(
+            r#"{"restoreWindowState":"false"}"#
+        )));
+        assert!(restore_window_state_enabled(Some(
+            r#"{"restoreWindowState":null}"#
+        )));
     }
 
     #[test]

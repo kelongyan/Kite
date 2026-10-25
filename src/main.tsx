@@ -21,7 +21,9 @@ if (import.meta.env.DEV && import.meta.env.VITE_REACT_SCAN === "true") {
 }
 
 // Reap PTY sessions orphaned by a prior webview load before any tab spawns.
-await invoke("pty_close_all").catch(() => {});
+// Scoped to this window: `PtyState` is app-wide, so a blanket close here would
+// also tear down every terminal already open in another window.
+await invoke("pty_reap_for_label").catch(() => {});
 
 // Seed before first paint so the default tab mounts at the target cwd and the
 // terminal renders with the saved preferences instead of flashing defaults.

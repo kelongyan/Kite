@@ -55,7 +55,18 @@ pub async fn pty_open(
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let owner_label = window.label().to_string();
     let session = tauri::async_runtime::spawn_blocking(move || {
-        session::spawn(id, app, cols, rows, cwd, shell, theme_mode, on_data, on_exit, owner_label)
+        session::spawn(
+            id,
+            app,
+            cols,
+            rows,
+            cwd,
+            shell,
+            theme_mode,
+            on_data,
+            on_exit,
+            owner_label,
+        )
     })
     .await
     .map_err(|e| {
@@ -263,8 +274,7 @@ fn shell_has_children(shell_pid: u32) -> bool {
     use std::mem::{size_of, zeroed};
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
-        TH32CS_SNAPPROCESS,
+        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
     };
     unsafe {
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -292,16 +302,45 @@ fn shell_has_children(shell_pid: u32) -> bool {
 
 // A fresh webview load orphans the previous frontend's sessions in this still
 // running process; reap them on boot before any new tab spawns.
-/// Reap sessions owned by a destroyed webview (secondary windows): the JS
-/// that would call pty_close is gone with the page.
+//
+// The label comes from the injected window rather than from a parameter: this
+// command exists so a reloading page can clean up after itself, and a window
+// must never be able to reap another window's shells. Secondary windows share
+// one app-wide `PtyState`, so a label that the caller controls would let any
+// webview kill every terminal in the process.
 #[tauri::command]
-pub fn pty_reap_for_label(state: tauri::State<PtyState>, label: String) -> Result<usize, String> {
-    let drained: Vec<(u32, Arc<Session>)> = state
-        .sessions
-        .write()
-        .unwrap()
-        .extract_if(|_, s| s.owner_label == label)
-        .collect();
+pub fn pty_reap_for_label(
+    state: tauri::State<PtyState>,
+    window: tauri::WebviewWindow,
+) -> Result<usize, String> {
+    Ok(reap_for_label(state.inner(), window.label()))
+}
+
+/// Drain every session owned by `owner_label` out of `sessions`.
+///
+/// Split out from [`reap_for_label`] so the ownership filter is testable
+/// without a live PTY: the whole point of the command is that it never touches
+/// another window's sessions.
+fn drain_owned_by<T>(
+    sessions: &mut HashMap<u32, T>,
+    owner_label: impl Fn(&T) -> &str,
+    label: &str,
+) -> Vec<(u32, T)> {
+    sessions
+        .extract_if(|_, session| owner_label(session) == label)
+        .collect()
+}
+
+/// Kill every session owned by `label`.
+///
+/// Shared with the window-destroyed hook in `lib.rs`, where the webview is
+/// already gone and no command can be invoked.
+pub(crate) fn reap_for_label(state: &PtyState, label: &str) -> usize {
+    let drained = drain_owned_by(
+        &mut state.sessions.write().unwrap(),
+        |session| session.owner_label.as_str(),
+        label,
+    );
     let count = drained.len();
     for (id, s) in drained {
         if let Err(e) = s.killer.lock().unwrap().kill() {
@@ -315,29 +354,7 @@ pub fn pty_reap_for_label(state: tauri::State<PtyState>, label: String) -> Resul
     if count > 0 {
         log::info!("pty_reap_for_label({label}): reaped {count} session(s)");
     }
-    Ok(count)
-}
-
-#[tauri::command]
-pub fn pty_close_all(state: tauri::State<PtyState>) -> Result<usize, String> {
-    let drained: Vec<(u32, Arc<Session>)> = {
-        let mut sessions = state.sessions.write().unwrap();
-        sessions.drain().collect()
-    };
-    let count = drained.len();
-    for (id, s) in drained {
-        if let Err(e) = s.killer.lock().unwrap().kill() {
-            log::debug!("pty_close_all: kill id={id} returned {e}");
-        }
-        thread::Builder::new()
-            .name(format!("kite-pty-drop-{id}"))
-            .spawn(move || session::drop_session(s))
-            .expect("spawn pty drop thread");
-    }
-    if count > 0 {
-        log::info!("pty_close_all: reaped {count} orphaned session(s)");
-    }
-    Ok(count)
+    count
 }
 
 // Async so a first, uncached enumeration (which may wait on a slow or
@@ -347,4 +364,53 @@ pub async fn pty_list_shells() -> Vec<shell_init::ShellInfo> {
     tauri::async_runtime::spawn_blocking(shell_init::list_shells)
         .await
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::drain_owned_by;
+
+    /// Stand-in for a session: only the owner label matters to the filter.
+    fn sessions(pairs: &[(u32, &'static str)]) -> std::collections::HashMap<u32, String> {
+        pairs
+            .iter()
+            .map(|(id, label)| (*id, (*label).to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn reaps_only_sessions_owned_by_the_given_label() {
+        let mut map = sessions(&[(1, "main"), (2, "main-2"), (3, "main")]);
+        let drained = drain_owned_by(&mut map, |label| label.as_str(), "main-2");
+
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].0, 2);
+        // The other window's shells must survive: this is the whole point of
+        // scoping the command to the calling window instead of draining all.
+        assert_eq!(map.len(), 2);
+        assert!(map.contains_key(&1));
+        assert!(map.contains_key(&3));
+    }
+
+    #[test]
+    fn reaping_an_unknown_label_removes_nothing() {
+        let mut map = sessions(&[(1, "main"), (2, "main-2")]);
+        assert_eq!(
+            drain_owned_by(&mut map, |label| label.as_str(), "main-9").len(),
+            0
+        );
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn reaping_is_not_a_prefix_match() {
+        // "main-2" must not take down "main-20" or "main".
+        let mut map = sessions(&[(1, "main"), (2, "main-2"), (3, "main-20")]);
+        let drained = drain_owned_by(&mut map, |label| label.as_str(), "main-2");
+
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].0, 2);
+        assert!(map.contains_key(&1));
+        assert!(map.contains_key(&3));
+    }
 }
