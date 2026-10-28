@@ -6,9 +6,14 @@
  */
 export type TerminalActivity = {
   leafId: number;
-  kind: "bell" | "commandFinished" | "output";
+  kind: "bell" | "commandFinished" | "commandState" | "output";
   /** Optional human text for bell-driven notifications (OSC 9 / 777). */
   message?: string;
+  /**
+   * Only for `commandState`: true while the leaf is inside its OSC 133 C..D
+   * window. Drives the animated activity dot on background tabs.
+   */
+  running?: boolean;
 };
 
 type TerminalActivityListener = (activity: TerminalActivity) => void;

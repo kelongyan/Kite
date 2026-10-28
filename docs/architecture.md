@@ -140,7 +140,9 @@ sibling instead of nesting, which keeps resize handles aligned.
 ### Modules
 
 - `terminal`: xterm sessions, split panes, renderer pool, OSC.
-- `tabs`: tab source of truth, switcher, pane-aware close behavior.
+- `tabs`: tab source of truth, switcher, pane-aware close behavior. A
+  background tab's dot breathes while any of its leaves is inside its OSC 133
+  C..D window, then turns steady once the command ends with output unread.
 - `theme`: built-in/custom themes.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
 - `header`, `i18n`: application chrome.
@@ -201,7 +203,9 @@ Rules:
   layout exception.
 - Never animate terminal content, xterm canvases, PTY output, pane geometry, or
   theme switching.
-- No infinite loops except the terminal cursor and the shortcut recording dot.
+- No infinite loops except the terminal cursor, the shortcut recording dot, and
+  the background-tab running dot, which loops only while a command is inside its
+  OSC 133 C..D window.
 - `prefers-reduced-motion` is handled globally; the cursor overlay is kept
   visible explicitly.
 - Cursor motion uses `--dur-cursor` (64ms) for both the CSS glide and the JS

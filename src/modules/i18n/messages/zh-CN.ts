@@ -16,9 +16,6 @@ export const zhCN = {
       rename: "重命名",
       close: "关闭",
       newTab: "新建标签",
-      newTabWithShell: "选择 Shell 新建标签",
-      defaultShell: "默认 Shell",
-      loadingShells: "正在加载 Shell…",
     },
     terminalMenu: {
       copy: "复制",

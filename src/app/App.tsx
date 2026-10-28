@@ -251,8 +251,15 @@ export default function App() {
   // Terminal activity: badge background tabs with output, and deliver bell /
   // command-finished notifications when the user is not watching the pane.
   useEffect(() => {
-    const { markActive } = useTabActivityStore.getState();
+    const { markActive, setLeafRunning } = useTabActivityStore.getState();
     return onTerminalActivity((activity) => {
+      // Presence, not notification: a command entering or leaving its OSC 133
+      // C..D window drives the animated dot on background tabs. Tracked before
+      // the tab lookup so a stale leaf id from a disposed session is harmless.
+      if (activity.kind === "commandState") {
+        setLeafRunning(activity.leafId, activity.running === true);
+        return;
+      }
       const tab = tabsRef.current.find(
         (t) =>
           t.kind === "terminal" && hasLeaf(t.paneTree, activity.leafId),
@@ -524,7 +531,6 @@ export default function App() {
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
-              onNewWithShell={openNewTabWithShell}
               onClose={handleClose}
               onRename={handleRenameTab}
               onReorder={reorderTabByGap}

@@ -116,6 +116,23 @@ function leafBusy(s: Session): boolean {
   return s.commandRunning;
 }
 
+/**
+ * Flip a leaf's command-running flag and fan the change out on the activity
+ * bus. Every writer goes through here so the flag and the tab indicator can
+ * never disagree, including when a live command is torn down (shell exit,
+ * respawn, pane dispose) instead of finishing normally.
+ */
+function setCommandRunning(
+  leafId: number,
+  s: Session,
+  running: boolean,
+): boolean {
+  if (s.commandRunning === running) return false;
+  s.commandRunning = running;
+  emitTerminalActivity({ leafId, kind: "commandState", running });
+  return true;
+}
+
 const HIDDEN_RELEASE_DELAY_MS = 300;
 
 // A parked hidden leaf went idle: give the post-command prompt a moment to
@@ -158,8 +175,7 @@ async function leafHasForegroundJob(leafId: number): Promise<boolean> {
 
 function onLeafCommandState(leafId: number, running: boolean): void {
   const s = sessions.get(leafId);
-  if (!s || s.commandRunning === running) return;
-  s.commandRunning = running;
+  if (!s || !setCommandRunning(leafId, s, running)) return;
   if (!running) {
     emitTerminalActivity({ leafId, kind: "commandFinished" });
     scheduleHiddenRelease(leafId, s);
@@ -351,7 +367,7 @@ async function openPtyForSession(
         s.shellExited = true;
         s.pty = null;
         s.pendingInput.clear();
-        s.commandRunning = false;
+        setCommandRunning(leafId, s, false);
         const slot = getSlotForLeaf(leafId);
         if (slot) slot.term.options.disableStdin = true;
         scheduleHiddenRelease(leafId, s);
@@ -501,7 +517,7 @@ async function respawnSession(leafId: number, cwd?: string): Promise<void> {
   s.pendingExit = null;
   s.pendingInput.clear();
   s.altScreenAtRelease = false;
-  s.commandRunning = false;
+  setCommandRunning(leafId, s, false);
   s.spawnFailed = false;
   cancelHiddenRelease(s);
 
@@ -559,6 +575,7 @@ export function disposeSession(leafId: number): void {
   const s = sessions.get(leafId);
   if (!s) return;
   s.disposed = true;
+  setCommandRunning(leafId, s, false);
   cancelHiddenRelease(s);
   disposeLeafSlot(leafId);
   s.hasSlot = false;

@@ -6,18 +6,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useMessages } from "@/modules/i18n";
+import { leafIds } from "@/modules/terminal/lib/panes";
 import {
-  ArrowDown01Icon,
   Cancel01Icon,
   ComputerTerminal02Icon,
   PencilEdit02Icon,
@@ -33,8 +26,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ShellChoice } from "@/modules/terminal/lib/shells";
-import { listTerminalShells } from "@/modules/terminal/lib/shells";
 import { isTerminalLabelResolving, pathLabelFor } from "./lib/tabLabel";
 import { useTabActivityStore } from "./lib/tabActivityStore";
 import type { Tab } from "./lib/useTabs";
@@ -44,8 +35,6 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
-  /** Open the "new tab with shell" dropdown; absent hides the chevron. */
-  onNewWithShell?: (shell: ShellChoice) => void;
   onClose: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
@@ -69,7 +58,6 @@ export function TabBar({
   activeId,
   onSelect,
   onNew,
-  onNewWithShell,
   onClose,
   onRename,
   onReorder,
@@ -79,21 +67,7 @@ export function TabBar({
 }: Props) {
   const messages = useMessages().mainShell.tabs;
   const activityTabIds = useTabActivityStore((s) => s.activeTabs);
-  // Shells are fetched when the dropdown first opens, not on mount: the
-  // enumeration runs wsl.exe, which can hang for seconds on machines with a
-  // wedged WSL service and must never sit on the boot path.
-  const [shellsState, setShellsState] = useState<{
-    requested: boolean;
-    loaded: boolean;
-    list: ShellChoice[];
-  }>({ requested: false, loaded: false, list: [] });
-  const loadShells = useCallback(() => {
-    if (shellsState.requested) return;
-    setShellsState({ requested: true, loaded: false, list: [] });
-    void listTerminalShells().then((list) =>
-      setShellsState({ requested: true, loaded: true, list }),
-    );
-  }, [shellsState.requested]);
+  const runningLeafIds = useTabActivityStore((s) => s.runningLeaves);
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -365,6 +339,9 @@ export function TabBar({
             />
             {tabs.map((t, i) => {
               const isActive = t.id === activeId;
+              const running = !isActive
+                ? leafIds(t.paneTree).some((id) => runningLeafIds.has(id))
+                : false;
               const isEntering =
                 entering.has(t.id) || !seenRef.current?.has(t.id);
               const tabLabelOptions = { home, homeResolved };
@@ -513,10 +490,13 @@ export function TabBar({
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span className="relative shrink-0">
                       <TabIcon starting={terminalStarting} />
-                      {!isActive && activityTabIds.has(t.id) && (
+                      {!isActive && (running || activityTabIds.has(t.id)) && (
                         <span
                           aria-hidden
-                          className="absolute -end-[3px] -top-0.5 size-1.5 rounded-full bg-primary transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)]"
+                          className={cn(
+                            "absolute -end-[3px] -top-0.5 size-1.5 rounded-full bg-primary transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)]",
+                            running && "kite-tab-running-dot",
+                          )}
                         />
                       )}
                     </span>
@@ -620,60 +600,6 @@ export function TabBar({
           >
             <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={2} />
           </Button>
-          {onNewWithShell && (
-            <DropdownMenu
-              onOpenChange={(open) => {
-                if (open) loadShells();
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label={messages.newTabWithShell}
-                  title={messages.newTabWithShell}
-                >
-                  <HugeiconsIcon icon={ArrowDown01Icon} size={10} strokeWidth={2} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-44">
-                <DropdownMenuItem
-                  className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]"
-                  onSelect={() => onNew()}
-                >
-                  <span className="flex-1">{messages.defaultShell}</span>
-                </DropdownMenuItem>
-                {shellsState.loaded && shellsState.list.length > 0 && (
-                  <DropdownMenuSeparator />
-                )}
-                {!shellsState.loaded && shellsState.requested ? (
-                  <DropdownMenuItem
-                    disabled
-                    className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px] text-muted-foreground"
-                  >
-                    <span className="flex-1">{messages.loadingShells}</span>
-                  </DropdownMenuItem>
-                ) : (
-                  shellsState.list.map((shell) => (
-                    <DropdownMenuItem
-                      key={shell.path}
-                      className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]"
-                      onSelect={() => onNewWithShell?.(shell)}
-                    >
-                      <HugeiconsIcon
-                        icon={ComputerTerminal02Icon}
-                        size={13}
-                        strokeWidth={1.75}
-                        className="text-muted-foreground"
-                      />
-                      <span className="flex-1 truncate">{shell.name}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
       </div>
       {ghost && (() => {

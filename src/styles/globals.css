@@ -829,6 +829,26 @@ html[data-theme-swapping] *::after {
   }
 }
 
+/* A background tab with a command inside its OSC 133 C..D window: the dot
+   breathes so "still running" cannot be mistaken for "finished, unread".
+   The one sanctioned looping animation outside the terminal cursor and the
+   shortcut recording dot; reduced-motion below freezes it to a steady dot. */
+@keyframes kite-tab-running-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.kite-tab-running-dot {
+  animation: kite-tab-running-pulse 1.4s var(--ease-soft) infinite;
+}
+
 .kite-terminal-tab-icon-starting {
   opacity: 0.6;
 }
@@ -952,6 +972,11 @@ html[data-theme-swapping] *::after {
   }
   .kite-tab-terminal-resolving::after {
     display: none;
+  }
+  .kite-tab-running-dot {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
   .kite-tab-label-text {
     transition: none;
