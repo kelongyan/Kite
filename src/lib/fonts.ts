@@ -5,6 +5,25 @@
 export const DEFAULT_MONO_FONT_FAMILY = "Kite Mono";
 export const DEFAULT_CJK_FONT_FAMILY = "Kite Sans SC";
 
+// Box-drawing / block-element faces, bundled under their own family name.
+// The bundled code font (JetBrains Mono latin + cyrillic subsets) holds no
+// U+2500-259F, so TUI frame characters would otherwise resolve against a
+// system monospace whose advance is usually not 0.6em and land off the cell
+// grid. This face carries that range at the same 0.6em advance. It is not a
+// user-facing choice: it always follows the code font in the stack, so a
+// system font the user selected (a Nerd Font, say) still wins for the
+// characters it covers.
+const DEFAULT_MONO_SYMBOLS_FAMILY = "Kite Mono Symbols";
+
+// The symbol face is declared with a unicode-range that covers only
+// U+2000-259F, so it does not match the probe text document.fonts.load()
+// uses by default (a space). Without a character inside the range the call
+// resolves with an empty match list and the file is never fetched, leaving
+// the face unloaded until Blink happens to need it — that late swap lands
+// box-drawing characters on the system fallback for a frame and mismeasures
+// the grid. Probe it with a character the face actually covers.
+const MONO_SYMBOLS_PROBE = "\u2500";
+
 const CJK_FONT_CANDIDATES = [
   "Kite Sans SC",
   "Sarasa Mono SC",
@@ -92,7 +111,7 @@ function cssWeight(weight: string | undefined): string {
   return weight;
 }
 
-// Both bundled faces must be loaded before the terminal measures its first
+// Every bundled face must be loaded before the terminal measures its first
 // cell: an unloaded face falls back and the glyph grid is mismeasured until a
 // relayout. A woff2 file decodes whole, so the size in the load spec is an
 // arbitrary trigger and every weight reuses the same bytes; only the weight
@@ -112,6 +131,7 @@ export function ensureMonoFontsLoaded(weight?: string): Promise<void> {
   monoReady = Promise.allSettled(
     weights.flatMap((x) => [
       document.fonts.load(`${x} 14px "Kite Mono"`),
+      document.fonts.load(`${x} 14px "Kite Mono Symbols"`, MONO_SYMBOLS_PROBE),
       document.fonts.load(`${x} 14px "Kite Sans SC"`),
     ]),
   ).then(() => undefined);
@@ -152,6 +172,7 @@ export function resolveFontFamily(
   const families = uniqueFontFamilies([
     ...(codeFamilies.length > 0 ? codeFamilies : [DEFAULT_MONO_FONT_FAMILY]),
     DEFAULT_MONO_FONT_FAMILY,
+    DEFAULT_MONO_SYMBOLS_FAMILY,
     ...cjkFamilies,
     ...installedCjkCandidates(),
     ...SYSTEM_MONO_FALLBACKS,

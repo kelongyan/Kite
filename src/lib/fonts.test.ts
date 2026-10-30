@@ -8,7 +8,7 @@ import {
 
 const FALLBACK =
   '"Kite Sans SC", "Sarasa Mono SC", "Sarasa Term SC", "Source Han Mono SC", "Source Han Sans SC", "LXGW WenKai Mono", "LXGW WenKai", "Noto Sans Mono CJK SC", "Noto Serif CJK SC", "Noto Sans SC", "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei Mono", "Microsoft YaHei", "Microsoft YaHei UI", "DengXian", "SimHei", "SimSun", "FangSong", "KaiTi", "NSimSun", "SFMono-Regular", "Menlo", monospace';
-const DEFAULT_STACK = `"Kite Mono", ${FALLBACK}`;
+const DEFAULT_STACK = `"Kite Mono", "Kite Mono Symbols", ${FALLBACK}`;
 
 function withoutFallbackFamilies(...families: string[]): string {
   const removed = new Set(families.map((family) => family.toLowerCase()));
@@ -20,25 +20,25 @@ function withoutFallbackFamilies(...families: string[]): string {
 describe("resolveFontFamily", () => {
   it("uses the bundled mono font before explicit CJK fallbacks", () => {
     expect(resolveFontFamily("JetBrainsMono Nerd Font", "Microsoft YaHei")).toBe(
-      `"JetBrainsMono Nerd Font", "Kite Mono", "Microsoft YaHei", ${withoutFallbackFamilies("Microsoft YaHei")}`,
+      `"JetBrainsMono Nerd Font", "Kite Mono", "Kite Mono Symbols", "Microsoft YaHei", ${withoutFallbackFamilies("Microsoft YaHei")}`,
     );
   });
 
   it("uses the bundled mono font before automatic CJK fallbacks", () => {
     expect(resolveFontFamily("Fira Code", "")).toBe(
-      `"Fira Code", "Kite Mono", ${FALLBACK}`,
+      `"Fira Code", "Kite Mono", "Kite Mono Symbols", ${FALLBACK}`,
     );
   });
 
   it("cleans quotes and trims both font inputs", () => {
     expect(resolveFontFamily('  "Fira Code"  ', " 'SimSun' ")).toBe(
-      `"Fira Code", "Kite Mono", "SimSun", ${withoutFallbackFamilies("SimSun")}`,
+      `"Fira Code", "Kite Mono", "Kite Mono Symbols", "SimSun", ${withoutFallbackFamilies("SimSun")}`,
     );
   });
 
   it("accepts comma-separated advanced stacks and removes duplicates", () => {
     expect(resolveFontFamily("Foo, monospace", "Microsoft YaHei")).toBe(
-      `"Foo", monospace, "Kite Mono", "Microsoft YaHei", ${FALLBACK.replace(
+      `"Foo", monospace, "Kite Mono", "Kite Mono Symbols", "Microsoft YaHei", ${FALLBACK.replace(
         ", \"Microsoft YaHei\"",
         "",
       ).replace(", monospace", "")}`,
@@ -47,13 +47,26 @@ describe("resolveFontFamily", () => {
 
   it("strips stray internal quotes to avoid malformed tokens", () => {
     expect(resolveFontFamily('Foo"Bar', "")).toBe(
-      `"FooBar", "Kite Mono", ${FALLBACK}`,
+      `"FooBar", "Kite Mono", "Kite Mono Symbols", ${FALLBACK}`,
     );
   });
 
   it("uses the default stack for empty code input", () => {
     expect(resolveFontFamily("", "")).toBe(DEFAULT_STACK);
     expect(resolveFontFamily("   ", "   ")).toBe(DEFAULT_STACK);
+  });
+
+  it("places the bundled symbol face right after the bundled mono font", () => {
+    // The box-drawing face must follow the code font (a system font the user
+    // picked still wins for the glyphs it covers) and precede the CJK
+    // fallbacks, so a frame character never resolves against a CJK face.
+    const stack = resolveFontFamily("", "");
+    expect(stack.indexOf('"Kite Mono Symbols"')).toBeGreaterThan(
+      stack.indexOf('"Kite Mono"'),
+    );
+    expect(stack.indexOf('"Kite Mono Symbols"')).toBeLessThan(
+      stack.indexOf('"Kite Sans SC"'),
+    );
   });
 });
 
@@ -76,7 +89,7 @@ describe("resolveFontFamily fallback filtering", () => {
   it("keeps only candidates the availability probe matches", () => {
     stubOnlyBundledInstalled();
     expect(resolveFontFamily("", "")).toBe(
-      '"Kite Mono", "Kite Sans SC", "SFMono-Regular", "Menlo", monospace',
+      '"Kite Mono", "Kite Mono Symbols", "Kite Sans SC", "SFMono-Regular", "Menlo", monospace',
     );
   });
 
@@ -90,7 +103,7 @@ describe("resolveFontFamily fallback filtering", () => {
       }),
     });
     expect(resolveFontFamily("Fira Code", "")).toBe(
-      `"Fira Code", "Kite Mono", ${FALLBACK}`,
+      `"Fira Code", "Kite Mono", "Kite Mono Symbols", ${FALLBACK}`,
     );
   });
 });
@@ -216,19 +229,21 @@ describe("ensureMonoFontsLoaded weight handling", () => {
 
   function stubFontLoader() {
     const loaded: string[] = [];
+    const probes: (string | undefined)[] = [];
     vi.stubGlobal("document", {
       fonts: {
-        load: (spec: string) => {
+        load: (spec: string, text?: string) => {
           loaded.push(spec);
+          probes.push(text);
           return Promise.resolve();
         },
       },
     });
-    return loaded;
+    return { loaded, probes };
   }
 
   it("loads the preference weight alongside the base pair", async () => {
-    const loaded = stubFontLoader();
+    const { loaded } = stubFontLoader();
     const { ensureMonoFontsLoaded } = await import("./fonts");
     await ensureMonoFontsLoaded("500");
     expect(loaded).toContain('500 14px "Kite Mono"');
@@ -236,8 +251,30 @@ describe("ensureMonoFontsLoaded weight handling", () => {
     expect(loaded).toContain('400 14px "Kite Mono"');
   });
 
+  it("loads the symbol face for every bundled weight", async () => {
+    // The box-drawing face has to be settled before the terminal measures its
+    // first cell, or frame characters fall back and the grid is mismeasured.
+    const { loaded } = stubFontLoader();
+    const { ensureMonoFontsLoaded } = await import("./fonts");
+    await ensureMonoFontsLoaded("400");
+    expect(loaded).toContain('400 14px "Kite Mono Symbols"');
+    expect(loaded).toContain('700 14px "Kite Mono Symbols"');
+  });
+
+  it("probes the symbol face with a character inside its unicode-range", async () => {
+    // document.fonts.load() probes with a space by default. The symbol face
+    // is range-restricted and does not cover U+0020, so the default probe
+    // matches nothing and the file is never fetched.
+    const { probes } = stubFontLoader();
+    const { ensureMonoFontsLoaded } = await import("./fonts");
+    await ensureMonoFontsLoaded("400");
+    const symbolIndex = probes.indexOf("\u2500");
+    expect(symbolIndex).toBeGreaterThanOrEqual(0);
+    expect(probes.filter((text) => text === "\u2500").length).toBe(2);
+  });
+
   it("maps bold to 700 and normal to 400", async () => {
-    const loaded = stubFontLoader();
+    const { loaded } = stubFontLoader();
     const { ensureMonoFontsLoaded } = await import("./fonts");
     await ensureMonoFontsLoaded("bold");
     expect(loaded).toContain('700 14px "Kite Mono"');
