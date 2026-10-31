@@ -1,20 +1,30 @@
 import type { Tab } from "./useTabs";
 
 export const TERMINAL_DEFAULT_TITLE = "Terminal";
-export const TERMINAL_HOME_LABEL = "Home";
+// The shell-standard tilde for the home directory (Tern shows it the same way).
+export const TERMINAL_HOME_LABEL = "~";
 
 export type TabLabelOptions = {
   home?: string | null;
   homeResolved?: boolean;
+  /**
+   * The running command's line, when the shell reported one. While a command
+   * runs it takes over the label (Tern behaviour); everything else resumes
+   * once it finishes. Only the display label honors this — the rename input
+   * and the drag ghost keep showing the path.
+   */
+  runningCmdline?: string;
 };
 
 /**
- * The label shown on a tab. Terminal tabs prefer a user-set custom name, then
- * fall back to the last segment of the cwd. While home is still resolving,
- * terminals stay on the neutral default so startup never flashes a real folder
- * name before the workspace is ready.
+ * The label shown on a tab. A running command line wins outright; otherwise
+ * terminal tabs prefer a user-set custom name, then fall back to the last
+ * segment of the cwd. While home is still resolving, terminals stay on the
+ * neutral default so startup never flashes a real folder name before the
+ * workspace is ready.
  */
 export function labelFor(t: Tab, options: TabLabelOptions = {}): string {
+  if (options.runningCmdline) return options.runningCmdline;
   if (t.customTitle) return t.customTitle;
   if (!t.cwd || options.homeResolved === false) {
     return terminalFallbackTitle(t.title);

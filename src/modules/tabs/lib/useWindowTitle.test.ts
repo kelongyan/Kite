@@ -24,7 +24,7 @@ describe("resolveWindowTitle", () => {
     ).toBe("Kite");
   });
 
-  it("collapses to Home once the workspace home is confirmed", () => {
+  it("collapses to the tilde once the workspace home is confirmed", () => {
     expect(
       resolveWindowTitle(
         terminalTab({ cwd: "C:/Users/Administrator" }),
@@ -34,7 +34,7 @@ describe("resolveWindowTitle", () => {
           homeResolved: true,
         },
       ),
-    ).toBe("Home");
+    ).toBe("~");
   });
 
   it("keeps custom terminal titles when home is still resolving", () => {

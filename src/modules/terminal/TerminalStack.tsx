@@ -1,5 +1,6 @@
 import type { Tab } from "@/modules/tabs";
-import { useEffect, useMemo, useRef } from "react";
+import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { selectLiveTerminals } from "./lib/liveTerminals";
 import { leafIds } from "./lib/panes";
 import { PaneTreeView, type PaneCommand } from "./PaneTreeView";
@@ -69,6 +70,39 @@ export function TerminalStack({
     }
   }, [terminals]);
 
+  // Direction-aware stage entrance on tab switch (Tern's tsw-in-next/prev):
+  // the incoming surface fades in from the direction it sits on the strip.
+  // Under-160ms consecutive switches skip the animation so rapid Ctrl+Tab
+  // never strobes.
+  const [stageAnim, setStageAnim] = useState<{
+    id: number;
+    dir: "next" | "prev";
+  } | null>(null);
+  const prevActiveRef = useRef(activeId);
+  const lastSwitchAtRef = useRef(0);
+
+  useEffect(() => {
+    const prev = prevActiveRef.current;
+    if (prev === activeId) return;
+    prevActiveRef.current = activeId;
+    const prevIdx = tabs.findIndex((x) => x.id === prev);
+    const nextIdx = tabs.findIndex((x) => x.id === activeId);
+    if (prevIdx === -1 || nextIdx === -1) return;
+    const now = performance.now();
+    const quick = now - lastSwitchAtRef.current < 160;
+    lastSwitchAtRef.current = now;
+    if (quick) return;
+    setStageAnim({ id: activeId, dir: nextIdx > prevIdx ? "next" : "prev" });
+  }, [activeId, tabs]);
+
+  useEffect(() => {
+    if (!stageAnim) return;
+    // Self-terminating like the tab enter animation: animationend clears it,
+    // the timeout is the fallback if the frame never paints an event.
+    const timer = setTimeout(() => setStageAnim(null), 700);
+    return () => clearTimeout(timer);
+  }, [stageAnim]);
+
   return (
     <div className="relative h-full w-full">
       {terminals.map((t) => {
@@ -77,12 +111,26 @@ export function TerminalStack({
         return (
           <div
             key={t.id}
-            className="absolute inset-0"
+            className={cn(
+              "absolute inset-0",
+              stageAnim?.id === t.id &&
+                (stageAnim.dir === "next"
+                  ? "kite-stage-in-next"
+                  : "kite-stage-in-prev"),
+            )}
             style={{
               visibility: tabVisible ? "visible" : "hidden",
               pointerEvents: tabVisible ? "auto" : "none",
             }}
             aria-hidden={!tabVisible}
+            onAnimationEnd={(e) => {
+              if (
+                e.target === e.currentTarget &&
+                e.animationName.startsWith("kite-stage-in")
+              ) {
+                setStageAnim(null);
+              }
+            }}
           >
             <PaneTreeView
               node={t.paneTree}

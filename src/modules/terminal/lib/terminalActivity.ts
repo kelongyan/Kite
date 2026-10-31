@@ -14,6 +14,12 @@ export type TerminalActivity = {
    * window. Drives the animated activity dot on background tabs.
    */
   running?: boolean;
+  /** Only for `commandState` start: the reported command line, when known. */
+  cmdline?: string;
+  /** Only for `commandState` end: the reported exit status, when known. */
+  exitCode?: number | null;
+  /** Only for `commandFinished`: wall-clock time the command took. */
+  durationMs?: number;
 };
 
 type TerminalActivityListener = (activity: TerminalActivity) => void;

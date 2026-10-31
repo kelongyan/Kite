@@ -42,19 +42,28 @@ export type PromptTracker = {
   dispose: () => void;
 };
 
+/** Payload carried by a shell command-boundary marker. */
+export type CommandMarkerInfo = {
+  /** OSC 133 C: the command line the shell is about to run, when reported. */
+  cmdline?: string;
+  /** OSC 133 D: the command's exit status, when reported. */
+  exitCode?: number | null;
+};
+
 export function registerPromptTracker(
   term: Terminal,
   state?: ShellIntegrationState,
   // Fires on C (process executing) and A/D (back at prompt). Distinct from
   // inCommand, which is already true from B while the user merely types.
-  onCommandState?: (running: boolean) => void,
+  // C carries the reported command line, D the reported exit status.
+  onCommandState?: (running: boolean, info?: CommandMarkerInfo) => void,
 ): PromptTracker {
   let marker: IMarker | null = null;
   const d = term.parser.registerOscHandler(133, (data) => {
     // OSC 133 A — start of new prompt (between commands).
     if (data.startsWith("A")) {
       if (state) state.inCommand = false;
-      onCommandState?.(false);
+      onCommandState?.(false, undefined);
       marker?.dispose();
       marker = term.registerMarker(0);
     } else if (data.startsWith("B")) {
@@ -64,11 +73,11 @@ export function registerPromptTracker(
     } else if (data.startsWith("C")) {
       // OSC 133 C — command pre-execution marker; still inside command.
       if (state) state.inCommand = true;
-      onCommandState?.(true);
+      onCommandState?.(true, parseCommandStart(data));
     } else if (data.startsWith("D")) {
       // OSC 133 D — command ends.
       if (state) state.inCommand = false;
-      onCommandState?.(false);
+      onCommandState?.(false, parseCommandEnd(data));
     }
     return true;
   });
@@ -179,6 +188,28 @@ function parseOscNotificationText(data: string): string | null {
     .trim()
     .slice(0, 200);
   return text.length > 0 ? text : null;
+}
+
+/**
+ * OSC 133 C payload: the shell reports the command line as `C;<text>` (zsh,
+ * fish, PowerShell integrations; bash's PS0 marker carries no payload).
+ */
+function parseCommandStart(data: string): CommandMarkerInfo | undefined {
+  if (!data.startsWith("C;")) return undefined;
+  const cmdline = data.slice(2).trim();
+  return cmdline ? { cmdline } : undefined;
+}
+
+/**
+ * OSC 133 D payload: `D;<status>` per the FinalTerm convention. A
+ * missing or non-numeric status stays undefined so callers cannot mistake a
+ * torn-down session for a finished command.
+ */
+function parseCommandEnd(data: string): CommandMarkerInfo | undefined {
+  if (!data.startsWith("D;")) return undefined;
+  const raw = data.slice(2).trim();
+  if (!/^-?\d+$/.test(raw)) return undefined;
+  return { exitCode: Number.parseInt(raw, 10) };
 }
 
 function parseOsc7(data: string): string | null {

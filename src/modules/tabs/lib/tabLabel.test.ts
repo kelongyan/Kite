@@ -28,12 +28,12 @@ describe("labelFor (terminal tabs)", () => {
     expect(labelFor(terminalTab())).toBe("Terminal");
   });
 
-  it("uses Home for the workspace home directory", () => {
+  it("uses the tilde for the workspace home directory", () => {
     expect(
       labelFor(terminalTab({ cwd: "C:/Users/Administrator" }), {
         home: "C:/Users/Administrator",
       }),
-    ).toBe("Home");
+    ).toBe("~");
   });
 
   it("stays neutral while home is still resolving", () => {
@@ -49,7 +49,7 @@ describe("labelFor (terminal tabs)", () => {
       labelFor(terminalTab({ cwd: "c:\\Users\\Administrator\\" }), {
         home: "C:/Users/Administrator",
       }),
-    ).toBe("Home");
+    ).toBe("~");
   });
 
   it("keeps root directory labels", () => {
@@ -62,13 +62,31 @@ describe("labelFor (terminal tabs)", () => {
     ).toBe("Server");
   });
 
+  it("lets a running command line take over the label", () => {
+    // Tern behavior: while a command runs, the tab shows what it is doing,
+    // above the custom title, and everything resumes when it finishes.
+    expect(
+      labelFor(
+        terminalTab({ cwd: "/Users/me/projects/kite", customTitle: "Server" }),
+        { runningCmdline: "ping 127.0.0.1 -n 8" },
+      ),
+    ).toBe("ping 127.0.0.1 -n 8");
+  });
+
+  it("ignores an empty running command line", () => {
+    expect(
+      labelFor(terminalTab({ cwd: "/Users/me/projects/kite" }), {
+        runningCmdline: "",
+      }),
+    ).toBe("kite");
+  });
+
   it("prefers a custom title over the home label", () => {
     expect(
       labelFor(
         terminalTab({
           cwd: "C:/Users/Administrator",
-          customTitle: "Server",
-        }),
+          customTitle: "Server",        }),
         { home: "C:/Users/Administrator" },
       ),
     ).toBe("Server");

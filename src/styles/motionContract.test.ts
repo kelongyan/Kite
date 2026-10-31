@@ -49,6 +49,7 @@ describe("motion contract", () => {
       "--dur-fast",
       "--dur-base",
       "--dur-slow",
+      "--dur-switch",
       "--ease-premium",
       "--ease-soft",
     ]) {
@@ -59,6 +60,9 @@ describe("motion contract", () => {
       ".kite-dialog-motion",
       ".kite-command-motion",
       ".kite-popover-motion",
+      ".kite-stage-in-next",
+      ".kite-stage-in-prev",
+      ".kite-tab-label-shimmer",
     ]) {
       expect(css).toContain(className);
     }

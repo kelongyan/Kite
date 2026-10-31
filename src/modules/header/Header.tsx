@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { useMessages } from "@/modules/i18n";
-import type { Tab } from "@/modules/tabs";
+import type { Tab, TabColorTag } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
 import { CommandIcon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -16,6 +16,8 @@ type Props = {
   onClose: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
+  /** Set a terminal tab's color mark; empty string clears it. */
+  onSetColor: (id: number, color: TabColorTag | "") => void;
   /** Move a dragged tab to a new position (insertion gap index). */
   onReorder: (fromId: number, toGapIndex: number) => void;
   onOpenCommandPalette: () => void;
@@ -34,6 +36,7 @@ export function Header({
   onNew,
   onClose,
   onRename,
+  onSetColor,
   onReorder,
   onOpenCommandPalette,
   onOpenSettings,
@@ -130,6 +133,7 @@ export function Header({
           onNew={onNew}
           onClose={onClose}
           onRename={onRename}
+          onSetColor={onSetColor}
           onReorder={onReorder}
           home={home}
           homeResolved={homeResolved}

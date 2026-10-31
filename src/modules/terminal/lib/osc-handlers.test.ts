@@ -129,13 +129,15 @@ describe("OSC 133 command-state tracking", () => {
     registerPromptTracker(term, undefined, onCommandState);
 
     handlers.get(133)?.("A");
-    expect(onCommandState).toHaveBeenLastCalledWith(false);
+    expect(onCommandState).toHaveBeenLastCalledWith(false, undefined);
     handlers.get(133)?.("B");
     expect(onCommandState).toHaveBeenCalledTimes(1);
     handlers.get(133)?.("C;claude");
-    expect(onCommandState).toHaveBeenLastCalledWith(true);
+    expect(onCommandState).toHaveBeenLastCalledWith(true, {
+      cmdline: "claude",
+    });
     handlers.get(133)?.("D;0");
-    expect(onCommandState).toHaveBeenLastCalledWith(false);
+    expect(onCommandState).toHaveBeenLastCalledWith(false, { exitCode: 0 });
   });
 
   it("clears running state on a bare new prompt when D was lost", () => {
@@ -144,9 +146,56 @@ describe("OSC 133 command-state tracking", () => {
     registerPromptTracker(term, undefined, onCommandState);
 
     handlers.get(133)?.("C;vim");
-    expect(onCommandState).toHaveBeenLastCalledWith(true);
+    expect(onCommandState).toHaveBeenLastCalledWith(true, {
+      cmdline: "vim",
+    });
     handlers.get(133)?.("A");
-    expect(onCommandState).toHaveBeenLastCalledWith(false);
+    expect(onCommandState).toHaveBeenLastCalledWith(false, undefined);
+  });
+
+  it("carries the C command line through to the start callback", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommandState = vi.fn();
+    registerPromptTracker(term, undefined, onCommandState);
+
+    handlers.get(133)?.("C;ping 127.0.0.1 -n 8");
+    expect(onCommandState).toHaveBeenLastCalledWith(true, {
+      cmdline: "ping 127.0.0.1 -n 8",
+    });
+  });
+
+  it("carries the D exit status through to the end callback", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommandState = vi.fn();
+    registerPromptTracker(term, undefined, onCommandState);
+
+    handlers.get(133)?.("C;false");
+    handlers.get(133)?.("D;1");
+    expect(onCommandState).toHaveBeenLastCalledWith(false, { exitCode: 1 });
+
+    handlers.get(133)?.("C;true");
+    handlers.get(133)?.("D;0");
+    expect(onCommandState).toHaveBeenLastCalledWith(false, { exitCode: 0 });
+  });
+
+  it("omits marker info when a payload is missing or malformed", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommandState = vi.fn();
+    registerPromptTracker(term, undefined, onCommandState);
+
+    // bash's PS0 marker carries no command line; a payload-less D carries no
+    // status (the shell was torn down, not a real finish).
+    handlers.get(133)?.("C");
+    expect(onCommandState).toHaveBeenLastCalledWith(true, undefined);
+
+    handlers.get(133)?.("D");
+    expect(onCommandState).toHaveBeenLastCalledWith(false, undefined);
+
+    handlers.get(133)?.("D;");
+    expect(onCommandState).toHaveBeenLastCalledWith(false, undefined);
+
+    handlers.get(133)?.("D;not-a-number");
+    expect(onCommandState).toHaveBeenLastCalledWith(false, undefined);
   });
 });
 

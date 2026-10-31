@@ -73,6 +73,24 @@ describe("parseSessionLayout", () => {
     });
     expect(single).not.toBeNull();
   });
+
+  it("keeps a whitelisted color tag and drops unknown ones", () => {
+    const kept = parseSessionLayout({
+      version: 1,
+      tabs: [
+        { paneTree: { kind: "leaf" }, activeLeafIndex: 0, colorTag: "teal" },
+      ],
+    });
+    expect(kept?.tabs[0]?.colorTag).toBe("teal");
+
+    const dropped = parseSessionLayout({
+      version: 1,
+      tabs: [
+        { paneTree: { kind: "leaf" }, activeLeafIndex: 0, colorTag: "beige" },
+      ],
+    });
+    expect(dropped?.tabs[0]).not.toHaveProperty("colorTag");
+  });
 });
 
 describe("serializeSessionLayout", () => {
@@ -84,6 +102,7 @@ describe("serializeSessionLayout", () => {
         cwd: "F:/b",
         shell: "wsl:Ubuntu",
         customTitle: "build",
+        colorTag: "purple",
         paneTree: {
           kind: "split",
           id: 50,
@@ -101,6 +120,7 @@ describe("serializeSessionLayout", () => {
     expect(layout?.tabs[0]?.cwd).toBe("F:/a");
     expect(layout?.tabs[1]?.shell).toBe("wsl:Ubuntu");
     expect(layout?.tabs[1]?.customTitle).toBe("build");
+    expect(layout?.tabs[1]?.colorTag).toBe("purple");
     expect(layout?.tabs[1]?.activeLeafIndex).toBe(1);
     const pane = layout?.tabs[1]?.paneTree;
     expect(pane?.kind).toBe("split");

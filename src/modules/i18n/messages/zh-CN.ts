@@ -16,6 +16,18 @@ export const zhCN = {
       rename: "重命名",
       close: "关闭",
       newTab: "新建标签",
+      color: "颜色",
+      colorNone: "无颜色",
+      colorNames: {
+        red: "红色",
+        orange: "橙色",
+        yellow: "黄色",
+        green: "绿色",
+        teal: "青色",
+        blue: "蓝色",
+        purple: "紫色",
+        pink: "粉色",
+      },
     },
     terminalMenu: {
       copy: "复制",
@@ -51,6 +63,8 @@ export const zhCN = {
     notifications: {
       bellFallback: "铃声",
       commandFinished: "命令已完成",
+      commandFinishedDetail: (cmd: string, exit: number, dur: string) =>
+        `${cmd} · exit ${exit} · ${dur}`,
     },
     commandPalette: {
       title: "命令面板",

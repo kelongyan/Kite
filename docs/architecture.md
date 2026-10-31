@@ -140,9 +140,18 @@ sibling instead of nesting, which keeps resize handles aligned.
 ### Modules
 
 - `terminal`: xterm sessions, split panes, renderer pool, OSC.
-- `tabs`: tab source of truth, switcher, pane-aware close behavior. A
-  background tab's dot breathes while any of its leaves is inside its OSC 133
-  C..D window, then turns steady once the command ends with output unread.
+- `tabs`: tab source of truth, switcher, pane-aware close behavior. Tabs are
+  content-sized like Tern: no fixed width, the label caps at 220px (140px in
+  the compact header) where the fade mask and hover marquee take over, and no
+  width animation. The tab bar shows per-leaf command state rolled up
+  to one status: `working` (inside
+  the leaf's OSC 133 C..D window: breathing dot, sweeping tab label, and the
+  label shows the command line the shell reported), then `failed` or `done`
+  when a command finished while its tab was in the background (exit status
+  comes from the OSC 133 D payload; the dot clears when the tab is activated),
+  a transient bell pulse, and finally the unread-output dot. Tabs may carry a
+  color mark (`colorTag`) shown as a dot and an active-tab tint; session
+  restore persists it.
 - `theme`: built-in/custom themes.
 - `settings`, `shortcuts`, `command-palette`: preferences and commands.
 - `header`, `i18n`: application chrome.
@@ -199,18 +208,24 @@ Overlay primitives share classes instead of raw `duration-100` or
 
 Rules:
 
-- Animate transform, opacity, and colors only. The tab pill's width is the one
-  layout exception.
-- Never animate terminal content, xterm canvases, PTY output, pane geometry, or
-  theme switching.
-- No infinite loops except the terminal cursor, the shortcut recording dot, and
-  the background-tab running dot, which loops only while a command is inside its
-  OSC 133 C..D window.
+- Animate transform, opacity, and colors only. The tab pill's width is one
+  layout exception, and the tab-strip edge fades (mask-image) are another.
+- Never animate terminal content, xterm canvases, PTY output, pane geometry,
+  or theme switching. The one sanctioned exception is the tab-switch stage
+  entrance (`kite-stage-in-next/prev` in `TerminalStack`): it animates the
+  pane wrapper's transform/opacity only, so the compositor moves the surface
+  as a whole and no terminal rendering is touched. Switches less than 160ms
+  apart skip the animation entirely.
+- No infinite loops except the terminal cursor, the shortcut recording dot,
+  the background-tab running dot, and the working-tab label sweep
+  (`kite-tab-shimmer`, which marks "a command is running in this tab" and
+  clears with the state).
 - `prefers-reduced-motion` is handled globally; the cursor overlay is kept
   visible explicitly.
 - Cursor motion uses `--dur-cursor` (64ms) for both the CSS glide and the JS
-  motion window. Overlay pulses run at 1.3s with a 0.6 floor. An unfocused
-  visible pane keeps a static 0.45 overlay cursor instead of disappearing.
+  motion window. Overlay pulses run at 1.3s with a 0.6 floor. Tab switching
+  uses `--dur-switch` (380ms) with `--ease-premium`. An unfocused visible
+  pane keeps a static 0.45 overlay cursor instead of disappearing.
 - Use the tokens. Do not add raw millisecond values or cubic-bezier literals
   outside `globals.css`.
 

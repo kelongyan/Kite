@@ -17,6 +17,25 @@ import { TERMINAL_DEFAULT_TITLE } from "./tabLabel";
 
 export { MAX_PANES_PER_TAB };
 
+/** Tern-style per-tab color marks, applied as a dot plus an active-tab tint. */
+export const TAB_COLOR_TAGS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+  "pink",
+] as const;
+export type TabColorTag = (typeof TAB_COLOR_TAGS)[number];
+
+export function isTabColorTag(value: unknown): value is TabColorTag {
+  return (
+    typeof value === "string" && (TAB_COLOR_TAGS as readonly string[]).includes(value)
+  );
+}
+
 export type TerminalTab = {
   /** Not yet activated: rendered as a placeholder, no PTY spawned. */
   cold?: boolean;
@@ -32,6 +51,8 @@ export type TerminalTab = {
   zoomedLeafId?: number;
   /** User-set label that overrides the cwd-derived name. Survives cd. */
   customTitle?: string;
+  /** User-picked color mark shown as a dot and an active-tab tint. */
+  colorTag?: TabColorTag;
 };
 
 export type Tab = TerminalTab;
@@ -41,6 +62,8 @@ export type TabPatch = Partial<{
   cwd: string;
   /** Empty string resets a terminal tab to its cwd-derived name. */
   customTitle: string;
+  /** Empty string clears the color mark. */
+  colorTag: TabColorTag | "";
 }>;
 
 export function nextActiveTab(tabs: Tab[], closingId: number): number | null {
@@ -194,6 +217,9 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           ...(patch.customTitle !== undefined && {
             customTitle:
               patch.customTitle === "" ? undefined : patch.customTitle,
+          }),
+          ...(patch.colorTag !== undefined && {
+            colorTag: patch.colorTag === "" ? undefined : patch.colorTag,
           }),
         };
       }),

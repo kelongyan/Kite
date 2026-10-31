@@ -19,6 +19,7 @@ import {
   useTabSwitcher,
   useWindowTitle,
   useWorkspaceCwd,
+  type TabColorTag,
 } from "@/modules/tabs";
 import {
   clearFocusedTerminal,
@@ -57,6 +58,17 @@ import { CloseDialogs } from "./components/CloseDialogs";
 import { WorkspaceSurface } from "./components/WorkspaceSurface";
 import { useHomeLocation } from "./hooks/useHomeLocation";
 import { useTabCloseGuards } from "./hooks/useTabCloseGuards";
+
+/** Compact wall-clock duration for command-finished notifications (7.2s, 44s, 2m 05s). */
+function formatCommandDuration(ms: number): string {
+  if (ms < 0) ms = 0;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  const total = Math.round(ms / 1000);
+  if (total < 60) return `${total}s`;
+  const m = Math.floor(total / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return `${m}m ${s}s`;
+}
 
 export default function App() {
   const messages = useMessages();
@@ -248,16 +260,36 @@ export default function App() {
     if (t?.kind === "terminal") equalizePaneTree(t.paneTree);
   }, [activeId]);
 
-  // Terminal activity: badge background tabs with output, and deliver bell /
-  // command-finished notifications when the user is not watching the pane.
+  // Terminal activity: badge background tabs with output, track per-leaf
+  // command state for the tab indicators, and deliver bell / command-finished
+  // notifications when the user is not watching the pane.
   useEffect(() => {
-    const { markActive, setLeafRunning } = useTabActivityStore.getState();
+    const { markActive, setLeafWorking, setLeafFinished, clearLeafState } =
+      useTabActivityStore.getState();
     return onTerminalActivity((activity) => {
-      // Presence, not notification: a command entering or leaving its OSC 133
-      // C..D window drives the animated dot on background tabs. Tracked before
-      // the tab lookup so a stale leaf id from a disposed session is harmless.
+      // Presence, not notification: the OSC 133 C..D window drives the tab
+      // states (working dot + sweeping label + running command line; a
+      // background finish lands as done/failed). Tracked before the tab
+      // lookup so a stale leaf id from a disposed session is harmless.
       if (activity.kind === "commandState") {
-        setLeafRunning(activity.leafId, activity.running === true);
+        if (activity.running === true) {
+          setLeafWorking(activity.leafId, activity.cmdline);
+        } else if (activity.exitCode != null) {
+          // A real OSC 133 D finish: only a background tab needs the dot,
+          // the user is already looking at an active one.
+          const tab = tabsRef.current.find(
+            (t) =>
+              t.kind === "terminal" && hasLeaf(t.paneTree, activity.leafId),
+          );
+          if (tab && tab.id !== activeIdRef.current) {
+            setLeafFinished(activity.leafId, activity.exitCode !== 0);
+          } else {
+            clearLeafState(activity.leafId);
+          }
+        } else {
+          // Tear-down path (dispose, respawn, shell exit): no finish to show.
+          clearLeafState(activity.leafId);
+        }
         return;
       }
       const tab = tabsRef.current.find(
@@ -267,6 +299,26 @@ export default function App() {
       if (!tab) return;
       if (activity.kind === "output") {
         if (tab.id !== activeIdRef.current) markActive(tab.id);
+        return;
+      }
+      if (activity.kind === "commandFinished") {
+        const detail =
+          activity.cmdline && activity.exitCode != null
+            ? messages.mainShell.notifications.commandFinishedDetail(
+                activity.cmdline,
+                activity.exitCode,
+                formatCommandDuration(activity.durationMs ?? 0),
+              )
+            : undefined;
+        deliverTerminalNotification(
+          activity.kind,
+          {
+            windowFocused: document.hasFocus(),
+            tabActive: tab.id === activeIdRef.current,
+          },
+          notificationTexts,
+          detail,
+        );
         return;
       }
       deliverTerminalNotification(
@@ -279,11 +331,17 @@ export default function App() {
         activity.message,
       );
     });
-  }, [notificationTexts]);
+  }, [notificationTexts, messages]);
 
-  // Switching to a tab acknowledges its activity dot.
+  // Switching to a tab acknowledges its activity dot and any done/failed
+  // command states on its leaves — seeing them counts as reading them.
   useEffect(() => {
-    useTabActivityStore.getState().clear(activeId);
+    const store = useTabActivityStore.getState();
+    store.clear(activeId);
+    const t = tabsRef.current.find((x) => x.id === activeId);
+    if (t?.kind === "terminal") {
+      for (const leafId of leafIds(t.paneTree)) store.clearLeafState(leafId);
+    }
   }, [activeId]);
 
   // Quake global hotkey follows the preference (register/unregister).
@@ -487,6 +545,11 @@ export default function App() {
     [updateTab],
   );
 
+  const handleSetColorTab = useCallback(
+    (id: number, color: TabColorTag | "") => updateTab(id, { colorTag: color }),
+    [updateTab],
+  );
+
   const commandPaletteItems = useMemo(
     () =>
       commandPaletteOpen
@@ -533,6 +596,7 @@ export default function App() {
               onNew={openNewTab}
               onClose={handleClose}
               onRename={handleRenameTab}
+              onSetColor={handleSetColorTab}
               onReorder={reorderTabByGap}
               onOpenCommandPalette={openCommandPalette}
               onOpenSettings={() => void openSettingsWindow()}

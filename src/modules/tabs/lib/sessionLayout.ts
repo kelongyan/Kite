@@ -1,5 +1,5 @@
 import { TERMINAL_DEFAULT_TITLE } from "./tabLabel";
-import type { Tab } from "./useTabs";
+import { isTabColorTag, type Tab } from "./useTabs";
 
 /**
  * Layout-only session persistence: the tab/pane tree, cwd and shell per leaf,
@@ -23,6 +23,7 @@ type SessionTab = {
   customTitle?: string;
   cwd?: string;
   shell?: string;
+  colorTag?: string;
   paneTree: SessionPane;
   /** Index (not id) of the leaf that was active inside this tab. */
   activeLeafIndex: number;
@@ -88,6 +89,7 @@ export function parseSessionLayout(raw: unknown): SessionLayout | null {
     if (!entry || typeof entry !== "object") continue;
     const t = entry as RawLeaf & {
       customTitle?: unknown;
+      colorTag?: unknown;
       activeLeafIndex?: unknown;
       paneTree?: unknown;
     };
@@ -112,6 +114,7 @@ export function parseSessionLayout(raw: unknown): SessionLayout | null {
         t.customTitle && { customTitle: t.customTitle }),
       ...(typeof t.cwd === "string" && t.cwd && { cwd: t.cwd }),
       ...(typeof t.shell === "string" && t.shell && { shell: t.shell }),
+      ...(isTabColorTag(t.colorTag) && { colorTag: t.colorTag }),
     });
   }
   if (tabs.length === 0) return null;
@@ -155,6 +158,7 @@ export function serializeSessionLayout(
       ...(tab.customTitle && { customTitle: tab.customTitle }),
       ...(tab.cwd && { cwd: tab.cwd }),
       ...(tab.shell && { shell: tab.shell }),
+      ...(tab.colorTag && { colorTag: tab.colorTag }),
     });
   }
   if (out.length === 0) return null;
@@ -237,6 +241,9 @@ export function buildTabsFromLayout(
       // The tab label derives from `cwd`; the saved one is the active leaf's
       // cwd at snapshot time, and the leaf fallback covers older snapshots.
       ...(tabCwd && { cwd: tabCwd }),
+      // Parsed layouts already whitelist color tags; the guard keeps older
+      // hand-edited files from leaking an unknown tag into the UI.
+      ...(isTabColorTag(st.colorTag) && { colorTag: st.colorTag }),
       paneTree: built.node,
       activeLeafId: activeLeaf.id,
     };

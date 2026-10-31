@@ -41,9 +41,11 @@ export function deliverTerminalNotification(
   if (kind === "bell" && !prefs.terminalBellNotify) return;
   if (kind === "commandFinished" && !prefs.terminalCommandNotify) return;
   if (!shouldDeliverTerminalNotification(ctx)) return;
+  // A command-finished detail (command line, exit status, duration) arrives
+  // pre-formatted as `message`; bells keep their OSC text or the fallback.
   const body =
     kind === "commandFinished"
-      ? texts.commandFinished
+      ? message?.trim() || texts.commandFinished
       : message?.trim() || texts.bellFallback;
   const title = texts.appTitle;
   if (ctx.windowFocused) {

@@ -849,6 +849,167 @@ html[data-theme-swapping] *::after {
   animation: kite-tab-running-pulse 1.4s var(--ease-soft) infinite;
 }
 
+/* A one-shot accent pulse for a background bell (Tern's transient bell dot). */
+@keyframes kite-tab-bell-pulse {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.5);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+}
+
+.kite-tab-bell-dot {
+  animation: kite-tab-bell-pulse 0.9s var(--ease-premium) 1 both;
+}
+
+/* Background command finished cleanly: steady green dot (Tern's data-st=done). */
+.kite-dot-ok {
+  background: var(--ok);
+}
+
+/* Per-tab color marks (Tern data-tc): light/dark pairs on every swatch. */
+:root {
+  --tab-c-red: #ff3b30;
+  --tab-c-orange: #ff9500;
+  --tab-c-yellow: #e6ac00;
+  --tab-c-green: #28b450;
+  --tab-c-teal: #1ea0be;
+  --tab-c-blue: #007aff;
+  --tab-c-purple: #af52de;
+  --tab-c-pink: #ff2d55;
+  --ok: #2fae74;
+}
+
+.dark {
+  --tab-c-red: #ff453a;
+  --tab-c-orange: #ff9f0a;
+  --tab-c-yellow: #ffd60a;
+  --tab-c-green: #30d158;
+  --tab-c-teal: #40c8e0;
+  --tab-c-blue: #0a84ff;
+  --tab-c-purple: #bf5af2;
+  --tab-c-pink: #ff375f;
+  --ok: #3ecf8e;
+}
+
+/* Active tab tinted by its color mark: soft fill plus a hairline ring in the
+   same hue (Tern tints with rgb(from var(--tc) / 18%) and / 28%). */
+.kite-tab-tinted {
+  background: color-mix(in srgb, var(--tab-c) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab-c) 28%, transparent);
+}
+
+/* Running-command label sweep (Tern tnTabShimmer): the label text becomes a
+   gradient clipped to the glyphs and a highlight band travels across it once
+   per cycle. steps() keeps the sweep discrete and calm instead of gliding. */
+@keyframes kite-tab-shimmer {
+  0% {
+    background-position: 130% 0;
+  }
+  50%,
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+.kite-tab-label-shimmer {
+  --kite-shimmer-lo: var(--color-muted-foreground);
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--kite-shimmer-lo) 0%,
+    var(--kite-shimmer-lo) 35%,
+    var(--color-foreground) 50%,
+    var(--kite-shimmer-lo) 65%,
+    var(--kite-shimmer-lo) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 130% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: kite-tab-shimmer 2.4s steps(24) infinite;
+}
+
+.group:hover .kite-tab-label-shimmer,
+.group[data-active] .kite-tab-label-shimmer {
+  --kite-shimmer-lo: color-mix(
+    in oklch,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground)
+  );
+}
+
+/* Overflow edge fades on the tab strip: each side wears a gradient only while
+   that side actually hides tabs (Tern more-start / more-end). */
+.kite-tab-strip-fade-start {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px);
+  mask-image: linear-gradient(90deg, transparent 0, #000 24px);
+}
+
+.kite-tab-strip-fade-end {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent 100%);
+}
+
+.kite-tab-strip-fade-start.kite-tab-strip-fade-end {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+}
+
+/* Direction-aware stage entrance on tab switch (Tern tsw-in-next / prev):
+   only the incoming surface moves, from-only keyframes so the settled state
+   always follows layout, and 24px is a hint, not a flight. The quick-switch
+   degradation (under 160ms between switches) lives in TerminalStack. */
+:root {
+  --dur-switch: 380ms;
+  --motion-distance-switch: 24px;
+}
+
+@keyframes kite-stage-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(var(--motion-distance-switch));
+  }
+}
+
+@keyframes kite-stage-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--motion-distance-switch) * -1));
+  }
+}
+
+.kite-stage-in-next {
+  animation: kite-stage-in-next var(--dur-switch) var(--ease-premium);
+}
+
+.kite-stage-in-prev {
+  animation: kite-stage-in-prev var(--dur-switch) var(--ease-premium);
+}
+
 .kite-terminal-tab-icon-starting {
   opacity: 0.6;
 }
@@ -977,6 +1138,22 @@ html[data-theme-swapping] *::after {
     animation: none !important;
     opacity: 1;
     transform: none;
+  }
+  .kite-tab-bell-dot {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .kite-tab-label-shimmer {
+    animation: none;
+    color: inherit;
+    background-image: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+  }
+  .kite-stage-in-next,
+  .kite-stage-in-prev {
+    animation: none;
   }
   .kite-tab-label-text {
     transition: none;

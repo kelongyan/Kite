@@ -4,6 +4,9 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,9 +29,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { isTerminalLabelResolving, pathLabelFor } from "./lib/tabLabel";
+import { isTerminalLabelResolving, labelFor, pathLabelFor } from "./lib/tabLabel";
 import { useTabActivityStore } from "./lib/tabActivityStore";
-import type { Tab } from "./lib/useTabs";
+import { TAB_COLOR_TAGS, type Tab, type TabColorTag } from "./lib/useTabs";
 
 type Props = {
   tabs: Tab[];
@@ -38,6 +41,8 @@ type Props = {
   onClose: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
+  /** Set a terminal tab's color mark; empty string clears it. */
+  onSetColor: (id: number, color: TabColorTag | "") => void;
   /** Move a dragged tab to a new position (insertion gap index 0..tabs.length). */
   onReorder: (fromId: number, toGapIndex: number) => void;
   home?: string | null;
@@ -60,6 +65,7 @@ export function TabBar({
   onNew,
   onClose,
   onRename,
+  onSetColor,
   onReorder,
   home,
   homeResolved,
@@ -67,7 +73,7 @@ export function TabBar({
 }: Props) {
   const messages = useMessages().mainShell.tabs;
   const activityTabIds = useTabActivityStore((s) => s.activeTabs);
-  const runningLeafIds = useTabActivityStore((s) => s.runningLeaves);
+  const leafStates = useTabActivityStore((s) => s.leafStates);
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -199,6 +205,37 @@ export function TabBar({
     return els.length;
   };
 
+  // Overflow edge fades (Tern's more-start / more-end): the strip only wears
+  // a gradient mask on the sides that actually hide content.
+  const [fade, setFade] = useState({ start: false, end: false });
+  const updateFade = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft < el.scrollWidth - el.clientWidth - 1;
+    setFade((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+
+  // tabs/activeId/compact are geometry signals: membership or width changes
+  // move the fade boundaries even though the body only calls updateFade.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useLayoutEffect(() => {
+    updateFade();
+  }, [updateFade, tabs, activeId, compact]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(updateFade);
+    ro.observe(el);
+    // Content-sized tabs change the strip's scrollWidth without resizing the
+    // scroll container (a running command widens its tab), so observe the
+    // content row too.
+    const content = el.firstElementChild;
+    if (content) ro.observe(content);
+    return () => ro.disconnect();
+  }, [updateFade]);
+
   const stopAutoScroll = () => {
     if (autoScrollRef.current.raf !== null) {
       cancelAnimationFrame(autoScrollRef.current.raf);
@@ -310,7 +347,12 @@ export function TabBar({
     <div
       ref={scrollRef}
       data-tauri-drag-region
-      className="min-w-0 shrink overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onScroll={updateFade}
+      className={cn(
+        "min-w-0 shrink overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        fade.start && "kite-tab-strip-fade-start",
+        fade.end && "kite-tab-strip-fade-end",
+      )}
     >
       <div className="flex w-max items-center gap-0.5">
         <Tabs
@@ -339,12 +381,48 @@ export function TabBar({
             />
             {tabs.map((t, i) => {
               const isActive = t.id === activeId;
-              const running = !isActive
-                ? leafIds(t.paneTree).some((id) => runningLeafIds.has(id))
-                : false;
+              // Per-leaf command state rolled up to one tab status. Priority
+              // follows urgency: a running command outranks a failed finish,
+              // which outranks a clean background finish, then the bell pulse.
+              const tabLeafIds = leafIds(t.paneTree);
+              const workingLeafId = tabLeafIds.find(
+                (id) => leafStates.get(id)?.state === "working",
+              );
+              const working = workingLeafId !== undefined;
+              const failed =
+                !working &&
+                tabLeafIds.some((id) => leafStates.get(id)?.state === "failed");
+              const finishedOk =
+                !working &&
+                !failed &&
+                tabLeafIds.some((id) => leafStates.get(id)?.state === "done");
+              const bell =
+                !working &&
+                !failed &&
+                !finishedOk &&
+                tabLeafIds.some((id) => leafStates.get(id)?.state === "bell");
+              const dotStatus = isActive
+                ? undefined
+                : working
+                  ? "working"
+                  : failed
+                    ? "failed"
+                    : finishedOk
+                      ? "done"
+                      : bell
+                        ? "bell"
+                        : undefined;
+              const runningCmdline =
+                workingLeafId !== undefined
+                  ? leafStates.get(workingLeafId)?.cmdline
+                  : undefined;
               const isEntering =
                 entering.has(t.id) || !seenRef.current?.has(t.id);
-              const tabLabelOptions = { home, homeResolved };
+              const tabLabelOptions = {
+                home,
+                homeResolved,
+                runningCmdline,
+              };
               const terminalStarting = isTerminalLabelResolving(
                 t,
                 tabLabelOptions,
@@ -472,38 +550,74 @@ export function TabBar({
                       e.preventDefault();
                     }
                   }}
+                  style={
+                    isActive && t.colorTag
+                      ? ({ "--tab-c": `var(--tab-c-${t.colorTag})` } as CSSProperties)
+                      : undefined
+                  }
                   className={cn(
-                    "group relative z-[1] h-7 shrink-0 justify-between gap-1.5 rounded-md bg-transparent text-xs data-active:bg-transparent dark:data-active:bg-transparent",
+                    "group relative z-[1] h-7 shrink-0 gap-1.5 rounded-md bg-transparent text-xs data-active:bg-transparent dark:data-active:bg-transparent",
                     isEntering && "kite-tab-in",
                     terminalStarting && "kite-tab-terminal-resolving",
-                    isActive
+                    isActive &&
+                      t.colorTag &&
+                      "kite-tab-tinted text-foreground dark:text-foreground",
+                    isActive && !t.colorTag
                       ? "text-foreground dark:text-foreground"
-                      : "text-muted-foreground hover:text-foreground/80 dark:text-muted-foreground",
+                      : "",
+                    !isActive &&
+                      "text-muted-foreground hover:text-foreground/80 dark:text-muted-foreground",
                     draggingId === t.id && "opacity-50",
+                    // Content-sized like Tern's .tt: no fixed width, the cap
+                    // lives on the label (220px, 140px in compact).
                     compact
-                      ? "w-40 px-1.5!"
+                      ? "max-w-[164px] px-1.5!"
                       : tabs.length === 1
-                        ? "w-52 px-2!"
-                        : "w-52 ps-2! pe-1!",
+                        ? "px-2!"
+                        : "ps-2! pe-1!",
                   )}
                 >
-                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="flex min-w-0 items-center gap-1.5">
                     <span className="relative shrink-0">
                       <TabIcon starting={terminalStarting} />
-                      {!isActive && (running || activityTabIds.has(t.id)) && (
+                      {dotStatus ? (
                         <span
                           aria-hidden
                           className={cn(
-                            "absolute -end-[3px] -top-0.5 size-1.5 rounded-full bg-primary transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)]",
-                            running && "kite-tab-running-dot",
+                            "absolute -end-[3px] -top-0.5 size-1.5 rounded-full transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)]",
+                            dotStatus === "working" &&
+                              "kite-tab-running-dot bg-primary",
+                            dotStatus === "done" && "kite-dot-ok",
+                            dotStatus === "failed" && "bg-destructive",
+                            dotStatus === "bell" && "kite-tab-bell-dot bg-primary",
                           )}
                         />
+                      ) : (
+                        !isActive &&
+                        activityTabIds.has(t.id) && (
+                          <span
+                            aria-hidden
+                            className="absolute -end-[3px] -top-0.5 size-1.5 rounded-full bg-primary transition-opacity duration-[var(--dur-instant)] ease-[var(--ease-soft)]"
+                          />
+                        )
                       )}
                     </span>
+                    {t.colorTag && (
+                      <span
+                        aria-hidden
+                        className="size-[7px] shrink-0 rounded-full"
+                        style={{
+                          background: `var(--tab-c-${t.colorTag})`,
+                        }}
+                      />
+                    )}
                     <TabLabel
                       tab={t}
                       home={home}
                       homeResolved={homeResolved}
+                      runningCmdline={runningCmdline}
+                      working={working}
+                      compact={compact}
                     />
                   </span>
                   {tabs.length > 1 && (
@@ -558,6 +672,46 @@ export function TabBar({
                       />
                       <span className="flex-1">{messages.rename}</span>
                     </ContextMenuItem>
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "size-3 rounded-full border border-border/60",
+                            !t.colorTag && "bg-transparent",
+                          )}
+                          style={
+                            t.colorTag
+                              ? { background: `var(--tab-c-${t.colorTag})` }
+                              : undefined
+                          }
+                        />
+                        <span className="flex-1">{messages.color}</span>
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="min-w-36 p-1">
+                        {TAB_COLOR_TAGS.map((color) => (
+                          <ContextMenuItem
+                            key={color}
+                            className="gap-2 rounded-xl px-2.5 py-1.5 text-[13px]"
+                            onSelect={() => onSetColor(t.id, color)}
+                          >
+                            <span
+                              aria-hidden
+                              className="size-3 rounded-full"
+                              style={{ background: `var(--tab-c-${color})` }}
+                            />
+                            {messages.colorNames[color]}
+                          </ContextMenuItem>
+                        ))}
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          className="rounded-xl px-2.5 py-1.5 text-[13px]"
+                          onSelect={() => onSetColor(t.id, "")}
+                        >
+                          {messages.colorNone}
+                        </ContextMenuItem>
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
                     {tabs.length > 1 && (
                       <>
                         <ContextMenuSeparator />
@@ -643,13 +797,19 @@ function TabLabel({
   tab,
   home,
   homeResolved,
+  runningCmdline,
+  working,
+  compact,
 }: {
   tab: Tab;
   home?: string | null;
   homeResolved?: boolean;
+  runningCmdline?: string;
+  working?: boolean;
+  compact?: boolean;
 }) {
-  const options = { home, homeResolved };
-  const label = pathLabelFor(tab, options);
+  const options = { home, homeResolved, runningCmdline };
+  const label = labelFor(tab, options);
   const resolving = isTerminalLabelResolving(tab, options);
   const outerRef = useRef<HTMLSpanElement>(null);
   const innerRef = useRef<HTMLSpanElement>(null);
@@ -682,7 +842,10 @@ function TabLabel({
       ref={outerRef}
       title={overflow > 0 ? label : undefined}
       className={cn(
-        "block min-w-0 flex-1 overflow-hidden text-left",
+        // Content-sized like Tern's .nm: the width follows the text up to a
+        // cap; overflow then drives the fade mask and hover marquee.
+        "block min-w-0 overflow-hidden text-left",
+        compact ? "max-w-[140px]" : "max-w-[220px]",
         overflow > 0 && "kite-tab-label-mask",
       )}
     >
@@ -690,6 +853,7 @@ function TabLabel({
         className={cn(
           "kite-tab-label-text inline-block whitespace-nowrap align-bottom",
           resolving && "kite-tab-label-text-loading",
+          working && "kite-tab-label-shimmer",
         )}
       >
         <span

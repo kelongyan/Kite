@@ -11,6 +11,7 @@ import {
   registerOscNotificationHandler,
   registerPromptTracker,
   registerThemeQueryHandler,
+  type CommandMarkerInfo,
 } from "./osc-handlers";
 import { openPty, type PtySession, type TerminalThemeMode } from "./pty-bridge";
 import { PendingPtyInput, type PtyInput } from "./ptyInput";
@@ -77,6 +78,10 @@ type Session = {
   // OSC 133 C..D window: a foreground process owns
   // the terminal, so the leaf must keep its live grid while hidden.
   commandRunning: boolean;
+  /** Wall-clock start of the running command, for finish notifications. */
+  commandStartedAt: number | null;
+  /** Command line reported by the running command's OSC 133 C, when known. */
+  lastCmdline: string | undefined;
   hiddenReleaseTimer: ReturnType<typeof setTimeout> | null;
   started: boolean;
   spawnFailed: boolean;
@@ -120,16 +125,30 @@ function leafBusy(s: Session): boolean {
  * Flip a leaf's command-running flag and fan the change out on the activity
  * bus. Every writer goes through here so the flag and the tab indicator can
  * never disagree, including when a live command is torn down (shell exit,
- * respawn, pane dispose) instead of finishing normally.
+ * respawn, pane dispose) instead of finishing normally. Teardown paths pass
+ * no info: only the OSC 133 D path carries an exit status.
  */
 function setCommandRunning(
   leafId: number,
   s: Session,
   running: boolean,
+  info?: CommandMarkerInfo,
 ): boolean {
   if (s.commandRunning === running) return false;
   s.commandRunning = running;
-  emitTerminalActivity({ leafId, kind: "commandState", running });
+  if (running) {
+    s.commandStartedAt = Date.now();
+    s.lastCmdline = info?.cmdline;
+  } else {
+    s.commandStartedAt = null;
+  }
+  emitTerminalActivity({
+    leafId,
+    kind: "commandState",
+    running,
+    ...(running && info?.cmdline && { cmdline: info.cmdline }),
+    ...(!running && info && "exitCode" in info && { exitCode: info.exitCode }),
+  });
   return true;
 }
 
@@ -173,11 +192,24 @@ async function leafHasForegroundJob(leafId: number): Promise<boolean> {
   }
 }
 
-function onLeafCommandState(leafId: number, running: boolean): void {
+function onLeafCommandState(
+  leafId: number,
+  running: boolean,
+  info?: CommandMarkerInfo,
+): void {
   const s = sessions.get(leafId);
-  if (!s || !setCommandRunning(leafId, s, running)) return;
+  if (!s) return;
+  // Read before setCommandRunning clears the timestamp on the finish path.
+  const startedAt = running ? null : s.commandStartedAt;
+  if (!setCommandRunning(leafId, s, running, info)) return;
   if (!running) {
-    emitTerminalActivity({ leafId, kind: "commandFinished" });
+    emitTerminalActivity({
+      leafId,
+      kind: "commandFinished",
+      ...(info?.exitCode != null && { exitCode: info.exitCode }),
+      ...(s.lastCmdline && { cmdline: s.lastCmdline }),
+      ...(startedAt !== null && { durationMs: Date.now() - startedAt }),
+    });
     scheduleHiddenRelease(leafId, s);
     return;
   }
@@ -287,6 +319,8 @@ function ensureSession(
     themeMode,
     altScreenAtRelease: false,
     commandRunning: false,
+    commandStartedAt: null,
+    lastCmdline: undefined,
     hiddenReleaseTimer: null,
     started: false,
     spawnFailed: false,
@@ -425,8 +459,8 @@ function bindLeafToSlot(leafId: number, s: Session): void {
       // 7 emitted by untrusted command output (remote SSH, `cat` of an
       // attacker file, etc.).
       const shellState = createShellIntegrationState();
-      const prompt = registerPromptTracker(term, shellState, (running) =>
-        onLeafCommandState(leafId, running),
+      const prompt = registerPromptTracker(term, shellState, (running, info) =>
+        onLeafCommandState(leafId, running, info),
       );
       const cwd = registerCwdHandler(
         term,
