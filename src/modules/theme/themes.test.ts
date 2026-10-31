@@ -39,11 +39,10 @@ describe("builtin themes", () => {
 
   it("falls back retired ids to the default theme", () => {
     expect(listBuiltinThemes().map((t) => t.id)).not.toContain("night-owl");
-    expect(listBuiltinThemes().map((t) => t.id)).not.toContain("claude");
+    expect(listBuiltinThemes().map((t) => t.id)).not.toContain("solarized");
     expect(normalizeThemeId("night-owl")).toBe(DEFAULT_THEME_ID);
-    expect(normalizeThemeId("eva")).toBe(DEFAULT_THEME_ID);
-    // solarized returned with the Tern set and must normalize to itself.
-    expect(normalizeThemeId("solarized")).toBe("solarized");
+    expect(normalizeThemeId("solarized")).toBe(DEFAULT_THEME_ID);
+    expect(normalizeThemeId("eva")).toBe("eva");
   });
 
   it("uses parseable colors everywhere", () => {

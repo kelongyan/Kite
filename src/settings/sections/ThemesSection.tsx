@@ -17,7 +17,7 @@ import {
   saveCustomTheme,
 } from "@/modules/theme/customThemes";
 import { validateTheme } from "@/modules/theme/validateTheme";
-import { DEFAULT_THEME_ID, type Theme } from "@/modules/theme/types";
+import { DEFAULT_THEME_ID } from "@/modules/theme/types";
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMemo, useRef, useState } from "react";
@@ -28,13 +28,13 @@ export function ThemesSection() {
   const themeMessages = messages.settings.themes;
   const { themeId, setThemeId, resolvedMode, customThemes } = useTheme();
   const builtinThemes = listBuiltinThemes();
-  // One flat list that follows the resolved mode: a theme is only offered
-  // with the face it would actually apply, so a card's preview is what
-  // clicking yields. Built-ins lead (default first), customs trail.
   const themes = useMemo(
     () => [...builtinThemes, ...customThemes],
     [builtinThemes, customThemes],
   );
+  // One list that follows the resolved mode: a theme is only offered with the
+  // face it would actually apply, so a card's swatch is what clicking yields.
+  // Dark-only themes therefore rest while the app is light, and vice versa.
   const visibleThemes = useMemo(
     () => themes.filter((t) => t.variants[resolvedMode]),
     [themes, resolvedMode],
@@ -90,92 +90,10 @@ export function ThemesSection() {
     }
   };
 
-  const renderCard = (t: Theme) => {
-    const variant = t.variants[resolvedMode] ?? t.variants.dark ?? t.variants.light;
-    const c = variant?.colors;
-    const term = variant?.terminal;
-    const swatchBg = c?.background ?? "var(--background)";
-    const swatchFg = c?.foreground ?? "var(--foreground)";
-    const swatchAccent = c?.primary ?? "var(--primary)";
-    const ansi = term?.ansi;
-    const dots = ansi
-      ? [ansi[1], ansi[2], ansi[4]]
-      : ["var(--destructive)", swatchAccent, "#3ecf8e"];
-    const selected = themeId === t.id;
-    const isCustom = customIds.has(t.id);
-    return (
-      <div
-        key={t.id}
-        className={cn(
-          "group/theme relative flex flex-col rounded-lg border p-1.5 transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
-          selected
-            ? "border-foreground/60 ring-1 ring-foreground/20"
-            : "border-border/60 hover:border-border",
-        )}
-      >
-        <button
-          type="button"
-          aria-pressed={selected}
-          onClick={() => setThemeId(t.id)}
-          className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-md text-left focus-visible:outline-none"
-        >
-          <div
-            className="relative h-16 w-full overflow-hidden rounded-md border border-border/30"
-            style={{ background: swatchBg }}
-          >
-            <div className="flex items-center gap-1 px-2 pt-2">
-              {dots.map((dot, i) => (
-                <span
-                  key={["red", "green", "blue"][i]}
-                  className="size-1.5 rounded-full"
-                  style={{ background: dot }}
-                />
-              ))}
-            </div>
-            <div className="flex flex-col gap-1 px-2 pt-1.5">
-              <span
-                className="h-1 w-3/5 rounded-full"
-                style={{ background: swatchFg, opacity: 0.75 }}
-              />
-              <span
-                className="h-1 w-2/5 rounded-full"
-                style={{ background: swatchFg, opacity: 0.45 }}
-              />
-            </div>
-            <span
-              className="absolute bottom-2 left-2 h-2.5 w-1 rounded-[2px]"
-              style={{ background: swatchAccent }}
-            />
-          </div>
-          <div className="flex min-w-0 items-center justify-between gap-1 px-1 pb-0.5">
-            <span className="min-w-0 truncate text-[12px] font-medium">
-              {t.name}
-            </span>
-            {selected ? (
-              <span className="kite-theme-check flex size-4 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
-                <HugeiconsIcon icon={Tick02Icon} size={9} strokeWidth={3} />
-              </span>
-            ) : null}
-          </div>
-        </button>
-        {isCustom ? (
-          <button
-            type="button"
-            aria-label={themeMessages.theme.removeTheme(t.name)}
-            className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md bg-background/60 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity duration-[var(--dur-fast)] hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover/theme:opacity-100"
-            onClick={() => setThemeToDelete({ id: t.id, name: t.name })}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
-          </button>
-        ) : null}
-      </div>
-    );
-  };
-
   return (
     <section
       aria-label={themeMessages.theme.title}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "copy";
@@ -187,12 +105,7 @@ export function ThemesSection() {
     >
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <SectionHeader title={themeMessages.title} />
-            <span className="text-[11px] text-muted-foreground/60">
-              {visibleThemes.length}
-            </span>
-          </div>
+          <SectionHeader title={themeMessages.title} />
           <Button
             variant="outline"
             size="sm"
@@ -226,8 +139,84 @@ export function ThemesSection() {
           </div>
         </div>
       </div>
-      <div className="relative grid grid-cols-3 gap-2.5">
-        {visibleThemes.map(renderCard)}
+      <div className="grid grid-cols-2 gap-3">
+        {visibleThemes.map((t) => {
+          const c = (
+            t.variants[resolvedMode] ?? t.variants.dark ?? t.variants.light
+          )?.colors;
+          const swatchBg = c?.background ?? "var(--background)";
+          const swatchFg = c?.foreground ?? "var(--foreground)";
+          const swatchAccent = c?.primary ?? c?.accent ?? "var(--accent)";
+          const swatchMuted = c?.muted ?? "var(--muted)";
+          const selected = themeId === t.id;
+          const isCustom = customIds.has(t.id);
+          return (
+            <div
+              key={t.id}
+              className={cn(
+                "group/theme flex min-h-15 items-center gap-3 rounded-lg border p-2.5 text-left transition-[border-color,box-shadow,background-color] duration-[var(--dur-fast)] ease-[var(--ease-soft)] focus-within:ring-1 focus-within:ring-foreground/20",
+                selected
+                  ? "border-foreground/60 ring-1 ring-foreground/20"
+                  : "border-border/60 hover:border-border",
+              )}
+            >
+              <button
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setThemeId(t.id)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none"
+              >
+                <div
+                  className="flex h-9 w-12 shrink-0 flex-col justify-center gap-1 rounded-md border border-border/40 px-1.5"
+                  style={{ background: swatchBg }}
+                >
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: swatchAccent }}
+                    />
+                    <span
+                      className="h-1 w-7 rounded-full"
+                      style={{ background: swatchFg, opacity: 0.85 }}
+                    />
+                  </div>
+                  <span
+                    className="h-1 w-9 rounded-full"
+                    style={{ background: swatchMuted }}
+                  />
+                  <span
+                    className="h-1 w-6 rounded-full"
+                    style={{ background: swatchFg, opacity: 0.55 }}
+                  />
+                </div>
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                  {t.name}
+                </span>
+              </button>
+              {selected ? (
+                <span className="kite-theme-check flex size-4.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                  <HugeiconsIcon icon={Tick02Icon} size={10} strokeWidth={3} />
+                </span>
+              ) : null}
+              {isCustom ? (
+                <span className="ml-1 flex shrink-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    aria-label={themeMessages.theme.removeTheme(t.name)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    onClick={() => setThemeToDelete({ id: t.id, name: t.name })}
+                  >
+                    <HugeiconsIcon
+                      icon={Cancel01Icon}
+                      size={14}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <AlertDialog
         open={!!themeToDelete}

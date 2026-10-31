@@ -66,15 +66,10 @@ const LEGACY_DEFAULT_THEME_ID = "terax-default";
 // unselectable because every write path normalizes through here.
 const RETIRED_BUILTIN_THEME_IDS = new Set([
   "caffeine",
-  "claude",
-  "eva",
-  "everforest",
-  "kanagawa",
   "kanagawa-dragon",
   "night-owl",
-  "one-dark",
-  "one-light",
   "sage",
+  "solarized",
   "tide",
 ]);
 
