@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const pearl: Theme = {
+  id: "pearl",
+  name: "Pearl",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f9f9fc",
+        foreground: "#28242c",
+        card: "#ffffff",
+        cardForeground: "#28242c",
+        popover: "#f8f4fc",
+        popoverForeground: "#28242c",
+        primary: "#b08090",
+        primaryForeground: "#fdfdfe",
+        secondary: "#fafafd",
+        secondaryForeground: "#28242c",
+        muted: "#fafafd",
+        mutedForeground: "#807880",
+        accent: "#ece8f0",
+        accentForeground: "#28242c",
+        destructive: "#a06060",
+        border: "#dcd8e0",
+        input: "rgba(220,216,224,0.9)",
+        ring: "#b08090",
+        sidebar: "#ffffff",
+        sidebarForeground: "#28242c",
+        sidebarPrimary: "#b08090",
+        sidebarPrimaryForeground: "#fdfdfe",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#28242c",
+        sidebarBorder: "#dcd8e0",
+        sidebarRing: "#b08090",
+      },
+      terminal: {
+        background: "#f9f9fc",
+        foreground: "#28242c",
+        cursor: "#28242c",
+        cursorAccent: "#f9f9fc",
+        selection: "rgba(176,128,144,0.2)",
+        ansi: [
+          "#28242c", "#a06060", "#608060", "#a08050",
+          "#6070a0", "#805070", "#508080", "#a09ca8",
+          "#807880", "#b87070", "#709070", "#aa8b56",
+          "#7080a0", "#a06090", "#609494", "#dcd8e0",
+        ],
+      },
+    },
+  },
+};

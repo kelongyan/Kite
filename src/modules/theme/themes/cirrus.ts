@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const cirrus: Theme = {
+  id: "cirrus",
+  name: "Cirrus",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fafbfd",
+        foreground: "#2f3640",
+        card: "#ffffff",
+        cardForeground: "#2f3640",
+        popover: "#eef2f7",
+        popoverForeground: "#2f3640",
+        primary: "#6aa3d7",
+        primaryForeground: "#fefefe",
+        secondary: "#fbfcfd",
+        secondaryForeground: "#2f3640",
+        muted: "#fbfcfd",
+        mutedForeground: "#6b7280",
+        accent: "#edf1f7",
+        accentForeground: "#2f3640",
+        destructive: "#c84b4b",
+        border: "#d4d9e2",
+        input: "rgba(212,217,226,0.9)",
+        ring: "#6aa3d7",
+        sidebar: "#ffffff",
+        sidebarForeground: "#2f3640",
+        sidebarPrimary: "#6aa3d7",
+        sidebarPrimaryForeground: "#fefefe",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#2f3640",
+        sidebarBorder: "#d4d9e2",
+        sidebarRing: "#6aa3d7",
+      },
+      terminal: {
+        background: "#fafbfd",
+        foreground: "#2f3640",
+        cursor: "#2f3640",
+        cursorAccent: "#fafbfd",
+        selection: "rgba(106,163,215,0.2)",
+        ansi: [
+          "#2f3640", "#c84b4b", "#259162", "#a57710",
+          "#3c7dbb", "#8e57a5", "#278c97", "#b8c2d1",
+          "#6b7280", "#ed5f5e", "#25a16d", "#b9850e",
+          "#4992d9", "#b476cf", "#299ca9", "#e4e8ef",
+        ],
+      },
+    },
+  },
+};

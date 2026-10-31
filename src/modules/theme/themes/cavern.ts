@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const cavern: Theme = {
+  id: "cavern",
+  name: "Cavern",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0b0d10",
+        foreground: "#c9d1db",
+        card: "#14181d",
+        cardForeground: "#c9d1db",
+        popover: "#1d2229",
+        popoverForeground: "#c9d1db",
+        primary: "#5fb2d8",
+        primaryForeground: "#b6b6b7",
+        secondary: "#232528",
+        secondaryForeground: "#c9d1db",
+        muted: "#232528",
+        mutedForeground: "#6b7381",
+        accent: "#1d2229",
+        accentForeground: "#c9d1db",
+        destructive: "#e06c75",
+        border: "#1d2229",
+        input: "rgba(29,34,41,0.75)",
+        ring: "#5fb2d8",
+        sidebar: "#14181d",
+        sidebarForeground: "#c9d1db",
+        sidebarPrimary: "#5fb2d8",
+        sidebarPrimaryForeground: "#b6b6b7",
+        sidebarAccent: "#272a2f",
+        sidebarAccentForeground: "#c9d1db",
+        sidebarBorder: "#1d2229",
+        sidebarRing: "#5fb2d8",
+      },
+      terminal: {
+        background: "#0b0d10",
+        foreground: "#c9d1db",
+        cursor: "#c9d1db",
+        cursorAccent: "#0b0d10",
+        selection: "rgba(95,178,216,0.28)",
+        ansi: [
+          "#2f3945", "#e06c75", "#6fb86a", "#d9a441",
+          "#5fb2d8", "#b88ad8", "#56c2b8", "#a5adba",
+          "#6b7381", "#ef9097", "#94d090", "#ecc46e",
+          "#87c6e6", "#d2aeea", "#86dcd2", "#e2e7ee",
+        ],
+      },
+    },
+  },
+};

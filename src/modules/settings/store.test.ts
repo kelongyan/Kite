@@ -200,12 +200,12 @@ describe("loadPreferences", () => {
   it("keeps the id of a builtin theme that still ships", async () => {
     const { loadPreferences } = await loadStoreWithEntries([
       ["_version", 8],
-      ["themeId", "kanagawa"],
+      ["themeId", "dracula"],
     ]);
 
     const prefs = await loadPreferences();
 
-    expect(prefs.themeId).toBe("kanagawa");
+    expect(prefs.themeId).toBe("dracula");
   });
 
   it("migrates the former recommended font stack into separate fields", async () => {

@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const swamp: Theme = {
+  id: "swamp",
+  name: "Swamp",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#080d0c",
+        foreground: "#d0dcd6",
+        card: "#111a18",
+        cardForeground: "#d0dcd6",
+        popover: "#182522",
+        popoverForeground: "#d0dcd6",
+        primary: "#f2c35b",
+        primaryForeground: "#040605",
+        secondary: "#212524",
+        secondaryForeground: "#d0dcd6",
+        muted: "#212524",
+        mutedForeground: "#667a71",
+        accent: "#182522",
+        accentForeground: "#d0dcd6",
+        destructive: "#e06b6b",
+        border: "#182522",
+        input: "rgba(24,37,34,0.75)",
+        ring: "#f2c35b",
+        sidebar: "#111a18",
+        sidebarForeground: "#d0dcd6",
+        sidebarPrimary: "#f2c35b",
+        sidebarPrimaryForeground: "#040605",
+        sidebarAccent: "#242c2a",
+        sidebarAccentForeground: "#d0dcd6",
+        sidebarBorder: "#182522",
+        sidebarRing: "#f2c35b",
+      },
+      terminal: {
+        background: "#080d0c",
+        foreground: "#d0dcd6",
+        cursor: "#d0dcd6",
+        cursorAccent: "#080d0c",
+        selection: "rgba(242,195,91,0.28)",
+        ansi: [
+          "#2b3a36", "#e06b6b", "#4fc48f", "#f2c35b",
+          "#5f93c9", "#b583c9", "#5ab6c0", "#b3c4bb",
+          "#667a71", "#f09090", "#7fdcaf", "#f7d78b",
+          "#8ab4e0", "#cfa6e0", "#8ad3da", "#e6efea",
+        ],
+      },
+    },
+  },
+};

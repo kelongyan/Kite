@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const dawn: Theme = {
+  id: "dawn",
+  name: "Dawn",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#faf7f2",
+        foreground: "#2d3440",
+        card: "#ffffff",
+        cardForeground: "#2d3440",
+        popover: "#f3ece2",
+        popoverForeground: "#2d3440",
+        primary: "#e29b6f",
+        primaryForeground: "#716f6d",
+        secondary: "#fbf9f5",
+        secondaryForeground: "#2d3440",
+        muted: "#fbf9f5",
+        mutedForeground: "#6b7280",
+        accent: "#f1e7db",
+        accentForeground: "#2d3440",
+        destructive: "#c94b4b",
+        border: "#d9dee6",
+        input: "rgba(217,222,230,0.9)",
+        ring: "#e29b6f",
+        sidebar: "#ffffff",
+        sidebarForeground: "#2d3440",
+        sidebarPrimary: "#e29b6f",
+        sidebarPrimaryForeground: "#716f6d",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#2d3440",
+        sidebarBorder: "#d9dee6",
+        sidebarRing: "#e29b6f",
+      },
+      terminal: {
+        background: "#faf7f2",
+        foreground: "#2d3440",
+        cursor: "#2d3440",
+        cursorAccent: "#faf7f2",
+        selection: "rgba(226,155,111,0.2)",
+        ansi: [
+          "#2d3440", "#c94b4b", "#278e62", "#a57505",
+          "#5c7fa8", "#b85c8b", "#248b90", "#ddd5ca",
+          "#6b7280", "#eb5c5c", "#3a9d70", "#b78205",
+          "#678ebd", "#d1699e", "#249aa0", "#f3ece2",
+        ],
+      },
+    },
+  },
+};

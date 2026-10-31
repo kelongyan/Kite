@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const frost: Theme = {
+  id: "frost",
+  name: "Frost",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f1faff",
+        foreground: "#37474f",
+        card: "#e6f7ff",
+        cardForeground: "#37474f",
+        popover: "#e8f5e9",
+        popoverForeground: "#37474f",
+        primary: "#03a9f4",
+        primaryForeground: "#fbfeff",
+        secondary: "#f4fbff",
+        secondaryForeground: "#37474f",
+        muted: "#f4fbff",
+        mutedForeground: "#90a4ae",
+        accent: "#e1f5fe",
+        accentForeground: "#37474f",
+        destructive: "#f44336",
+        border: "#cfd8dc",
+        input: "rgba(207,216,220,0.9)",
+        ring: "#03a9f4",
+        sidebar: "#e6f7ff",
+        sidebarForeground: "#37474f",
+        sidebarPrimary: "#03a9f4",
+        sidebarPrimaryForeground: "#fbfeff",
+        sidebarAccent: "#dbebf2",
+        sidebarAccentForeground: "#37474f",
+        sidebarBorder: "#cfd8dc",
+        sidebarRing: "#03a9f4",
+      },
+      terminal: {
+        background: "#f1faff",
+        foreground: "#37474f",
+        cursor: "#37474f",
+        cursorAccent: "#f1faff",
+        selection: "rgba(3,169,244,0.2)",
+        ansi: [
+          "#37474f", "#d32f2f", "#388e3c", "#a67601",
+          "#1976d2", "#8e24aa", "#00838f", "#cfd8dc",
+          "#607d8b", "#e53935", "#43a047", "#b78308",
+          "#0288d1", "#ab47bc", "#0097a7", "#eceff1",
+        ],
+      },
+    },
+  },
+};

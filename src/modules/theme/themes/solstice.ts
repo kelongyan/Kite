@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const solstice: Theme = {
+  id: "solstice",
+  name: "Solstice",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0a0f1c",
+        foreground: "#c7d2e3",
+        card: "#111827",
+        cardForeground: "#c7d2e3",
+        popover: "#141d2f",
+        popoverForeground: "#c7d2e3",
+        primary: "#5ac8a7",
+        primaryForeground: "#05070d",
+        secondary: "#232733",
+        secondaryForeground: "#c7d2e3",
+        muted: "#232733",
+        mutedForeground: "#657289",
+        accent: "#10182b",
+        accentForeground: "#c7d2e3",
+        destructive: "#e06b6b",
+        border: "#0b1120",
+        input: "rgba(11,17,32,0.75)",
+        ring: "#5ac8a7",
+        sidebar: "#111827",
+        sidebarForeground: "#c7d2e3",
+        sidebarPrimary: "#5ac8a7",
+        sidebarPrimaryForeground: "#05070d",
+        sidebarAccent: "#242a38",
+        sidebarAccentForeground: "#c7d2e3",
+        sidebarBorder: "#0b1120",
+        sidebarRing: "#5ac8a7",
+      },
+      terminal: {
+        background: "#0a0f1c",
+        foreground: "#c7d2e3",
+        cursor: "#c7d2e3",
+        cursorAccent: "#0a0f1c",
+        selection: "rgba(90,200,167,0.28)",
+        ansi: [
+          "#13213a", "#e06b6b", "#6bd6a2", "#f0c37a",
+          "#6b93d6", "#c77dd8", "#5cc4d6", "#b4c0d2",
+          "#657289", "#f08d8d", "#93e6bd", "#f6d59e",
+          "#8fb2d9", "#d9a6e6", "#8adbe6", "#e8eef7",
+        ],
+      },
+    },
+  },
+};

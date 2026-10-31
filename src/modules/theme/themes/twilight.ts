@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const twilight: Theme = {
+  id: "twilight",
+  name: "Twilight",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0f0e21",
+        foreground: "#e2dcea",
+        card: "#17142c",
+        cardForeground: "#e2dcea",
+        popover: "#241a36",
+        popoverForeground: "#e2dcea",
+        primary: "#e07a3f",
+        primaryForeground: "#b7b7bc",
+        secondary: "#272637",
+        secondaryForeground: "#e2dcea",
+        muted: "#272637",
+        mutedForeground: "#6a6378",
+        accent: "#241f3f",
+        accentForeground: "#e2dcea",
+        destructive: "#e05f63",
+        border: "#15142a",
+        input: "rgba(21,20,42,0.75)",
+        ring: "#e07a3f",
+        sidebar: "#17142c",
+        sidebarForeground: "#e2dcea",
+        sidebarPrimary: "#e07a3f",
+        sidebarPrimaryForeground: "#b7b7bc",
+        sidebarAccent: "#2a273d",
+        sidebarAccentForeground: "#e2dcea",
+        sidebarBorder: "#15142a",
+        sidebarRing: "#e07a3f",
+      },
+      terminal: {
+        background: "#15142a",
+        foreground: "#e2dcea",
+        cursor: "#e2dcea",
+        cursorAccent: "#15142a",
+        selection: "rgba(224,122,63,0.28)",
+        ansi: [
+          "#4a3b73", "#e05f63", "#6cc48f", "#e8c76a",
+          "#7d8fe0", "#c46cb4", "#4ba3a6", "#b8b1c6",
+          "#8d869c", "#ee8a8c", "#93d9ae", "#f2dc94",
+          "#a3b0f0", "#de9ad0", "#7cc8ca", "#f3effa",
+        ],
+      },
+    },
+  },
+};

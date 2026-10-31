@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const nebula: Theme = {
+  id: "nebula",
+  name: "Nebula",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0a0912",
+        foreground: "#e0d4ec",
+        card: "#12101c",
+        cardForeground: "#e0d4ec",
+        popover: "#1b1530",
+        popoverForeground: "#e0d4ec",
+        primary: "#d66bd8",
+        primaryForeground: "#b6b5b8",
+        secondary: "#23222a",
+        secondaryForeground: "#e0d4ec",
+        muted: "#23222a",
+        mutedForeground: "#6d6378",
+        accent: "#1b1427",
+        accentForeground: "#e0d4ec",
+        destructive: "#e25a6a",
+        border: "#2b1b3d",
+        input: "rgba(43,27,61,0.75)",
+        ring: "#d66bd8",
+        sidebar: "#12101c",
+        sidebarForeground: "#e0d4ec",
+        sidebarPrimary: "#d66bd8",
+        sidebarPrimaryForeground: "#b6b5b8",
+        sidebarAccent: "#25232e",
+        sidebarAccentForeground: "#e0d4ec",
+        sidebarBorder: "#2b1b3d",
+        sidebarRing: "#d66bd8",
+      },
+      terminal: {
+        background: "#0a0912",
+        foreground: "#e0d4ec",
+        cursor: "#e0d4ec",
+        cursorAccent: "#0a0912",
+        selection: "rgba(214,107,216,0.28)",
+        ansi: [
+          "#2b1b3d", "#e25a6a", "#55c6a9", "#f0b35a",
+          "#7f8ff0", "#d66bd8", "#35b4c3", "#bdb2c9",
+          "#6d6378", "#ee8590", "#84dcc3", "#f7cc8a",
+          "#a6b0ff", "#e99be9", "#6fd0dc", "#f2d7ff",
+        ],
+      },
+    },
+  },
+};

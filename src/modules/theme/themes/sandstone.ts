@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const sandstone: Theme = {
+  id: "sandstone",
+  name: "Sandstone",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f5ede3",
+        foreground: "#302820",
+        card: "#faf6f0",
+        cardForeground: "#302820",
+        popover: "#f0e6d8",
+        popoverForeground: "#302820",
+        primary: "#b86040",
+        primaryForeground: "#fcfaf7",
+        secondary: "#f7f1e9",
+        secondaryForeground: "#302820",
+        muted: "#f7f1e9",
+        mutedForeground: "#544840",
+        accent: "#e8dcc8",
+        accentForeground: "#302820",
+        destructive: "#b86040",
+        border: "#d8cbb8",
+        input: "rgba(216,203,184,0.9)",
+        ring: "#b86040",
+        sidebar: "#faf6f0",
+        sidebarForeground: "#302820",
+        sidebarPrimary: "#b86040",
+        sidebarPrimaryForeground: "#fcfaf7",
+        sidebarAccent: "#eeeae4",
+        sidebarAccentForeground: "#302820",
+        sidebarBorder: "#d8cbb8",
+        sidebarRing: "#b86040",
+      },
+      terminal: {
+        background: "#f5ede3",
+        foreground: "#302820",
+        cursor: "#302820",
+        cursorAccent: "#f5ede3",
+        selection: "rgba(184,96,64,0.2)",
+        ansi: [
+          "#302820", "#ac473a", "#688058", "#9d712d",
+          "#4e6c8b", "#854e73", "#3b7477", "#a89888",
+          "#786858", "#c96152", "#7a8a68", "#ac803e",
+          "#6583a3", "#9e658b", "#528b8e", "#d8cbb8",
+        ],
+      },
+    },
+  },
+};

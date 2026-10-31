@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const titanium: Theme = {
+  id: "titanium",
+  name: "Titanium",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#151820",
+        foreground: "#e8ecf4",
+        card: "#0f1216",
+        cardForeground: "#e8ecf4",
+        popover: "#2a3038",
+        popoverForeground: "#e8ecf4",
+        primary: "#00b4ff",
+        primaryForeground: "#b9babc",
+        secondary: "#2c2f36",
+        secondaryForeground: "#e8ecf4",
+        muted: "#2c2f36",
+        mutedForeground: "#6b7280",
+        accent: "#0082b3",
+        accentForeground: "#e8ecf4",
+        destructive: "#ff4757",
+        border: "#1f252d",
+        input: "rgba(31,37,45,0.75)",
+        ring: "#00b4ff",
+        sidebar: "#0f1216",
+        sidebarForeground: "#e8ecf4",
+        sidebarPrimary: "#00b4ff",
+        sidebarPrimaryForeground: "#b9babc",
+        sidebarAccent: "#222529",
+        sidebarAccentForeground: "#e8ecf4",
+        sidebarBorder: "#1f252d",
+        sidebarRing: "#00b4ff",
+      },
+      terminal: {
+        background: "#151820",
+        foreground: "#e8ecf4",
+        cursor: "#e8ecf4",
+        cursorAccent: "#151820",
+        selection: "rgba(0,180,255,0.28)",
+        ansi: [
+          "#3b424d", "#ff4757", "#00ff88", "#f0c040",
+          "#00b4ff", "#d06fed", "#13d1cd", "#c3c9d3",
+          "#6b7280", "#ff7b86", "#6bffb0", "#fddb72",
+          "#6ec9ff", "#e69dfc", "#75efea", "#f7f9fc",
+        ],
+      },
+    },
+  },
+};

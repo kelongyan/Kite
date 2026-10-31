@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const onyx: Theme = {
+  id: "onyx",
+  name: "Onyx",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0f0f14",
+        foreground: "#f0ebe4",
+        card: "#1a1a22",
+        cardForeground: "#f0ebe4",
+        popover: "#25252f",
+        popoverForeground: "#f0ebe4",
+        primary: "#d4a853",
+        primaryForeground: "#070709",
+        secondary: "#27272c",
+        secondaryForeground: "#f0ebe4",
+        muted: "#27272c",
+        mutedForeground: "#6a6760",
+        accent: "#25252f",
+        accentForeground: "#f0ebe4",
+        destructive: "#d16969",
+        border: "#1a1a22",
+        input: "rgba(26,26,34,0.75)",
+        ring: "#d4a853",
+        sidebar: "#1a1a22",
+        sidebarForeground: "#f0ebe4",
+        sidebarPrimary: "#d4a853",
+        sidebarPrimaryForeground: "#070709",
+        sidebarAccent: "#2c2c34",
+        sidebarAccentForeground: "#f0ebe4",
+        sidebarBorder: "#1a1a22",
+        sidebarRing: "#d4a853",
+      },
+      terminal: {
+        background: "#0f0f14",
+        foreground: "#f0ebe4",
+        cursor: "#f0ebe4",
+        cursorAccent: "#0f0f14",
+        selection: "rgba(212,168,83,0.28)",
+        ansi: [
+          "#4c4c55", "#d16969", "#6fb37f", "#d4a853",
+          "#78a3cf", "#c57fa6", "#74b9b8", "#b8b3aa",
+          "#6a6760", "#f29797", "#8ed09c", "#f2cc7a",
+          "#a1c1e4", "#dda3c3", "#9dd7d7", "#faf7f2",
+        ],
+      },
+    },
+  },
+};

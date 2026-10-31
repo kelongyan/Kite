@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const taiga: Theme = {
+  id: "taiga",
+  name: "Taiga",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#080c0a",
+        foreground: "#e7efe7",
+        card: "#121a16",
+        cardForeground: "#e7efe7",
+        popover: "#1b2620",
+        popoverForeground: "#e7efe7",
+        primary: "#7fb7c9",
+        primaryForeground: "#040505",
+        secondary: "#212423",
+        secondaryForeground: "#e7efe7",
+        muted: "#212423",
+        mutedForeground: "#67726b",
+        accent: "#1b2620",
+        accentForeground: "#e7efe7",
+        destructive: "#e06a6a",
+        border: "#1b2620",
+        input: "rgba(27,38,32,0.75)",
+        ring: "#7fb7c9",
+        sidebar: "#121a16",
+        sidebarForeground: "#e7efe7",
+        sidebarPrimary: "#7fb7c9",
+        sidebarPrimaryForeground: "#040505",
+        sidebarAccent: "#252c29",
+        sidebarAccentForeground: "#e7efe7",
+        sidebarBorder: "#1b2620",
+        sidebarRing: "#7fb7c9",
+      },
+      terminal: {
+        background: "#0b100d",
+        foreground: "#e7efe7",
+        cursor: "#e7efe7",
+        cursorAccent: "#0b100d",
+        selection: "rgba(127,183,201,0.28)",
+        ansi: [
+          "#2a3a31", "#e06a6a", "#6fce8a", "#d8b15a",
+          "#7c9fd4", "#c08fc6", "#7fb7c9", "#b8c2bb",
+          "#67726b", "#f08c88", "#93e0a8", "#ead07f",
+          "#9db8e6", "#d6aedb", "#a3d2e0", "#f5f9f5",
+        ],
+      },
+    },
+  },
+};

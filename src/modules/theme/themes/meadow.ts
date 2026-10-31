@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const meadow: Theme = {
+  id: "meadow",
+  name: "Meadow",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f3f7f1",
+        foreground: "#2f3a30",
+        card: "#fafdf8",
+        cardForeground: "#2f3a30",
+        popover: "#e8efe4",
+        popoverForeground: "#2f3a30",
+        primary: "#7a5bbf",
+        primaryForeground: "#fbfdfb",
+        secondary: "#f6f9f4",
+        secondaryForeground: "#2f3a30",
+        muted: "#f6f9f4",
+        mutedForeground: "#7a857b",
+        accent: "#e8efe4",
+        accentForeground: "#2f3a30",
+        destructive: "#c75b5b",
+        border: "#e8efe4",
+        input: "rgba(232,239,228,0.9)",
+        ring: "#7a5bbf",
+        sidebar: "#fafdf8",
+        sidebarForeground: "#2f3a30",
+        sidebarPrimary: "#7a5bbf",
+        sidebarPrimaryForeground: "#fbfdfb",
+        sidebarAccent: "#eef0ec",
+        sidebarAccentForeground: "#2f3a30",
+        sidebarBorder: "#e8efe4",
+        sidebarRing: "#7a5bbf",
+      },
+      terminal: {
+        background: "#f3f7f1",
+        foreground: "#2f3a30",
+        cursor: "#2f3a30",
+        cursorAccent: "#f3f7f1",
+        selection: "rgba(122,91,191,0.2)",
+        ansi: [
+          "#2a332b", "#c75b5b", "#4f8b56", "#9c6c06",
+          "#3f6fa8", "#7a5bbf", "#3d7f7a", "#c9d4c3",
+          "#556257", "#d06a5e", "#4d9859", "#b67f0f",
+          "#4f86c6", "#9a6fcf", "#3d968e", "#e8efe4",
+        ],
+      },
+    },
+  },
+};

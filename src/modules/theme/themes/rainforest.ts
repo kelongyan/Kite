@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const rainforest: Theme = {
+  id: "rainforest",
+  name: "Rainforest",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#080c0a",
+        foreground: "#d4ddd5",
+        card: "#101613",
+        cardForeground: "#d4ddd5",
+        popover: "#172018",
+        popoverForeground: "#d4ddd5",
+        primary: "#b07ad9",
+        primaryForeground: "#b5b6b6",
+        secondary: "#212423",
+        secondaryForeground: "#d4ddd5",
+        muted: "#212423",
+        mutedForeground: "#6e7e72",
+        accent: "#172018",
+        accentForeground: "#d4ddd5",
+        destructive: "#e07a6a",
+        border: "#1e2a20",
+        input: "rgba(30,42,32,0.75)",
+        ring: "#b07ad9",
+        sidebar: "#101613",
+        sidebarForeground: "#d4ddd5",
+        sidebarPrimary: "#b07ad9",
+        sidebarPrimaryForeground: "#b5b6b6",
+        sidebarAccent: "#232926",
+        sidebarAccentForeground: "#d4ddd5",
+        sidebarBorder: "#1e2a20",
+        sidebarRing: "#b07ad9",
+      },
+      terminal: {
+        background: "#080c0a",
+        foreground: "#d4ddd5",
+        cursor: "#d4ddd5",
+        cursorAccent: "#080c0a",
+        selection: "rgba(176,122,217,0.28)",
+        ansi: [
+          "#1e2a20", "#e07a6a", "#6ebe78", "#d7b247",
+          "#6a9fd4", "#b07ad9", "#5fb8a8", "#a6b5aa",
+          "#6e7e72", "#f09a8b", "#92d69a", "#ecca6a",
+          "#8fbbe6", "#c99ae6", "#85d0c2", "#e4ebe5",
+        ],
+      },
+    },
+  },
+};

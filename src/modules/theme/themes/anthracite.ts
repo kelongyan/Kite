@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const anthracite: Theme = {
+  id: "anthracite",
+  name: "Anthracite",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#121419",
+        foreground: "#d4d8e4",
+        card: "#1a1e25",
+        cardForeground: "#d4d8e4",
+        popover: "#2a2317",
+        popoverForeground: "#d4d8e4",
+        primary: "#e8734a",
+        primaryForeground: "#b8b9ba",
+        secondary: "#2a2c30",
+        secondaryForeground: "#d4d8e4",
+        muted: "#2a2c30",
+        mutedForeground: "#6b7280",
+        accent: "#252932",
+        accentForeground: "#d4d8e4",
+        destructive: "#d9534f",
+        border: "#4d5561",
+        input: "rgba(77,85,97,0.75)",
+        ring: "#e8734a",
+        sidebar: "#1a1e25",
+        sidebarForeground: "#d4d8e4",
+        sidebarPrimary: "#e8734a",
+        sidebarPrimaryForeground: "#b8b9ba",
+        sidebarAccent: "#2c3036",
+        sidebarAccentForeground: "#d4d8e4",
+        sidebarBorder: "#4d5561",
+        sidebarRing: "#e8734a",
+      },
+      terminal: {
+        background: "#121419",
+        foreground: "#d4d8e4",
+        cursor: "#d4d8e4",
+        cursorAccent: "#121419",
+        selection: "rgba(232,115,74,0.28)",
+        ansi: [
+          "#3d4555", "#d9534f", "#7fb069", "#e3c25e",
+          "#7ba8d4", "#b88cc8", "#67b8a8", "#b4bac8",
+          "#6b7280", "#ef7a72", "#9cc98a", "#f0d88a",
+          "#9cc2e8", "#d0aade", "#8cd0c2", "#eef0f6",
+        ],
+      },
+    },
+  },
+};

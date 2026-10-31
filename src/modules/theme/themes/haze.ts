@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const haze: Theme = {
+  id: "haze",
+  name: "Haze",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fbf6ee",
+        foreground: "#3f3a33",
+        card: "#ffffff",
+        cardForeground: "#3f3a33",
+        popover: "#f3e9dc",
+        popoverForeground: "#3f3a33",
+        primary: "#f1c07a",
+        primaryForeground: "#716f6b",
+        secondary: "#fcf8f2",
+        secondaryForeground: "#3f3a33",
+        muted: "#fcf8f2",
+        mutedForeground: "#7a746c",
+        accent: "#f1e7d7",
+        accentForeground: "#3f3a33",
+        destructive: "#c95555",
+        border: "#efe7dc",
+        input: "rgba(239,231,220,0.9)",
+        ring: "#f1c07a",
+        sidebar: "#ffffff",
+        sidebarForeground: "#3f3a33",
+        sidebarPrimary: "#f1c07a",
+        sidebarPrimaryForeground: "#716f6b",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#3f3a33",
+        sidebarBorder: "#efe7dc",
+        sidebarRing: "#f1c07a",
+      },
+      terminal: {
+        background: "#fbf6ee",
+        foreground: "#3f3a33",
+        cursor: "#3f3a33",
+        cursorAccent: "#fbf6ee",
+        selection: "rgba(241,192,122,0.2)",
+        ansi: [
+          "#3f3a33", "#c95555", "#3d8c5e", "#a47505",
+          "#5c81a3", "#a0557b", "#34898d", "#e3d8c9",
+          "#7a746c", "#e46161", "#4b9a6b", "#b68205",
+          "#668fb6", "#c6709b", "#38989d", "#fffaf3",
+        ],
+      },
+    },
+  },
+};

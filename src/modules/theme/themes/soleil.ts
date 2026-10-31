@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const soleil: Theme = {
+  id: "soleil",
+  name: "Soleil",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fbf7ef",
+        foreground: "#3a352f",
+        card: "#ffffff",
+        cardForeground: "#3a352f",
+        popover: "#f2e8d9",
+        popoverForeground: "#3a352f",
+        primary: "#c96a45",
+        primaryForeground: "#fefdfa",
+        secondary: "#fcf9f3",
+        secondaryForeground: "#3a352f",
+        muted: "#fcf9f3",
+        mutedForeground: "#7a746d",
+        accent: "#efe6d6",
+        accentForeground: "#3a352f",
+        destructive: "#c94b4b",
+        border: "#e6dfd4",
+        input: "rgba(230,223,212,0.9)",
+        ring: "#c96a45",
+        sidebar: "#ffffff",
+        sidebarForeground: "#3a352f",
+        sidebarPrimary: "#c96a45",
+        sidebarPrimaryForeground: "#fefdfa",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#3a352f",
+        sidebarBorder: "#e6dfd4",
+        sidebarRing: "#c96a45",
+      },
+      terminal: {
+        background: "#fbf7ef",
+        foreground: "#3a352f",
+        cursor: "#3a352f",
+        cursorAccent: "#fbf7ef",
+        selection: "rgba(201,106,69,0.2)",
+        ansi: [
+          "#3a352f", "#c94b4b", "#7a8a55", "#996f18",
+          "#2f7b9c", "#984979", "#2e8383", "#d7cfc1",
+          "#7a746d", "#de4f46", "#4f9b6c", "#b38325",
+          "#3e85c4", "#b95a93", "#379999", "#ffffff",
+        ],
+      },
+    },
+  },
+};

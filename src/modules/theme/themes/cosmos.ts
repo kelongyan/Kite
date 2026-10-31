@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const cosmos: Theme = {
+  id: "cosmos",
+  name: "Cosmos",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#07070d",
+        foreground: "#dcd8f0",
+        card: "#0f1018",
+        cardForeground: "#dcd8f0",
+        popover: "#17152a",
+        popoverForeground: "#dcd8f0",
+        primary: "#5b4bb7",
+        primaryForeground: "#b5b5b6",
+        secondary: "#202025",
+        secondaryForeground: "#dcd8f0",
+        muted: "#202025",
+        mutedForeground: "#66627b",
+        accent: "#141326",
+        accentForeground: "#dcd8f0",
+        destructive: "#e05a6a",
+        border: "#040406",
+        input: "rgba(4,4,6,0.75)",
+        ring: "#5b4bb7",
+        sidebar: "#0f1018",
+        sidebarForeground: "#dcd8f0",
+        sidebarPrimary: "#5b4bb7",
+        sidebarPrimaryForeground: "#b5b5b6",
+        sidebarAccent: "#22232a",
+        sidebarAccentForeground: "#dcd8f0",
+        sidebarBorder: "#040406",
+        sidebarRing: "#5b4bb7",
+      },
+      terminal: {
+        background: "#07070d",
+        foreground: "#dcd8f0",
+        cursor: "#dcd8f0",
+        cursorAccent: "#07070d",
+        selection: "rgba(91,75,183,0.28)",
+        ansi: [
+          "#24213a", "#e05a6a", "#63cfa5", "#f0b05a",
+          "#7aa4ff", "#b77ee0", "#5cc6d6", "#bdb8d1",
+          "#66627b", "#f08592", "#8ee0bf", "#f7cf86",
+          "#a3c1ff", "#d1a6f2", "#8adbe6", "#f4f1ff",
+        ],
+      },
+    },
+  },
+};

@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const savanna: Theme = {
+  id: "savanna",
+  name: "Savanna",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f8f1e6",
+        foreground: "#3d3226",
+        card: "#fff7ec",
+        cardForeground: "#3d3226",
+        popover: "#f1e6d2",
+        popoverForeground: "#3d3226",
+        primary: "#c98a3a",
+        primaryForeground: "#fdfbf8",
+        secondary: "#faf4ec",
+        secondaryForeground: "#3d3226",
+        muted: "#faf4ec",
+        mutedForeground: "#9a8772",
+        accent: "#f1e6d2",
+        accentForeground: "#3d3226",
+        destructive: "#c45a4f",
+        border: "#f1e6d2",
+        input: "rgba(241,230,210,0.9)",
+        ring: "#c98a3a",
+        sidebar: "#fff7ec",
+        sidebarForeground: "#3d3226",
+        sidebarPrimary: "#c98a3a",
+        sidebarPrimaryForeground: "#fdfbf8",
+        sidebarAccent: "#f2ebe0",
+        sidebarAccentForeground: "#3d3226",
+        sidebarBorder: "#f1e6d2",
+        sidebarRing: "#c98a3a",
+      },
+      terminal: {
+        background: "#f8f1e6",
+        foreground: "#3d3226",
+        cursor: "#3d3226",
+        cursorAccent: "#f8f1e6",
+        selection: "rgba(201,138,58,0.2)",
+        ansi: [
+          "#3d3226", "#c45a4f", "#6e8b3d", "#a4802b",
+          "#446b9c", "#944d77", "#4c7f8a", "#d9c9ad",
+          "#988570", "#db4241", "#4e982e", "#a98302",
+          "#5182c1", "#b55d92", "#4493a1", "#fff7ec",
+        ],
+      },
+    },
+  },
+};

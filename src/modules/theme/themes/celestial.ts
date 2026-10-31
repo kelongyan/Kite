@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const celestial: Theme = {
+  id: "celestial",
+  name: "Celestial",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0b0c0f",
+        foreground: "#d5d8da",
+        card: "#1b1c25",
+        cardForeground: "#d5d8da",
+        popover: "#2e303e",
+        popoverForeground: "#d5d8da",
+        primary: "#e95378",
+        primaryForeground: "#b6b6b7",
+        secondary: "#232427",
+        secondaryForeground: "#d5d8da",
+        muted: "#232427",
+        mutedForeground: "#5c5e60",
+        accent: "#2e303e",
+        accentForeground: "#d5d8da",
+        destructive: "#f43e5c",
+        border: "#22252e",
+        input: "rgba(34,37,46,0.75)",
+        ring: "#e95378",
+        sidebar: "#1b1c25",
+        sidebarForeground: "#d5d8da",
+        sidebarPrimary: "#e95378",
+        sidebarPrimaryForeground: "#b6b6b7",
+        sidebarAccent: "#2d2e36",
+        sidebarAccentForeground: "#d5d8da",
+        sidebarBorder: "#22252e",
+        sidebarRing: "#e95378",
+      },
+      terminal: {
+        background: "#0b0c0f",
+        foreground: "#d5d8da",
+        cursor: "#d5d8da",
+        cursorAccent: "#0b0c0f",
+        selection: "rgba(233,83,120,0.28)",
+        ansi: [
+          "#2e303e", "#e95678", "#29d398", "#fab795",
+          "#26bbd9", "#ee64ac", "#59e1e3", "#d5d8da",
+          "#6c6f93", "#ec6a88", "#3fdaa4", "#fbc3a7",
+          "#3fc4de", "#f075b5", "#6be4e6", "#ffffff",
+        ],
+      },
+    },
+  },
+};

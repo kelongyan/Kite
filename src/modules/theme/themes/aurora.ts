@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const aurora: Theme = {
+  id: "aurora",
+  name: "Aurora",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0f0f1a",
+        foreground: "#d8d8e8",
+        card: "#131320",
+        cardForeground: "#d8d8e8",
+        popover: "#0b161a",
+        popoverForeground: "#d8d8e8",
+        primary: "#bd00ff",
+        primaryForeground: "#b7b7ba",
+        secondary: "#272731",
+        secondaryForeground: "#d8d8e8",
+        muted: "#272731",
+        mutedForeground: "#606060",
+        accent: "#1a1a2e",
+        accentForeground: "#d8d8e8",
+        destructive: "#ff0055",
+        border: "#303030",
+        input: "rgba(48,48,48,0.75)",
+        ring: "#bd00ff",
+        sidebar: "#131320",
+        sidebarForeground: "#d8d8e8",
+        sidebarPrimary: "#bd00ff",
+        sidebarPrimaryForeground: "#b7b7ba",
+        sidebarAccent: "#262632",
+        sidebarAccentForeground: "#d8d8e8",
+        sidebarBorder: "#303030",
+        sidebarRing: "#bd00ff",
+      },
+      terminal: {
+        background: "#0f0f1a",
+        foreground: "#d8d8e8",
+        cursor: "#d8d8e8",
+        cursorAccent: "#0f0f1a",
+        selection: "rgba(189,0,255,0.28)",
+        ansi: [
+          "#2a2a3e", "#ff0055", "#00ff9f", "#ffee00",
+          "#3a8dff", "#bd00ff", "#00b4d8", "#c0c0d0",
+          "#6c6c86", "#ff4d85", "#5effc0", "#fff566",
+          "#75b0ff", "#d45cff", "#33dcf0", "#ffffff",
+        ],
+      },
+    },
+  },
+};

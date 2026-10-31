@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const wetland: Theme = {
+  id: "wetland",
+  name: "Wetland",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f1f5f3",
+        foreground: "#2c3a34",
+        card: "#f8fbf9",
+        cardForeground: "#2c3a34",
+        popover: "#e6eeea",
+        popoverForeground: "#2c3a34",
+        primary: "#4b7aa8",
+        primaryForeground: "#fbfcfb",
+        secondary: "#f4f7f6",
+        secondaryForeground: "#2c3a34",
+        muted: "#f4f7f6",
+        mutedForeground: "#7a8f86",
+        accent: "#e6eeea",
+        accentForeground: "#2c3a34",
+        destructive: "#c6564a",
+        border: "#e6eeea",
+        input: "rgba(230,238,234,0.9)",
+        ring: "#4b7aa8",
+        sidebar: "#f8fbf9",
+        sidebarForeground: "#2c3a34",
+        sidebarPrimary: "#4b7aa8",
+        sidebarPrimaryForeground: "#fbfcfb",
+        sidebarAccent: "#eceeed",
+        sidebarAccentForeground: "#2c3a34",
+        sidebarBorder: "#e6eeea",
+        sidebarRing: "#4b7aa8",
+      },
+      terminal: {
+        background: "#f1f5f3",
+        foreground: "#2c3a34",
+        cursor: "#2c3a34",
+        cursorAccent: "#f1f5f3",
+        selection: "rgba(75,122,168,0.2)",
+        ansi: [
+          "#2c3a34", "#c6564a", "#317a45", "#95761a",
+          "#4b7aa8", "#884b75", "#2e7c7c", "#d7e1dc",
+          "#7a8f86", "#e24947", "#4b9767", "#a88424",
+          "#4c83c0", "#af6297", "#3b9696", "#f8fbf9",
+        ],
+      },
+    },
+  },
+};

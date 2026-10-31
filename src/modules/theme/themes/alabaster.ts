@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const alabaster: Theme = {
+  id: "alabaster",
+  name: "Alabaster",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fdfcfb",
+        foreground: "#1a1c20",
+        card: "#ffffff",
+        cardForeground: "#1a1c20",
+        popover: "#faf9f8",
+        popoverForeground: "#1a1c20",
+        primary: "#505860",
+        primaryForeground: "#fefefe",
+        secondary: "#fdfdfc",
+        secondaryForeground: "#1a1c20",
+        muted: "#fdfdfc",
+        mutedForeground: "#909098",
+        accent: "#f0eff0",
+        accentForeground: "#1a1c20",
+        destructive: "#704040",
+        border: "#f0f0f4",
+        input: "rgba(240,240,244,0.9)",
+        ring: "#505860",
+        sidebar: "#ffffff",
+        sidebarForeground: "#1a1c20",
+        sidebarPrimary: "#505860",
+        sidebarPrimaryForeground: "#fefefe",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#1a1c20",
+        sidebarBorder: "#f0f0f4",
+        sidebarRing: "#505860",
+      },
+      terminal: {
+        background: "#fdfcfb",
+        foreground: "#1a1c20",
+        cursor: "#1a1c20",
+        cursorAccent: "#fdfcfb",
+        selection: "rgba(80,88,96,0.2)",
+        ansi: [
+          "#1a1c20", "#8a3c3c", "#405840", "#7a6620",
+          "#3a5878", "#6a4a70", "#2f6670", "#909098",
+          "#505860", "#a85050", "#587a58", "#957d30",
+          "#50709a", "#86608c", "#4a8088", "#c8c8ce",
+        ],
+      },
+    },
+  },
+};

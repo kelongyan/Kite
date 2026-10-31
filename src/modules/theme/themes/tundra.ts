@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const tundra: Theme = {
+  id: "tundra",
+  name: "Tundra",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#080b0e",
+        foreground: "#e3e9f0",
+        card: "#11171c",
+        cardForeground: "#e3e9f0",
+        popover: "#172028",
+        popoverForeground: "#e3e9f0",
+        primary: "#66d1a1",
+        primaryForeground: "#040506",
+        secondary: "#212326",
+        secondaryForeground: "#e3e9f0",
+        muted: "#212326",
+        mutedForeground: "#667381",
+        accent: "#172028",
+        accentForeground: "#e3e9f0",
+        destructive: "#d26b6b",
+        border: "#172028",
+        input: "rgba(23,32,40,0.75)",
+        ring: "#66d1a1",
+        sidebar: "#11171c",
+        sidebarForeground: "#e3e9f0",
+        sidebarPrimary: "#66d1a1",
+        sidebarPrimaryForeground: "#040506",
+        sidebarAccent: "#242a2e",
+        sidebarAccentForeground: "#e3e9f0",
+        sidebarBorder: "#172028",
+        sidebarRing: "#66d1a1",
+      },
+      terminal: {
+        background: "#0b0f12",
+        foreground: "#e3e9f0",
+        cursor: "#e3e9f0",
+        cursorAccent: "#0b0f12",
+        selection: "rgba(102,209,161,0.28)",
+        ansi: [
+          "#2a3a46", "#d26b6b", "#5fb487", "#d0b04d",
+          "#6c9fd6", "#b08fd2", "#5fbfcf", "#a3b0bf",
+          "#667381", "#e48c8c", "#66d1a1", "#e4cb75",
+          "#93bbe8", "#cbb0e6", "#8bd6e2", "#f3f6fa",
+        ],
+      },
+    },
+  },
+};

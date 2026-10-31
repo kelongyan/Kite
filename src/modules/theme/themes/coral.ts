@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const coral: Theme = {
+  id: "coral",
+  name: "Coral",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fff8e1",
+        foreground: "#37474f",
+        card: "#fff5ec",
+        cardForeground: "#37474f",
+        popover: "#f1f8e9",
+        popoverForeground: "#37474f",
+        primary: "#ff7043",
+        primaryForeground: "#fffdf6",
+        secondary: "#fffae8",
+        secondaryForeground: "#37474f",
+        muted: "#fffae8",
+        mutedForeground: "#90a4ae",
+        accent: "#fff3e0",
+        accentForeground: "#37474f",
+        destructive: "#e53935",
+        border: "#cfd8dc",
+        input: "rgba(207,216,220,0.9)",
+        ring: "#ff7043",
+        sidebar: "#fff5ec",
+        sidebarForeground: "#37474f",
+        sidebarPrimary: "#ff7043",
+        sidebarPrimaryForeground: "#fffdf6",
+        sidebarAccent: "#f2e9e0",
+        sidebarAccentForeground: "#37474f",
+        sidebarBorder: "#cfd8dc",
+        sidebarRing: "#ff7043",
+      },
+      terminal: {
+        background: "#fff8e1",
+        foreground: "#37474f",
+        cursor: "#37474f",
+        cursorAccent: "#fff8e1",
+        selection: "rgba(255,112,67,0.2)",
+        ansi: [
+          "#37474f", "#d32f2f", "#388e3c", "#a57507",
+          "#1976d2", "#8e24aa", "#00838f", "#cfd8dc",
+          "#546e7a", "#e53935", "#43a047", "#b78207",
+          "#1e88e5", "#ab47bc", "#0097a7", "#eceff1",
+        ],
+      },
+    },
+  },
+};

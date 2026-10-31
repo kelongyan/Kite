@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const reef: Theme = {
+  id: "reef",
+  name: "Reef",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#070b10",
+        foreground: "#d3dde6",
+        card: "#101a22",
+        cardForeground: "#d3dde6",
+        popover: "#16242e",
+        popoverForeground: "#d3dde6",
+        primary: "#f07f6a",
+        primaryForeground: "#b5b6b7",
+        secondary: "#202328",
+        secondaryForeground: "#d3dde6",
+        muted: "#202328",
+        mutedForeground: "#6b7f8d",
+        accent: "#16242e",
+        accentForeground: "#d3dde6",
+        destructive: "#e36d7c",
+        border: "#16242e",
+        input: "rgba(22,36,46,0.75)",
+        ring: "#f07f6a",
+        sidebar: "#101a22",
+        sidebarForeground: "#d3dde6",
+        sidebarPrimary: "#f07f6a",
+        sidebarPrimaryForeground: "#b5b6b7",
+        sidebarAccent: "#232c34",
+        sidebarAccentForeground: "#d3dde6",
+        sidebarBorder: "#16242e",
+        sidebarRing: "#f07f6a",
+      },
+      terminal: {
+        background: "#070b10",
+        foreground: "#d3dde6",
+        cursor: "#d3dde6",
+        cursorAccent: "#070b10",
+        selection: "rgba(240,127,106,0.28)",
+        ansi: [
+          "#1c2e3b", "#e36d7c", "#79c27a", "#f2c45c",
+          "#5c9ee0", "#9b6ad4", "#4fb8c9", "#a6b8c7",
+          "#6b7f8d", "#f2909b", "#9dd89e", "#f7d88a",
+          "#8bbcef", "#b994e6", "#7fd3df", "#e6edf3",
+        ],
+      },
+    },
+  },
+};

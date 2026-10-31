@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const abyss: Theme = {
+  id: "abyss",
+  name: "Abyss",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#05070b",
+        foreground: "#c8d6e5",
+        card: "#0b111a",
+        cardForeground: "#c8d6e5",
+        popover: "#142338",
+        popoverForeground: "#c8d6e5",
+        primary: "#3fd3ff",
+        primaryForeground: "#020305",
+        secondary: "#1e2023",
+        secondaryForeground: "#c8d6e5",
+        muted: "#1e2023",
+        mutedForeground: "#617289",
+        accent: "#142338",
+        accentForeground: "#c8d6e5",
+        destructive: "#e85b5b",
+        border: "#142338",
+        input: "rgba(20,35,56,0.75)",
+        ring: "#3fd3ff",
+        sidebar: "#0b111a",
+        sidebarForeground: "#c8d6e5",
+        sidebarPrimary: "#3fd3ff",
+        sidebarPrimaryForeground: "#020305",
+        sidebarAccent: "#1f242c",
+        sidebarAccentForeground: "#c8d6e5",
+        sidebarBorder: "#142338",
+        sidebarRing: "#3fd3ff",
+      },
+      terminal: {
+        background: "#05070b",
+        foreground: "#c8d6e5",
+        cursor: "#c8d6e5",
+        cursorAccent: "#05070b",
+        selection: "rgba(63,211,255,0.28)",
+        ansi: [
+          "#22324b", "#e85b5b", "#35c28a", "#f2b04c",
+          "#5aa4ff", "#c77dff", "#3fd3ff", "#a9b8c8",
+          "#617289", "#ff8080", "#6ee0ab", "#ffd27a",
+          "#8cc0ff", "#dda6ff", "#7be7ff", "#e6eef7",
+        ],
+      },
+    },
+  },
+};

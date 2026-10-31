@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const opal: Theme = {
+  id: "opal",
+  name: "Opal",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fbfaf9",
+        foreground: "#3c3942",
+        card: "#ffffff",
+        cardForeground: "#3c3942",
+        popover: "#f2eeed",
+        popoverForeground: "#3c3942",
+        primary: "#9b8ad6",
+        primaryForeground: "#fefefd",
+        secondary: "#fcfbfa",
+        secondaryForeground: "#3c3942",
+        muted: "#fcfbfa",
+        mutedForeground: "#7a7481",
+        accent: "#efeceb",
+        accentForeground: "#3c3942",
+        destructive: "#c4565d",
+        border: "#efeceb",
+        input: "rgba(239,236,235,0.9)",
+        ring: "#9b8ad6",
+        sidebar: "#ffffff",
+        sidebarForeground: "#3c3942",
+        sidebarPrimary: "#9b8ad6",
+        sidebarPrimaryForeground: "#fefefd",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#3c3942",
+        sidebarBorder: "#efeceb",
+        sidebarRing: "#9b8ad6",
+      },
+      terminal: {
+        background: "#fbfaf9",
+        foreground: "#3c3942",
+        cursor: "#3c3942",
+        cursorAccent: "#fbfaf9",
+        selection: "rgba(155,138,214,0.2)",
+        ansi: [
+          "#3c3942", "#c1535a", "#258560", "#9f6d01",
+          "#5978a7", "#a95a98", "#2f8090", "#e7e4e0",
+          "#7a7481", "#d0666d", "#5d9783", "#b58228",
+          "#6e8ebf", "#bb74b0", "#5296a1", "#efeceb",
+        ],
+      },
+    },
+  },
+};

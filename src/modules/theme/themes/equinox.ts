@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const equinox: Theme = {
+  id: "equinox",
+  name: "Equinox",
+  author: "Tern",
+  description: "Ported from Tern (dark).",
+  variants: {
+    dark: {
+      colors: {
+        background: "#0f1115",
+        foreground: "#d7dbe0",
+        card: "#161a20",
+        cardForeground: "#d7dbe0",
+        popover: "#1b1f26",
+        popoverForeground: "#d7dbe0",
+        primary: "#d6a55b",
+        primaryForeground: "#070809",
+        secondary: "#27292c",
+        secondaryForeground: "#d7dbe0",
+        muted: "#27292c",
+        mutedForeground: "#666b73",
+        accent: "#1a1e25",
+        accentForeground: "#d7dbe0",
+        destructive: "#d96a6a",
+        border: "#121418",
+        input: "rgba(18,20,24,0.75)",
+        ring: "#d6a55b",
+        sidebar: "#161a20",
+        sidebarForeground: "#d7dbe0",
+        sidebarPrimary: "#d6a55b",
+        sidebarPrimaryForeground: "#070809",
+        sidebarAccent: "#292c32",
+        sidebarAccentForeground: "#d7dbe0",
+        sidebarBorder: "#121418",
+        sidebarRing: "#d6a55b",
+      },
+      terminal: {
+        background: "#0f1115",
+        foreground: "#d7dbe0",
+        cursor: "#d7dbe0",
+        cursorAccent: "#0f1115",
+        selection: "rgba(214,165,91,0.28)",
+        ansi: [
+          "#2a2e36", "#d96a6a", "#6fbf8c", "#e8b45a",
+          "#6f93d6", "#9a85d6", "#5aa6b8", "#b9bec6",
+          "#666b73", "#e88a8a", "#8fd4a7", "#f2cb80",
+          "#93b1e6", "#b8a6e6", "#82c3d1", "#f0f2f5",
+        ],
+      },
+    },
+  },
+};

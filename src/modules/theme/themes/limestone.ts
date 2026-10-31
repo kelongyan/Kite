@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const limestone: Theme = {
+  id: "limestone",
+  name: "Limestone",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#f5f1e8",
+        foreground: "#302c24",
+        card: "#fcfaf5",
+        cardForeground: "#302c24",
+        popover: "#f0ece0",
+        popoverForeground: "#302c24",
+        primary: "#a07840",
+        primaryForeground: "#fcfbf8",
+        secondary: "#f7f4ed",
+        secondaryForeground: "#302c24",
+        muted: "#f7f4ed",
+        mutedForeground: "#909080",
+        accent: "#ebe6d4",
+        accentForeground: "#302c24",
+        destructive: "#a85840",
+        border: "#d4cec0",
+        input: "rgba(212,206,192,0.9)",
+        ring: "#a07840",
+        sidebar: "#fcfaf5",
+        sidebarForeground: "#302c24",
+        sidebarPrimary: "#a07840",
+        sidebarPrimaryForeground: "#fcfbf8",
+        sidebarAccent: "#efeee9",
+        sidebarAccentForeground: "#302c24",
+        sidebarBorder: "#d4cec0",
+        sidebarRing: "#a07840",
+      },
+      terminal: {
+        background: "#f5f1e8",
+        foreground: "#302c24",
+        cursor: "#302c24",
+        cursorAccent: "#f5f1e8",
+        selection: "rgba(160,120,64,0.2)",
+        ansi: [
+          "#302c24", "#a85840", "#577249", "#937636",
+          "#43668a", "#84506e", "#3b7474", "#d4cec0",
+          "#8c8c7c", "#bf5542", "#708060", "#a6832e",
+          "#4f7eae", "#a46188", "#488d8d", "#fcfaf5",
+        ],
+      },
+    },
+  },
+};

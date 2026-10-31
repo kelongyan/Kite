@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const quartz: Theme = {
+  id: "quartz",
+  name: "Quartz",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#fbf7f9",
+        foreground: "#3a2830",
+        card: "#ffffff",
+        cardForeground: "#3a2830",
+        popover: "#faf5f7",
+        popoverForeground: "#3a2830",
+        primary: "#c07088",
+        primaryForeground: "#fefdfd",
+        secondary: "#fcf9fa",
+        secondaryForeground: "#3a2830",
+        muted: "#fcf9fa",
+        mutedForeground: "#a898b0",
+        accent: "#f0e0e8",
+        accentForeground: "#3a2830",
+        destructive: "#b85860",
+        border: "#e8dce0",
+        input: "rgba(232,220,224,0.9)",
+        ring: "#c07088",
+        sidebar: "#ffffff",
+        sidebarForeground: "#3a2830",
+        sidebarPrimary: "#c07088",
+        sidebarPrimaryForeground: "#fefdfd",
+        sidebarAccent: "#f2f2f2",
+        sidebarAccentForeground: "#3a2830",
+        sidebarBorder: "#e8dce0",
+        sidebarRing: "#c07088",
+      },
+      terminal: {
+        background: "#fbf7f9",
+        foreground: "#3a2830",
+        cursor: "#3a2830",
+        cursorAccent: "#fbf7f9",
+        selection: "rgba(192,112,136,0.2)",
+        ansi: [
+          "#3a2830", "#b85860", "#5f875f", "#9e7943",
+          "#5174a0", "#924b84", "#41797c", "#a898b0",
+          "#816f76", "#d66f71", "#6f9a6e", "#ae8953",
+          "#6a8bb6", "#a8669a", "#589194", "#e8dce0",
+        ],
+      },
+    },
+  },
+};

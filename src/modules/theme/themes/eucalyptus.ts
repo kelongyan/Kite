@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const eucalyptus: Theme = {
+  id: "eucalyptus",
+  name: "Eucalyptus",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#e0f7fa",
+        foreground: "#37474f",
+        card: "#e6f5f3",
+        cardForeground: "#37474f",
+        popover: "#e8f5e9",
+        popoverForeground: "#37474f",
+        primary: "#00897b",
+        primaryForeground: "#f6fdfe",
+        secondary: "#e7f9fb",
+        secondaryForeground: "#37474f",
+        muted: "#e7f9fb",
+        mutedForeground: "#607d8b",
+        accent: "#e0f2f1",
+        accentForeground: "#37474f",
+        destructive: "#c62828",
+        border: "#cfd8dc",
+        input: "rgba(207,216,220,0.9)",
+        ring: "#00897b",
+        sidebar: "#e6f5f3",
+        sidebarForeground: "#37474f",
+        sidebarPrimary: "#00897b",
+        sidebarPrimaryForeground: "#f6fdfe",
+        sidebarAccent: "#dbe9e7",
+        sidebarAccentForeground: "#37474f",
+        sidebarBorder: "#cfd8dc",
+        sidebarRing: "#00897b",
+      },
+      terminal: {
+        background: "#e0f7fa",
+        foreground: "#37474f",
+        cursor: "#37474f",
+        cursorAccent: "#e0f7fa",
+        selection: "rgba(0,137,123,0.2)",
+        ansi: [
+          "#37474f", "#c62828", "#2e7d32", "#a17206",
+          "#1565c0", "#8e24aa", "#00838f", "#cfd8dc",
+          "#607d8b", "#e53935", "#388e3c", "#b37f07",
+          "#1e88e5", "#ab47bc", "#0097a7", "#eceff1",
+        ],
+      },
+    },
+  },
+};

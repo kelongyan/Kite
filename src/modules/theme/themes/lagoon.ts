@@ -1,0 +1,53 @@
+import type { Theme } from "../types";
+
+export const lagoon: Theme = {
+  id: "lagoon",
+  name: "Lagoon",
+  author: "Tern",
+  description: "Ported from Tern (light).",
+  variants: {
+    light: {
+      colors: {
+        background: "#eef6f8",
+        foreground: "#24434f",
+        card: "#f7fbfd",
+        cardForeground: "#24434f",
+        popover: "#ddebf0",
+        popoverForeground: "#24434f",
+        primary: "#2e7fa6",
+        primaryForeground: "#fafcfd",
+        secondary: "#f2f8fa",
+        secondaryForeground: "#24434f",
+        muted: "#f2f8fa",
+        mutedForeground: "#7b8f9a",
+        accent: "#e6f0f2",
+        accentForeground: "#24434f",
+        destructive: "#c45a55",
+        border: "#ddebf0",
+        input: "rgba(221,235,240,0.9)",
+        ring: "#2e7fa6",
+        sidebar: "#f7fbfd",
+        sidebarForeground: "#24434f",
+        sidebarPrimary: "#2e7fa6",
+        sidebarPrimaryForeground: "#fafcfd",
+        sidebarAccent: "#ebeef0",
+        sidebarAccentForeground: "#24434f",
+        sidebarBorder: "#ddebf0",
+        sidebarRing: "#2e7fa6",
+      },
+      terminal: {
+        background: "#eef6f8",
+        foreground: "#24434f",
+        cursor: "#24434f",
+        cursorAccent: "#eef6f8",
+        selection: "rgba(46,127,166,0.2)",
+        ansi: [
+          "#2b4450", "#c45a55", "#25815f", "#986a11",
+          "#2e7fa6", "#9253a0", "#1a7f7a", "#b8cbd3",
+          "#5a7280", "#d36a5a", "#409875", "#b57e0b",
+          "#3591bf", "#b46ec0", "#399690", "#ddebf0",
+        ],
+      },
+    },
+  },
+};
